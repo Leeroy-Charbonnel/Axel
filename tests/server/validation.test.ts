@@ -14,16 +14,8 @@ describe("detail block content schemas", () => {
       const result = detailBlock.safeParse({ ...frame, type: def.type, content: def.create() })
       expect(result.success).toBe(true)
     }
-    const text = { fr: "Texte", en: "Text" }
-    const full = caseStudyBlocks({
-      modelId: ID, view: "Default", mainId: ID, wireId: ID, detailIds: [ID, ID], videoId: ID,
-      description: text, role: text, year: "2026", software: ["Blender"],
-      stats: { vertices: 1, edges: 2, faces: 3, triangles: 4 },
-    })
-    const bare = caseStudyBlocks({
-      modelId: ID, view: "Default", mainId: ID, wireId: ID, detailIds: [], videoId: null,
-      description: text, role: text, year: "", software: [], stats: { vertices: 1, edges: 2 },
-    })
+    const full = caseStudyBlocks({ modelId: ID, view: "Default", mainId: ID, wireId: ID, detailIds: [ID, ID], videoId: ID })
+    const bare = caseStudyBlocks({ modelId: ID, view: "Default", mainId: ID, wireId: ID, detailIds: [], videoId: null })
     for (const blocks of [full, bare]) {
       expect(mainProjectPatch.safeParse({ detailPage: { blocks } }).success).toBe(true)
     }

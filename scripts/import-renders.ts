@@ -55,7 +55,7 @@ const mainManifest = z.object({
   title:       bilingual,
   description: bilingual,
   role:        bilingual,
-  year:        z.string(),
+  year:        z.coerce.string(),
   software:    z.array(z.string()),
   stats,
   //the camera of main.jpg, in the GLB frame, fov vertical in degrees
@@ -152,7 +152,6 @@ async function importMain(dir: string, uploader: string): Promise<number> {
     thumbnails,
     detailPage: { blocks: caseStudyBlocks({
       modelId: model!.id, view: VIEW, mainId, wireId, detailIds, videoId,
-      description: m.description, role: m.role, year: m.year, software: m.software, stats: m.stats,
     }) },
     stats: m.stats,
   })
