@@ -596,7 +596,21 @@
     "styleguideWidthPhone": "Mobile",
     "styleguideWidthTablet": "Tablette",
     "styleguideWidthLaptop": "Portable",
-    "styleguideWidthDesktop": "Ordinateur"
+    "styleguideWidthDesktop": "Ordinateur",
+    "viewerLabel": "Modèle 3D interactif",
+    "viewerLoad": "Voir en 3D",
+    "viewerLoading": "Chargement du modèle",
+    "viewerError": "Impossible d'afficher le modèle 3D",
+    "viewerRetry": "Réessayer",
+    "viewerContextLost": "Le rendu 3D a été interrompu par le navigateur",
+    "viewerToolbar": "Commandes du visualiseur 3D",
+    "viewerModes": "Mode d'affichage",
+    "viewerModeRender": "Rendu",
+    "viewerModeWireframe": "Fil de fer",
+    "viewerModeClay": "Argile",
+    "viewerReset": "Réinitialiser la vue",
+    "viewerFullscreen": "Plein écran",
+    "viewerExitFullscreen": "Quitter le plein écran"
   },
   "en": {
     "siteTitle":   "Axel Offret - 3D Artist",
@@ -1195,6 +1209,20 @@
     "styleguideWidthPhone": "Phone",
     "styleguideWidthTablet": "Tablet",
     "styleguideWidthLaptop": "Laptop",
-    "styleguideWidthDesktop": "Desktop"
+    "styleguideWidthDesktop": "Desktop",
+    "viewerLabel": "Interactive 3D model",
+    "viewerLoad": "View in 3D",
+    "viewerLoading": "Loading model",
+    "viewerError": "The 3D model could not be shown",
+    "viewerRetry": "Retry",
+    "viewerContextLost": "The browser stopped the 3D rendering",
+    "viewerToolbar": "3D viewer controls",
+    "viewerModes": "Display mode",
+    "viewerModeRender": "Render",
+    "viewerModeWireframe": "Wireframe",
+    "viewerModeClay": "Clay",
+    "viewerReset": "Reset view",
+    "viewerFullscreen": "Fullscreen",
+    "viewerExitFullscreen": "Exit fullscreen"
   }
 }
