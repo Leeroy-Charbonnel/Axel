@@ -1,16 +1,20 @@
 import { Router } from "express"
-import { mkdir, rename, stat } from "fs/promises"
+import { mkdir, rename, rm, stat, writeFile } from "fs/promises"
 import { dirname, join } from "path"
-import { fileURLToPath } from "url"
 import sharp, { type Sharp } from "sharp"
 import { IMAGE_FORMATS, IMAGE_WIDTHS, storedImage, type ImageFormat } from "../src/lib/media"
 import { STORAGE_DIR } from "./uploads"
 
 //IMAGE DERIVATIVES. /media/{format}/{width}/{storedFilename} answers the
 //upload resized to that width (never enlarged), encoded once and kept under
-//storage/cache. The cache holds derived bytes only: deleting it is always safe.
-const CACHE_DIR = fileURLToPath(new URL("../storage/cache", import.meta.url))
+//storage/files/.cache, on the uploads volume so a redeploy keeps it. /media
+//never serves that directory raw: express.static ignores dotfiles. The cache
+//holds derived bytes only: deleting it is always safe.
+const CACHE_DIR = join(STORAGE_DIR, ".cache")
 const YEAR_MS = 1000 * 60 * 60 * 24 * 365
+
+//an encode holds a decoded image in memory and a core busy
+const MAX_ENCODES = 2
 
 const ENCODE: Record<ImageFormat, (s: Sharp) => Sharp> = {
   webp: (s) => s.webp({ quality: 80, effort: 4 }),
@@ -19,6 +23,26 @@ const ENCODE: Record<ImageFormat, (s: Sharp) => Sharp> = {
 
 //two requests for the same derivative share one encode
 const inFlight = new Map<string, Promise<void>>()
+//stored files never change, so a source sharp could not read stays unreadable
+//until the process restarts
+const failed = new Set<string>()
+
+let running = 0
+const waiting: Array<() => void> = []
+
+async function limited<T>(job: () => Promise<T>): Promise<T> {
+  while (running >= MAX_ENCODES) await new Promise<void>((resolve) => waiting.push(resolve))
+  running++
+  try {
+    return await job()
+  } finally {
+    running--
+    waiting.shift()?.()
+  }
+}
+
+//sharp failed on the source bytes, as opposed to the filesystem failing on ours
+class DecodeError extends Error {}
 
 async function exists(path: string): Promise<boolean> {
   try {
@@ -30,15 +54,26 @@ async function exists(path: string): Promise<boolean> {
 }
 
 async function encode(source: string, target: string, format: ImageFormat, width: number): Promise<void> {
+  let bytes: Buffer
+  try {
+    bytes = await limited(() => ENCODE[format](sharp(source).autoOrient().resize({ width, withoutEnlargement: true })).toBuffer())
+  } catch (e) {
+    throw new DecodeError(e instanceof Error ? e.message : String(e))
+  }
   await mkdir(dirname(target), { recursive: true })
   const tmp = `${target}.${process.pid}.tmp`
-  await ENCODE[format](sharp(source).autoOrient().resize({ width, withoutEnlargement: true })).toFile(tmp)
-  await rename(tmp, target)
+  try {
+    await writeFile(tmp, bytes)
+    await rename(tmp, target)
+  } catch (e) {
+    await rm(tmp, { force: true })
+    throw e
+  }
 }
 
 export const imagesRouter = Router()
 
-imagesRouter.get("/media/:format/:width/{*path}", async (req, res) => {
+imagesRouter.get("/media/:format/:width/*path", async (req, res) => {
   const format = req.params.format as ImageFormat
   const width = Number(req.params.width)
   const stored = (req.params.path as string[]).join("/")
@@ -52,6 +87,10 @@ imagesRouter.get("/media/:format/:width/{*path}", async (req, res) => {
   }
   const cached = join(format, String(width), `${stored}.${format}`)
   const target = join(CACHE_DIR, cached)
+  if (failed.has(target)) {
+    res.status(404).end()
+    return
+  }
   if (!(await exists(target))) {
     let job = inFlight.get(target)
     if (!job) {
@@ -61,14 +100,17 @@ imagesRouter.get("/media/:format/:width/{*path}", async (req, res) => {
     try {
       await job
     } catch (e) {
-      //bytes stored under an image name that are no image: a 404, and a line in the log
-      if (!(e instanceof Error && e.message.includes("unsupported image format"))) throw e
-      console.warn(`[images] ${stored} is not a readable image: ${e.message}`)
+      if (!(e instanceof DecodeError)) throw e
+      //bytes stored under an image name that sharp cannot read: a 404, one log line
+      if (!failed.has(target)) {
+        failed.add(target)
+        console.error(`[images] ${stored} cannot be encoded to ${format} ${width}, answered 404 until restart: ${e.message}`)
+      }
       res.status(404).end()
       return
     }
   }
   res.setHeader("X-Content-Type-Options", "nosniff")
-  //root keeps the dotfile check on the cached part only: a checkout under .claude is fine
+  //root keeps the dotfile check on the cached part only: .cache itself is fine
   res.sendFile(cached, { root: CACHE_DIR, maxAge: YEAR_MS, immutable: true })
 })

@@ -141,9 +141,17 @@ for the built app.
 
 - JSON bodies are capped at 1mb, except `PUT /api/models/:id/viewer-settings`
   (10mb), mounted before the global parser.
-- `GET /api/portfolio` hides unpublished rows from visitors and serves them a
-  memo that every non-GET `/api` request invalidates. The admin session gets
-  every row, uncached.
+- `GET /api/portfolio` hides unpublished rows from visitors, and every 3D model
+  no published project shows. Visitors get a memo that each successful admin
+  write invalidates; an anonymous or refused request leaves it alone. The admin
+  session gets every row, uncached.
+- Each detail block type has its own content schema in `validation.ts`. A
+  stored block that fails it is logged on every portfolio build and left out
+  of the visitors' payload.
+- `requireAdmin` refuses a non-GET request whose `Origin` is not in
+  `ALLOWED_ORIGINS` (403), so a sibling subdomain cannot ride the cookie.
+- GLB optimization runs in a worker (`server/glb-optimize.worker.ts`), one job
+  at a time, stopped after 5 minutes.
 - Helmet sends a CSP. A new third-party origin (an embed, a CDN) fails until it
   is added to the directives in `server.ts`.
 
@@ -160,7 +168,14 @@ for the built app.
 - `/media` sends `X-Content-Type-Options: nosniff`.
 
 Files are never deleted from disk: rows can go from the `file` table, the bytes
-stay. The one unlink is the rollback of an upload whose row could not be
+stay.
+
+Resized images (`/media/{format}/{width}/{stored}`, `server/images.ts`) are
+encoded once into `storage/files/.cache`, on the uploads volume, so a redeploy
+keeps them. The `/media` static handler is set to `dotfiles: "ignore"`: the
+cache is only reached through the resize route, never raw. Deleting `.cache`
+is always safe. At most two encodes run at once, and a source sharp cannot
+read answers 404 until the process restarts, without a new attempt. The one unlink is the rollback of an upload whose row could not be
 written. A row cannot be deleted while `fileRefCountSql` in
 `server/routes/files.ts` counts a reference to it; every new place that holds
 a file id or a `/media` URL is added there.
