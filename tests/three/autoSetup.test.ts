@@ -234,7 +234,38 @@ describe("computeEdgeSegments", () => {
     expect(segments.length / 6).toBe(7)
   })
 
+  test("a flat n-gon fan keeps only its outline", () => {
+    //a hexagon triangulated as a fan from vertex 0: 4 triangles, 3 inner edges
+    const hex = new Float32Array([2, 0, 0, 1, 1.7, 0, -1, 1.7, 0, -2, 0, 0, -1, -1.7, 0, 1, -1.7, 0])
+    const segments = computeEdgeSegments(hex, new Uint32Array([0, 1, 2, 0, 2, 3, 0, 3, 4, 0, 4, 5]))
+    expect(segments.length / 6).toBe(6)
+  })
+
+  test("a curved quad strip keeps its real edges after an odd face", () => {
+    //a lone triangle, then two quads folded along x = 1: the quad diagonals go,
+    //the fold edge 1-2 between the quads stays
+    const pos = new Float32Array([0, 0, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0, 2, 0, 1, 2, 1, 1, 9, 9, 9, 8, 9, 9, 9, 8, 9])
+    const segments = computeEdgeSegments(pos, new Uint32Array([6, 7, 8, 0, 1, 2, 0, 2, 3, 1, 4, 5, 1, 5, 2]))
+    //3 for the triangle, 4 + 4 for the quads minus the shared fold edge
+    expect(segments.length / 6).toBe(10)
+  })
+
+  test("a flat n-gon cut in any order loses its inner edges, a flat quad grid keeps its own", () => {
+    //the hexagon fan again, triangles out of order
+    const hex = new Float32Array([2, 0, 0, 1, 1.7, 0, -1, 1.7, 0, -2, 0, 0, -1, -1.7, 0, 1, -1.7, 0])
+    expect(computeEdgeSegments(hex, new Uint32Array([0, 3, 4, 0, 1, 2, 0, 4, 5, 0, 2, 3])).length / 6).toBe(6)
+    //2 x 1 flat quads: 7 real edges, the shared one included
+    const grid = new Float32Array([0, 0, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0, 2, 0, 0, 2, 1, 0])
+    expect(computeEdgeSegments(grid, new Uint32Array([0, 1, 2, 0, 2, 3, 1, 4, 5, 1, 5, 2])).length / 6).toBe(7)
+  })
+
+  test("a seam split vertex counts once", () => {
+    //the quad's right edge exists twice, as vertices 1-2 and their copies 4-5
+    const pos = new Float32Array([0, 0, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0, 1, 0, 0, 1, 1, 0, 2, 0, 0, 2, 1, 0])
+    expect(computeEdgeSegments(pos, new Uint32Array([0, 1, 2, 0, 2, 3, 4, 6, 7, 4, 7, 5])).length / 6).toBe(7)
+  })
+
   test("non-indexed geometry", () => {
-    expect(computeEdgeSegments(new Float32Array(9), null).length / 6).toBe(3)
+    expect(computeEdgeSegments(new Float32Array([0, 0, 0, 1, 0, 0, 0, 1, 0]), null).length / 6).toBe(3)
   })
 })

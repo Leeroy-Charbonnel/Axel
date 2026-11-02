@@ -232,13 +232,22 @@ export class SweepBasicMaterial extends MeshBasicMaterial {
 export type SweepMaterial = CustomNormalMaterial | CustomEmissiveMaterial | SweepBasicMaterial
 
 //emissiveBoost null = a normal mesh, a number = an emissive pick at that brightness
+//the surfaces sit a little behind their depth, so the wireframe lines drawn
+//on them win the depth test instead of breaking up against them
+function pushBack<T extends Material>(m: T): T {
+  m.polygonOffset = true
+  m.polygonOffsetFactor = 1
+  m.polygonOffsetUnits = 1
+  return m
+}
+
 export function createSweepMaterial(source: Material, emissiveBoost: number | null): SweepMaterial {
   if ((source as MeshStandardMaterial).isMeshStandardMaterial) {
     const lit = source as MeshStandardMaterial
-    return emissiveBoost === null ? new CustomNormalMaterial(lit) : new CustomEmissiveMaterial(lit, emissiveBoost)
+    return pushBack(emissiveBoost === null ? new CustomNormalMaterial(lit) : new CustomEmissiveMaterial(lit, emissiveBoost))
   }
   if ((source as MeshBasicMaterial).isMeshBasicMaterial) {
-    return new SweepBasicMaterial(source as MeshBasicMaterial, emissiveBoost)
+    return pushBack(new SweepBasicMaterial(source as MeshBasicMaterial, emissiveBoost))
   }
   throw new Error(`material "${source.name}" is a ${source.type}, which the viewer cannot render`)
 }

@@ -22,6 +22,11 @@ export const VIEWER_DEFAULTS = {
   wireframeMaterial:  { color: "#808080", metalness: 0, roughness: 0.5, envMapIntensity: 1, specularIntensity: 1 },
   //the ground under the model only shows its shadow, at this opacity
   shadowOpacity:      0.35,
+  //the soft disc of light on the floor under every model: colour, opacity at
+  //its centre, and diameter in model radii
+  floorGlowColor:     "#ffffff",
+  floorGlowOpacity:   0.09,
+  floorGlowScale:     3.2,
 } as const
 
 export const VIEWER_PREF_KEYS = {

@@ -1,83 +1,166 @@
 <script setup lang="ts">
-import { toRef } from "vue"
-import { ArrowRight } from "lucide-vue-next"
+import { computed, ref, toRef } from "vue"
+import { Box, Grid3x3 } from "lucide-vue-next"
 import { useProjectCard } from "../../composables/useProjectCard"
+import { IMAGE_SIZES } from "../../lib/media"
+import { statRows } from "../../lib/portfolio-utils"
 import EditableRegion from "../admin/EditableRegion.vue"
+import SiteImage from "../SiteImage.vue"
+import AnimatedCounter from "./AnimatedCounter.vue"
 import ProjectMedia from "./ProjectMedia.vue"
-import ProjectSpecStrip from "./ProjectSpecStrip.vue"
-import SoftwareChips from "./SoftwareChips.vue"
 import UnpublishedBadge from "./UnpublishedBadge.vue"
 import type { MainProjectDto } from "../../types/portfolio"
 
-//CASE-STUDY CARD - the model first (ProjectMedia), then what a recruiter
-//scans: its number in outline, year, role, title, the spec strip, the
-//software, and the project page.
-//Cards alternate sides down the list so the section does not read as one
-//repeated block: a flipped card puts its facts on the left, the model and its
-//thumbnail column on the right.
+//CASE-STUDY CARD - three columns: the thumbnails on the outer edge, the facts
+//(number in outline, title, description, the counts with their initial, the
+//two actions), and the model floating on its floor. Cards alternate sides down
+//the list so the section does not read as one repeated block. The wireframe
+//button turns the model and the thumbnails together.
 const props = defineProps<{ project: MainProjectDto; number: number; flipped: boolean }>()
 
-const { lang, t, title, role, description } = useProjectCard(toRef(props, "project"))
+const wireframe = ref(false)
+const { lang, t, title, description, openThumbnail } = useProjectCard(toRef(props, "project"), wireframe)
+
+//S F A T: vertices, faces, edges, triangles, each with the initial of its label
+const STAT_ORDER = ["vertices", "faces", "edges", "triangles"]
+const stats = computed(() => statRows(props.project.stats, lang.value, t)
+  .sort((a, b) => STAT_ORDER.indexOf(a.key) - STAT_ORDER.indexOf(b.key))
+  .map((s) => ({ ...s, initial: s.label.charAt(0).toUpperCase() })))
+
+const thumbs = computed(() => props.project.thumbnails.filter((thumb) => thumb.url))
 
 const titleId = `project-${props.project.id}-title`
 </script>
 
 <template>
   <EditableRegion kind="mainProject" :id="project.id" :label="t('editorKindMainProject')">
-    <article class="case" :class="{ 'case--flipped': flipped, 'site-unpublished': !project.published }" :aria-labelledby="titleId">
+    <article
+      class="case"
+      :class="{ 'case--flipped': flipped, 'case--wireframe': wireframe, 'site-unpublished': !project.published }"
+      :aria-labelledby="titleId"
+    >
       <UnpublishedBadge :published="project.published" />
 
-      <ProjectMedia :project="project" :thumbs-side="flipped ? 'right' : 'left'" class="case__media" />
+      <ul v-if="thumbs.length" class="case__thumbs" :aria-label="t('projectThumbs')">
+        <li v-for="(thumb, i) in thumbs" :key="i">
+          <button
+            type="button"
+            class="case__thumb"
+            :aria-label="`${t('projectOpenImage')} : ${thumb.description[lang] || title}`"
+            @click="openThumbnail(thumb)"
+          >
+            <SiteImage :src="thumb.url!" :sizes="IMAGE_SIZES.thumb" />
+            <SiteImage v-if="thumb.wireframeUrl" :src="thumb.wireframeUrl" :sizes="IMAGE_SIZES.thumb" class="case__wire" />
+          </button>
+        </li>
+      </ul>
 
       <div class="case__info">
-        <header class="case__head">
-          <span class="case__number" aria-hidden="true">{{ String(number).padStart(2, "0") }}</span>
-          <p v-if="project.year || role" class="site-eyebrow case__meta">
-            <span v-if="project.year" class="case__year">{{ project.year }}</span>
-            <span v-if="project.year && role" aria-hidden="true">/</span>
-            <span v-if="role">{{ role }}</span>
-          </p>
-          <h3 :id="titleId" class="case__title">{{ title }}</h3>
-        </header>
+        <span class="case__number" aria-hidden="true">{{ String(number).padStart(2, "0") }}</span>
+        <h3 :id="titleId" class="case__title">
+          <RouterLink :to="`/project/${project.id}`">{{ title }}</RouterLink>
+        </h3>
+        <p v-if="description" class="case__description">{{ description }}</p>
 
-        <div class="case__body">
-          <p v-if="description" class="case__description">{{ description }}</p>
+        <dl v-if="stats.length" class="case__stats" :aria-label="t('projectSpecs')">
+          <div v-for="s in stats" :key="s.key" class="case__stat">
+            <span class="case__stat-initial" aria-hidden="true">{{ s.initial }}</span>
+            <dt class="case__stat-label">{{ s.label }}</dt>
+            <dd class="case__stat-value"><AnimatedCounter :to="s.count" :lang="lang" /></dd>
+          </div>
+        </dl>
 
-          <ProjectSpecStrip :stats="project.stats" :lang="lang" inline class="case__specs" />
-
-          <SoftwareChips :software="project.software" :aria-label="t('projectSoftware')" />
-
-          <RouterLink :to="`/project/${project.id}`" class="site-button site-button--primary case__cta">
-            {{ t("projectViewPage") }}
-            <ArrowRight aria-hidden="true" />
+        <div class="case__actions">
+          <RouterLink :to="`/project/${project.id}`" class="site-button case__action case__action--accent">
+            <Box aria-hidden="true" />
+            {{ t("projectView3d") }}
           </RouterLink>
+          <button type="button" class="site-button case__action" :aria-pressed="wireframe" @click="wireframe = !wireframe">
+            <Grid3x3 aria-hidden="true" />
+            {{ t("projectWireframe") }}
+          </button>
         </div>
       </div>
+
+      <ProjectMedia v-model:wireframe="wireframe" :project="project" :thumbs="false" :toolbar="false" class="case__media" />
     </article>
   </EditableRegion>
 </template>
 
 <style scoped>
-/*desktop: the model on 8 columns, the facts on 4 and centred against it, so
-each card reads as a pair rather than a block; stacked below 1025px*/
+/*desktop: thumbnails | facts | model, mirrored on a flipped card; below
+1025px the model, then the thumbnails in a row, then the facts*/
 .case {
   position: relative;
   display: grid;
-  grid-template-columns: minmax(0, 8fr) minmax(0, 4fr);
+  grid-template-columns: var(--site-thumb-col) minmax(0, 4fr) minmax(0, 7fr);
+  grid-template-areas: "thumbs info media";
   align-items: center;
   gap: var(--site-col-gap);
 }
 
-.case__info {
-  display: flex;
-  flex-direction: column;
-  gap: var(--spacing-lg);
+.case--flipped {
+  grid-template-columns: minmax(0, 7fr) minmax(0, 4fr) var(--site-thumb-col);
+  grid-template-areas: "media info thumbs";
 }
 
-.case__head {
+.case__thumbs  { grid-area: thumbs; }
+.case__info    { grid-area: info; }
+.case__media   { grid-area: media; }
+
+.case__media :deep(.media__stage) { aspect-ratio: var(--site-case-aspect); }
+
+/*THUMBNAILS - square, hairline frame, the accent on hover*/
+.case__thumbs {
   display: flex;
   flex-direction: column;
   gap: var(--spacing-sm);
+  list-style: none;
+}
+
+.case__thumb {
+  position: relative;
+  display: block;
+  width: 100%;
+  aspect-ratio: 1;
+  padding: 0;
+  overflow: hidden;
+  border: var(--border-width-sm) solid var(--site-line-strong);
+  background-color: var(--site-surface-hover);
+  cursor: zoom-in;
+  transition: border-color var(--site-duration-fast) ease;
+}
+
+.case__thumb:hover,
+.case__thumb:focus-visible { border-color: var(--site-accent); }
+
+.case__thumb :deep(img) {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/*WIREFRAME LAYER - a diagonal wipe from the top left corner, run one
+thumbnail after the other so the three read as one sweep*/
+.case__wire {
+  clip-path: polygon(0 0, 0 0, 0 0);
+  transition: clip-path var(--site-wire-wipe) var(--site-ease);
+}
+
+.case--wireframe .case__wire { clip-path: polygon(0 0, 200% 0, 0 200%); }
+
+.case__thumbs li:nth-child(2) .case__wire { transition-delay: calc(var(--site-wire-wipe) / 4); }
+.case__thumbs li:nth-child(3) .case__wire { transition-delay: calc(var(--site-wire-wipe) / 2); }
+
+/*FACTS*/
+.case__info {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--spacing-lg);
 }
 
 .case__number {
@@ -90,30 +173,18 @@ each card reads as a pair rather than a block; stacked below 1025px*/
   font-variant-numeric: tabular-nums;
 }
 
-.case__meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--spacing-xs);
-}
-
-.case__year { font-variant-numeric: tabular-nums; }
-
 .case__title {
   font-size: var(--site-fs-h2);
   font-weight: var(--site-fw-display);
   line-height: var(--site-lh-tight);
-  letter-spacing: var(--site-tracking-display);
+  letter-spacing: var(--site-tracking-heading);
   text-transform: uppercase;
   color: var(--site-text-heading);
   overflow-wrap: anywhere;
 }
 
-.case__body {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: var(--spacing-lg);
-}
+.case__title a { transition: color var(--site-duration-fast) ease; }
+.case__title a:hover { color: var(--site-accent); }
 
 .case__description {
   max-width: var(--site-text-width);
@@ -121,20 +192,79 @@ each card reads as a pair rather than a block; stacked below 1025px*/
   color: var(--site-text-body);
 }
 
-/*full width in a column that aligns its items to the start*/
-.case__specs { align-self: stretch; }
+.case__stats {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+}
 
-/*flipped: the facts in the first column, the model in the second*/
-.case--flipped { grid-template-columns: minmax(0, 4fr) minmax(0, 8fr); }
-.case--flipped .case__media { order: 1; }
+/*initial, value, label: the value comes second on screen, after its label in the markup*/
+.case__stat {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+}
+
+.case__stat-initial {
+  display: inline-grid;
+  place-content: center;
+  width: var(--site-stat-badge);
+  height: var(--site-stat-badge);
+  background-color: var(--site-surface-hover);
+  font-size: var(--site-fs-label);
+  font-weight: var(--font-weight-bold);
+  color: var(--site-text-heading);
+}
+
+.case__stat-value {
+  order: 1;
+  min-width: var(--site-stat-value);
+  margin: 0;
+  font-weight: var(--font-weight-bold);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  color: var(--site-text-heading);
+}
+
+.case__stat-label {
+  order: 2;
+  font-size: var(--site-fs-label);
+  letter-spacing: var(--site-tracking-label);
+  text-transform: uppercase;
+  color: var(--site-text-caption);
+}
+
+.case__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-sm);
+}
+
+.case__action--accent {
+  border-color: var(--site-accent);
+  color: var(--site-accent);
+}
+
+.case__action[aria-pressed="true"] {
+  border-color: var(--site-accent);
+  background-color: var(--site-accent);
+  color: var(--site-on-accent);
+}
 
 @media (max-width: 1024px) {
   .case,
-  .case--flipped { grid-template-columns: minmax(0, 1fr); }
-  .case--flipped .case__media { order: 0; }
+  .case--flipped {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: "media" "thumbs" "info";
+  }
+
+  .case__thumbs {
+    display: grid;
+    grid-template-columns: repeat(var(--site-thumb-count), minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 640px) {
-  .case__cta { width: 100%; }
+  .case__action { flex: 1 1 auto; }
 }
 </style>

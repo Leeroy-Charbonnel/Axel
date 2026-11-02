@@ -6,8 +6,8 @@
 //  case-study page;
 //- every other folder with a card.jpg becomes a gallery card, by name.
 //
-//IDEMPOTENT: a file already imported (same "<slug>/<name>" original name) is
-//reused, a project or card with the same French title is updated in place.
+//IDEMPOTENT: a file already imported (same "<slug>/<name>" original name and
+//same size) is reused, a re-rendered one is stored anew, a project or card with the same French title is updated in place.
 //--retire unpublishes every other main project and gallery card.
 //DATABASE_URL only, never the production database.
 //
@@ -82,7 +82,9 @@ async function adminId(): Promise<string> {
 //the file row for one file of a folder, created on first import
 async function storeFile(dir: string, slug: string, name: string, uploader: string): Promise<string> {
   const original = `${slug}/${name}`
-  const [known] = await db.select({ id: file.id }).from(file).where(eq(file.originalFilename, original))
+  const bytes = statSync(join(dir, name)).size
+  const [known] = await db.select({ id: file.id }).from(file)
+    .where(and(eq(file.originalFilename, original), eq(file.sizeBytes, bytes)))
   if (known) return known.id
 
   const type = MIME[extname(name).toLowerCase()]
@@ -94,7 +96,7 @@ async function storeFile(dir: string, slug: string, name: string, uploader: stri
   const size = type.kind === "image" ? await measureImage(join(STORAGE_DIR, stored)) : { width: null, height: null }
   await db.insert(file).values({
     id, originalFilename: original, storedFilename: stored, mimeType: type.mime,
-    sizeBytes: statSync(join(dir, name)).size, ...size, kind: type.kind, uploadedBy: uploader,
+    sizeBytes: bytes, ...size, kind: type.kind, uploadedBy: uploader,
   })
   return id
 }

@@ -32,4 +32,10 @@ const { t } = useLanguage()
   flex-direction: column;
   gap: var(--site-case-gap);
 }
+
+/*a hairline between two projects*/
+.projects__list > * + * {
+  padding-top: var(--site-case-gap);
+  border-top: var(--border-width-sm) solid var(--site-line);
+}
 </style>

@@ -24,7 +24,9 @@ const props = withDefaults(defineProps<{
   //what the model is, for screen readers
   alt?:         string
   autoRotate?:  boolean
-}>(), { wireframe: false, poster: null, posterSizes: "100vw", alt: "", autoRotate: false })
+  //the mode buttons, reset and fullscreen; a card with its own controls hides them
+  toolbar?:     boolean
+}>(), { wireframe: false, poster: null, posterSizes: "100vw", alt: "", autoRotate: false, toolbar: true })
 
 const emit = defineEmits<{ "update:wireframe": [on: boolean] }>()
 
@@ -260,7 +262,7 @@ watch(() => props.glbUrl, () => {
       </button>
     </div>
 
-    <div v-if="phase === 'ready'" class="three-viewer__toolbar" role="toolbar" :aria-label="t('viewerToolbar')">
+    <div v-if="phase === 'ready' && toolbar" class="three-viewer__toolbar" role="toolbar" :aria-label="t('viewerToolbar')">
       <div class="three-viewer__modes" role="group" :aria-label="t('viewerModes')">
         <button
           v-for="m in MODES"

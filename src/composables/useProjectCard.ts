@@ -9,7 +9,8 @@ import type { MainProjectDto, ThumbnailDto } from "../types/portfolio"
 
 //WHAT A PROJECT CARD KNOWS BEYOND ITS MARKUP: the 3D model it can open, the
 //still it shows (lit or wireframe) and the slides it hands the lightbox.
-export function useProjectCard(project: Ref<MainProjectDto>) {
+//showWireframe is passed in when another component shares the same mode
+export function useProjectCard(project: Ref<MainProjectDto>, showWireframe: Ref<boolean> = ref(false)) {
   const { lang, t } = useLanguage()
   const { data: portfolioData } = usePortfolio()
   const { open: openLightbox } = useLightbox()
@@ -22,7 +23,6 @@ export function useProjectCard(project: Ref<MainProjectDto>) {
 
   //wireframe mode: the viewer's own mode when there is a model, the button when
   //there is only the still; the thumbnails and the lightbox follow it
-  const showWireframe = ref(false)
   const hasWireframe  = computed(() => Boolean(project.value.mainWireframeUrl))
   const stillUrl      = computed(() =>
     showWireframe.value && project.value.mainWireframeUrl ? project.value.mainWireframeUrl : project.value.mainImageUrl)

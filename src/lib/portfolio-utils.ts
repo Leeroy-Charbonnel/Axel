@@ -1,6 +1,5 @@
 //PORTFOLIO formatting helpers shared by the home page and the detail blocks.
 
-//Compact number formatter for the animated counters: 1234 -> "1k", 1500000 -> "2M".
 type StatKey = "triangles" | "vertices" | "faces" | "edges"
 
 interface StatSource {

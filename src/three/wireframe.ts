@@ -107,6 +107,8 @@ export class WireframeSweep {
       opacity: LINE_OPACITY,
       depthWrite: false,
       worldUnits: false,
+      //smooth edges on the antialiased canvas instead of stair steps
+      alphaToCoverage: true,
     })
     this.lineMaterial.onBeforeCompile = (shader: WebGLProgramParametersWithUniforms) => {
       Object.assign(shader.uniforms, this.lineUniforms)

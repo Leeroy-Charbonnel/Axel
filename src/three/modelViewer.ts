@@ -13,6 +13,7 @@ import {
   Vector3,
 } from "three"
 import { VIEWER_DEFAULTS } from "../lib/viewer-defaults"
+import { createFloorGlow, placeFloorGlow } from "./floorGlow"
 import { type AutoSetup, type CameraView, computeAutoSetup, fitCameraView, fitViewToAspect } from "./autoSetup"
 import { createViewerCore, type ViewerCore } from "./core"
 import { disposeObject } from "./dispose"
@@ -83,6 +84,7 @@ export class ModelViewer {
   readonly core: ViewerCore
   private readonly env: EnvironmentManager
   private readonly ground: Mesh
+  private readonly floorGlow: Mesh
   private readonly abort = new AbortController()
   private settings: ViewerSettings = {}
   private setup: AutoSetup | null = null
@@ -120,6 +122,8 @@ export class ModelViewer {
     this.ground.receiveShadow = true
     this.ground.visible = false
     this.core.scene.add(this.ground)
+    this.floorGlow = createFloorGlow()
+    this.core.scene.add(this.floorGlow)
     this.core.addFrameCallback((dt, now) => this.frame(dt, now))
     this.core.onResize((w, h) => this.sweep?.setResolution(w, h))
     this.core.controls.addEventListener("start", () => {
@@ -207,6 +211,7 @@ export class ModelViewer {
 
     this.ground.scale.setScalar(setup.ground.size)
     this.ground.position.y = setup.ground.y
+    placeFloorGlow(this.floorGlow, setup.bounds.center, setup.bounds.radius, setup.ground.y)
     this.applyStage()
 
     const cam = this.core.camera
@@ -419,6 +424,7 @@ export class ModelViewer {
   private applyStage(): void {
     const stage = this.settings.stage
     this.ground.visible = stage?.ground ?? true
+    this.floorGlow.visible = this.ground.visible
     ;(this.ground.material as ShadowMaterial).opacity = stage?.shadowOpacity ?? VIEWER_DEFAULTS.shadowOpacity
   }
 

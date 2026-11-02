@@ -12,12 +12,21 @@ import type { MainProjectDto } from "../../types/portfolio"
 //viewer's wireframe mode turns the thumbnails to their wireframe renders with a
 //diagonal wipe. The render is only the fallback of a project without a model.
 //The home card and the page of a project without blocks show the same.
-const props = withDefaults(defineProps<{ project: MainProjectDto; thumbsSide?: "left" | "right" }>(), { thumbsSide: "right" })
+//thumbs false: the parent draws the thumbnails itself; toolbar false: the
+//parent carries the wireframe button, bound through v-model:wireframe
+const props = withDefaults(defineProps<{
+  project:     MainProjectDto
+  thumbsSide?: "left" | "right"
+  thumbs?:     boolean
+  toolbar?:    boolean
+}>(), { thumbsSide: "right", thumbs: true, toolbar: true })
+
+const showWireframe = defineModel<boolean>("wireframe", { default: false })
 
 const {
   lang, t, title, viewerSettings, glbUrl,
-  showWireframe, hasWireframe, stillUrl, openStill, openThumbnail,
-} = useProjectCard(toRef(props, "project"))
+  hasWireframe, stillUrl, openStill, openThumbnail,
+} = useProjectCard(toRef(props, "project"), showWireframe)
 </script>
 
 <template>
@@ -31,6 +40,7 @@ const {
         :poster="project.mainImageUrl"
         :poster-sizes="IMAGE_SIZES.still"
         :alt="title"
+        :toolbar="toolbar"
         class="media__viewer"
       />
       <button
@@ -56,7 +66,7 @@ const {
       <p v-else class="media__empty">{{ t("projectNoImage") }}</p>
 
       <ul
-        v-if="project.thumbnails.some((thumb) => thumb.url)"
+        v-if="thumbs && project.thumbnails.some((thumb) => thumb.url)"
         class="media__thumbs"
         :class="`media__thumbs--${thumbsSide}`"
         :aria-label="t('projectThumbs')"
@@ -77,7 +87,7 @@ const {
       </ul>
     </div>
 
-    <div v-if="hasWireframe && !glbUrl" class="media__actions">
+    <div v-if="toolbar && hasWireframe && !glbUrl" class="media__actions">
       <button
         type="button"
         class="site-button"
