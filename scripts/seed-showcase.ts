@@ -79,7 +79,6 @@ async function main() {
         published:           false,
         stats:               p.stats,
         detailPage:          { blocks: p.blocks as never },
-        wireframeParameters: { whiteMaterialColor: "ffffff", lightsOverwrite: [], emissiveMaterialsOverwrite: [] },
         sortOrder:           Number(order!.next) + i,
       }).returning({ id: mainProject.id })
       if (tools.length) {

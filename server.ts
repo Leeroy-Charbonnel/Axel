@@ -29,14 +29,14 @@ app.set("trust proxy", 1)
 //SECURITY HEADERS. The 3D viewer needs wasm (meshopt / Draco / KTX2
 //decoders), blob workers, and blob: / data: fetches for textures embedded in
 //a GLB. Inline styles stay allowed: Vue inserts large static template chunks
-//as HTML, style attributes included. The avatar is still a Sketchfab image.
+//as HTML, style attributes included. Every image is served from /media.
 app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc:     ["'self'"],
       scriptSrc:      ["'self'", "'wasm-unsafe-eval'"],
       styleSrc:       ["'self'", "'unsafe-inline'"],
-      imgSrc:         ["'self'", "data:", "blob:", "https://media.sketchfab.com"],
+      imgSrc:         ["'self'", "data:", "blob:"],
       fontSrc:        ["'self'", "data:"],
       connectSrc:     ["'self'", "blob:", "data:"],
       mediaSrc:       ["'self'", "blob:"],

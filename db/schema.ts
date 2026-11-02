@@ -108,43 +108,24 @@ export const model3d = pgTable("model_3d", {
 //jsonb { en, fr }. published = false hides the row from visitors only.
 export const mainProject = pgTable("main_project", {
   id:                   serial("id").primaryKey(),
-  modelId:              text("model_id").notNull().default(""),
   title:                jsonb("title").$type<Bilingual>().notNull(),
   description:          jsonb("description").$type<Bilingual>().notNull(),
   published:            boolean("published").notNull().default(true),
   role:                 jsonb("role").$type<Bilingual>().notNull().default(EMPTY_BILINGUAL),
   year:                 text("year").notNull().default(""),
-  //LAYOUT controls how the viewer + thumbnails are arranged.
-  //thumbs-left   : 3 vertical thumbnails on the left, viewer on the right
-  //thumbs-right  : 3 vertical thumbnails on the right, viewer on the left
-  //thumbs-bottom : viewer full-width, 3 thumbnails in a row below
-  //viewer-only   : just the viewer, no thumbnail strip
-  layout:               text("layout").notNull().default("thumbs-left"),
   mainImageFileId:      uuid("main_image_file_id").references(() => file.id, { onDelete: "set null" }),
   mainWireframeFileId:  uuid("main_wireframe_file_id").references(() => file.id, { onDelete: "set null" }),
   //3D MODEL - the project's viewer references a model_3d row (reusable
   //asset shared with detail-page viewer3d blocks). The two view names pick
   //which saved camera view to apply at load on the matching breakpoint.
-  //
-  //glbFileId / viewerSettings are the legacy per-project viewer, still
-  //read as a fallback by useEffectiveViewerSettings.
   model3dId:            uuid("model_3d_id").references(() => model3d.id, { onDelete: "set null" }),
   model3dDesktopView:   text("model_3d_desktop_view").notNull().default(""),
   model3dMobileView:    text("model_3d_mobile_view").notNull().default(""),
-  glbFileId:            uuid("glb_file_id").references(() => file.id, { onDelete: "set null" }),
-  viewerSettings:       jsonb("viewer_settings"),
   thumbnails:           jsonb("thumbnails").$type<{
                           fileId:          string | null
                           wireframeFileId: string | null
                           description:     Bilingual
                         }[]>().notNull().default([]),
-  videoFileId:          uuid("video_file_id").references(() => file.id, { onDelete: "set null" }),
-  wireframeParameters:  jsonb("wireframe_parameters").$type<{
-                          wireframeColor?:             string
-                          whiteMaterialColor:          string
-                          lightsOverwrite:             { index: number; intensity?: number; color: string }[]
-                          emissiveMaterialsOverwrite:  string[]
-                        }>().notNull(),
   //DETAIL PAGE - bento-style grid of content blocks for the per-project
   //detail page. 3-col grid on desktop, 1-col stack on mobile. mobileY
   //orders blocks vertically and mobileH sets the row span; when absent,
@@ -171,8 +152,6 @@ export const mainProject = pgTable("main_project", {
   index("main_project_model_3d_id_idx").on(t.model3dId),
   index("main_project_main_image_file_id_idx").on(t.mainImageFileId),
   index("main_project_main_wireframe_file_id_idx").on(t.mainWireframeFileId),
-  index("main_project_glb_file_id_idx").on(t.glbFileId),
-  index("main_project_video_file_id_idx").on(t.videoFileId),
 ])
 
 //MAIN_PROJECT_SOFTWARE - junction. sort_order controls the order in which the

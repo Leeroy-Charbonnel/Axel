@@ -6,7 +6,7 @@ import {
   galleryProject, experience, profile, model3d,
 } from "../db/schema"
 import type {
-  DetailBlock, MainProjectDto, MainProjectLayout, PortfolioDto, SoftwareDto,
+  DetailBlock, MainProjectDto, PortfolioDto, SoftwareDto,
 } from "../src/types/portfolio"
 import type { ImageSizes } from "../src/lib/media"
 import { isAdmin, sessionUser } from "./http"
@@ -93,8 +93,6 @@ async function buildPortfolio(admin: boolean): Promise<PortfolioDto> {
 
   const mainProjects: MainProjectDto[] = projectRows.map((p) => ({
     id:                  p.id,
-    modelId:             p.modelId,
-    layout:              p.layout as MainProjectLayout,
     title:               p.title,
     description:         p.description,
     published:           p.published,
@@ -102,13 +100,9 @@ async function buildPortfolio(admin: boolean): Promise<PortfolioDto> {
     year:                p.year,
     mainImageUrl:        urlOf(p.mainImageFileId),
     mainWireframeUrl:    urlOf(p.mainWireframeFileId),
-    videoUrl:            urlOf(p.videoFileId),
     model3dId:           p.model3dId,
     model3dDesktopView:  p.model3dDesktopView,
     model3dMobileView:   p.model3dMobileView,
-    glbFileId:           p.glbFileId,
-    glbUrl:              urlOf(p.glbFileId),
-    viewerSettings:      p.viewerSettings,
     thumbnails: p.thumbnails.map((t) => ({
       fileId:          t.fileId,
       wireframeFileId: t.wireframeFileId,
@@ -116,7 +110,6 @@ async function buildPortfolio(admin: boolean): Promise<PortfolioDto> {
       wireframeUrl:    urlOf(t.wireframeFileId),
       description:     t.description,
     })),
-    wireframeParameters: p.wireframeParameters,
     detailPage:          { blocks: (p.detailPage.blocks as Block[]).map(resolveBlock) as unknown as DetailBlock[] },
     stats:               p.stats,
     software: junctionRows
