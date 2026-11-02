@@ -1,12 +1,12 @@
 # Checklist
-Maj 05:50 - 19/24
+Maj 06:30 - 20/25
 
 ## En cours
-- [~] W6 images responsives (WebP + srcset + dimensions), retrait de l'heritage, dedoublonnage (agent)
+- [~] W7 corrections de l'audit design (agent)
+- [~] Audit de code et securite a froid (agent)
 
 ## A faire
 - [ ] Passe navigateur desktop / tablette / telephone
-- [ ] Corrections de l'audit design : blocs qui coupent leur texte, blocs vides publics, pages projet sans images, vrai 404, email coupe, espaces, cartes galerie, pied de page, nav
 - [ ] Tester une vraie sauvegarde admin (inspecteur, bento, editeur 3D)
 - [ ] Mettre a jour CLAUDE.md / SETUP.md (etat constate)
 
@@ -14,6 +14,7 @@ Maj 05:50 - 19/24
 - [!] Contenu a reecrire par Axel : textes humoristiques, lorem du projet 1, stats copiees de 6 cartes galerie, SOFTWARE 6, interets en anglais (contenu, pas du code)
 
 ## Fait
+- [x] W6 images responsives : route WebP/JPEG redimensionnee + cache, dimensions stockees, SiteImage partout, accueil 53.7 Mo -> 177 Ko (1440 px), heritage supprime (5 colonnes + layout), avatar rapatrie, avertissements 3D traduits
 - [x] Audit design a l'aveugle (captures CDP a 375 / 768 / 1024 / 1440)
 - [x] SEO verifie sur le build Express : meta, OG, JSON-LD, instantane HTML, robots (robots IA autorises), sitemap, llms.txt, 404 pour projet inconnu ou non publie
 - [x] W4b page projet en etude de cas, editeur bento (reflow, undo complet, onglet telephone), 14 blocs revus, /styleguide, 3 pages Showcase de test (projets 10, 11, 12, non publies)
