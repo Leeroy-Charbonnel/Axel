@@ -15,7 +15,6 @@ import { HttpError } from "./http"
 //be written, so no row ever pointed at those bytes.
 export const STORAGE_DIR = fileURLToPath(new URL("../storage/files", import.meta.url))
 
-const isProd = process.env.NODE_ENV === "production"
 
 //mkdir failing on the volume must not take the boot down: uploads then fail
 //one by one and the rest of the site is served
@@ -26,12 +25,6 @@ try {
   console.error(`[boot] storage mkdir FAILED at ${STORAGE_DIR} - every upload will fail:`, e)
 }
 
-//FILES LIVE ONLY ON THE PRODUCTION VOLUME. A dev server refuses file writes
-//rather than dropping binaries on a local disk the rows would then point at.
-export function requireProdStorage(): void {
-  if (isProd) return
-  throw new HttpError(503, "uploads are disabled in dev: files live on the prod volume, upload from the prod site")
-}
 
 //200 MB - a .glb can be chunky
 const MAX_UPLOAD_BYTES = 200 * 1024 * 1024

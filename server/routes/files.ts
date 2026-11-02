@@ -3,7 +3,7 @@ import { eq, sql, type SQL } from "drizzle-orm"
 import { db } from "../../db/index"
 import { file as fileTable } from "../../db/schema"
 import { adminId, notFound, requireAdmin, uuidParam } from "../http"
-import { receiveMedia, recordUpload, requireProdStorage } from "../uploads"
+import { receiveMedia, recordUpload } from "../uploads"
 
 //FILE REFERENCE COUNT - single source of truth for "which rows point at a
 //file id". The list, the orphan sweep and the delete all derive from it, so a
@@ -102,7 +102,6 @@ filesRouter.delete("/api/files/:id", requireAdmin, async (req, res) => {
 
 //returns the new file row and its /media url
 filesRouter.post("/api/files", requireAdmin, async (req, res) => {
-  requireProdStorage()
   const file = await receiveMedia("file", req, res)
   res.json(await recordUpload(file, adminId(res)))
 })

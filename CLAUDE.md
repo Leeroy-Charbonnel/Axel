@@ -163,7 +163,7 @@ Files are never deleted from disk: rows can go from the `file` table, the bytes
 stay. The one unlink is the rollback of an upload whose row could not be
 written. A row cannot be deleted while `fileRefCountSql` in
 `server/routes/files.ts` counts a reference to it; every new place that holds
-a file id or a `/media` URL is added there. A dev server refuses uploads (503).
+a file id or a `/media` URL is added there.
 
 # Pages carry their content
 

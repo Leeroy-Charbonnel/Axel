@@ -9,7 +9,7 @@ import {
   experiencePatch, galleryProjectPatch, mainProjectPatch, orderBody, profilePatch,
   projectSoftwareBody, softwareCreate, softwarePatch,
 } from "../validation"
-import { receiveCv, receiveMedia, recordUpload, requireProdStorage } from "../uploads"
+import { receiveCv, receiveMedia, recordUpload } from "../uploads"
 import { fileRefCount } from "./files"
 
 //PORTFOLIO MUTATIONS, all admin only. PUT takes a partial body checked
@@ -156,7 +156,6 @@ contentRouter.delete("/api/experience/:id", requireAdmin, async (req, res) => {
 //multipart: the logo file plus the key and url fields, one round-trip. A
 //refused field or a taken key rolls the stored logo back.
 contentRouter.post("/api/software", requireAdmin, async (req, res) => {
-  requireProdStorage()
   const logo = await receiveMedia("logo", req, res)
   let created: typeof software.$inferSelect | undefined
   await recordUpload(logo, adminId(res), async (tx, fileRow) => {
@@ -215,7 +214,6 @@ contentRouter.put("/api/profile", requireAdmin, async (req, res) => {
 //CV upload, multipart field "file", PDF only. Answers the file row and its url;
 //PUT /api/profile { cvFileId: null } detaches it.
 contentRouter.post("/api/profile/cv", requireAdmin, async (req, res) => {
-  requireProdStorage()
   const cv = await receiveCv(req, res)
   const row = await recordUpload(cv, adminId(res), async (tx, fileRow) => {
     const updated = await tx.update(profile).set({ cvFileId: fileRow.id }).returning({ id: profile.id })
