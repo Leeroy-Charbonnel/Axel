@@ -82,8 +82,44 @@
   --vsui-shadow:    0 4px 12px rgba(0, 0, 0, 0.08);
   --vsui-shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.15);
 
-  /*BREAKPOINTS (used in CSS only as reference; the JS breakpoint lives in useIsMobile)*/
+  /*BREAKPOINTS - reference only, media queries cannot read variables:
+  phone <= 640px, tablet 641px-1024px, desktop > 1024px*/
   --vsui-bp-mobile: 720px;
+
+  /*SITE TYPE SCALE - fluid, one scale for every public page*/
+  --site-font:        "Montserrat Variable", system-ui, sans-serif;
+  --site-fs-display:  clamp(2.75rem, 1.6rem + 5.2vw, 6rem);
+  --site-fs-h1:       clamp(2rem, 1.4rem + 2.6vw, 3.5rem);
+  --site-fs-h2:       clamp(1.5rem, 1.2rem + 1.4vw, 2.25rem);
+  --site-fs-h3:       clamp(1.125rem, 1rem + 0.6vw, 1.375rem);
+  --site-fs-body:     clamp(0.95rem, 0.9rem + 0.2vw, 1.0625rem);
+  --site-fs-small:    0.875rem;
+  --site-fs-label:    0.75rem;
+  --site-lh-tight:    1.1;
+  --site-lh-body:     1.65;
+  --site-tracking-label:   0.18em;
+  --site-tracking-heading: 0.08em;
+
+  /*SITE LAYOUT - 12-column editorial grid*/
+  --site-max-width:   1280px;
+  --site-text-width:  68ch;
+  --site-gutter:      clamp(16px, 4vw, 64px);
+  --site-columns:     12;
+  --site-col-gap:     clamp(16px, 2vw, 32px);
+  --site-section-gap: clamp(72px, 10vw, 160px);
+  --site-touch-target: 44px;
+
+  /*SITE MOTION - one reveal for the whole site, off under reduced motion*/
+  --site-reveal-distance: 12px;
+  --site-reveal-duration: 0.6s;
+  --site-ease:            cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --site-reveal-distance: 0px;
+    --site-reveal-duration: 0s;
+  }
 }
 
 /*RESPONSIVE NAV HOST SLOT*/
