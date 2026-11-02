@@ -56,6 +56,8 @@ function setBullets(list: Bilingual[]) {
         <template #item="{ item, index, update }">
           <BilingualField
             :label="`${t('fieldBullet')} ${index + 1}`"
+            multiline
+            :rows="2"
             :model-value="item"
             @update:model-value="update"
           />

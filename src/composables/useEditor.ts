@@ -181,9 +181,9 @@ async function saveAll(): Promise<boolean> {
       }
     }
     await portfolio.reload()
-    //saved fields now equal the fresh data and fall away; failed ones stay
+    //saved fields now equal the fresh data and fall away; failed ones stay, with their history
     for (const key of Object.keys(drafts.value)) prune(key)
-    resetHistory()
+    if (!failed) resetHistory()
   } finally {
     saving.value = false
   }
@@ -191,9 +191,10 @@ async function saveAll(): Promise<boolean> {
   return failed === 0
 }
 
+//confirmed before it runs, so it is final: no undo brings a discarded draft back
 function discardAll() {
-  if (draftCount.value) pushHistory()
   drafts.value = {}
+  resetHistory()
   pageActions.value?.discard()
 }
 

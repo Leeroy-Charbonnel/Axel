@@ -94,6 +94,13 @@ const { t } = useTranslations()
   opacity: 1;
 }
 
+/*the desktop inspector owns the right edge while it is open*/
+@media (min-width: 1025px) {
+  html.editor-inspector-open .vsui-toast-host {
+    right: calc(var(--editor-inspector-width) + var(--vsui-space-lg));
+  }
+}
+
 /*MOBILE - dock at the bottom above the nav*/
 @media (max-width: 720px) {
   .vsui-toast-host {
