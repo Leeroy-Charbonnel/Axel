@@ -27,10 +27,10 @@ import { galleryProjectPatch, mainProjectPatch } from "../server/validation"
 import { measureImage, STORAGE_DIR } from "../server/uploads"
 import { optimizeModel } from "../server/model-optimize"
 import { CASE_STUDY_VIEWS, caseStudyBlocks, type CaseStudyStep, type CaseStudyView, type ModelShape } from "../src/lib/case-study"
+import { sheetBlocks, type SheetImage } from "../src/lib/project-sheet"
 import { CAMERA_FOV } from "../src/three/autoSetup"
 
 const VIEW = "Default"
-const THUMBNAILS = 3
 
 const MIME: Record<string, { mime: string; kind: string; dir: string }> = {
   ".jpg":  { mime: "image/jpeg",        kind: "image", dir: "images" },
@@ -79,6 +79,28 @@ const processManifest = z.object({
   steps: z.array(processStep),
   outro: bilingual,
   evolution: z.array(z.object({ image: z.string().min(1), label: bilingual })).optional(),
+})
+
+//THE TECHNICAL PLAN of a project, sheet/sheet.json: every path is inside sheet/
+const labelled = z.object({ image: z.string().min(1), label: bilingual })
+const sheetManifest = z.object({
+  intro:     bilingual.optional(),
+  plans:     z.object({ image: z.string().min(1), text: bilingual.optional() }),
+  section:   z.object({ image: z.string().min(1), legend: z.array(bilingual) }).optional(),
+  blocking:  z.object({ images: z.array(z.string().min(1)), video: z.string().min(1).optional(), text: bilingual.optional() }).optional(),
+  exploded:  z.object({ image: z.string().min(1), legend: z.array(bilingual), text: bilingual.optional() }).optional(),
+  wood:      z.object({ image: z.string().min(1), detail: z.string().min(1).optional(), legend: z.array(bilingual) }).optional(),
+  shaders:   z.array(z.object({ title: bilingual, steps: z.array(labelled) })).default([]),
+  materials: z.array(z.object({
+    image: z.string().min(1),
+    name:  bilingual,
+    rows:  z.array(z.object({ label: bilingual, value: z.coerce.string() })),
+  })).default([]),
+  maps:      z.array(labelled).default([]),
+  uv:        z.string().min(1).optional(),
+  process:   z.array(labelled).default([]),
+  specs:     z.array(z.object({ label: bilingual, value: bilingual })).default([]),
+  outro:     bilingual.optional(),
 })
 
 //height over the larger footprint side above which an object is tall, and the
@@ -219,14 +241,18 @@ async function importMain(dir: string, uploader: string, startRight: boolean): P
     console.log(`  ${m.slug}: GLB ${(report.bytesBefore / 1048576).toFixed(1)} MB -> ${(report.bytesAfter / 1048576).toFixed(1)} MB`)
   }
 
-  //the card shows three thumbnails; the page's carousel shows every detail
-  const thumbnails = detailIds.slice(0, THUMBNAILS).map((fileId, i) => ({ fileId, wireframeFileId: detailWireIds[i] ?? null, description: m.title }))
+  //the home card shows the first three, the project's page every one
+  const thumbnails = detailIds.map((fileId, i) => ({ fileId, wireframeFileId: detailWireIds[i] ?? null, description: m.title }))
+  //the technical plan when the folder has one, else the making-of
+  const sheet = has("sheet/sheet.json")
+    ? await importSheet(sheetManifest.parse(JSON.parse(readFileSync(join(dir, "sheet", "sheet.json"), "utf8"))), (name) => put(`sheet/${name}`), model!.id)
+    : null
   const values = mainProjectPatch.required().parse({
     title: m.title, description: m.description, published: true, role: m.role, year: m.year,
     mainImageFileId: mainId, mainWireframeFileId: wireId,
     model3dId: model!.id, model3dDesktopView: VIEW, model3dMobileView: VIEW,
     thumbnails,
-    detailPage: { blocks: caseStudyBlocks({
+    detailPage: { blocks: sheet ?? caseStudyBlocks({
       modelId: model!.id, view: VIEW, shape: shapeOf(bounds), mainId, wireId, detailIds, videoId, views: shots,
       intro: story?.intro ?? null, steps, outro: story?.outro ?? null, startRight, evolution,
     }) },
@@ -248,6 +274,39 @@ async function importMain(dir: string, uploader: string, startRight: boolean): P
   await db.delete(mainProjectSoftware).where(eq(mainProjectSoftware.mainProjectId, id))
   if (picked.length) await db.insert(mainProjectSoftware).values(picked.map((t, i) => ({ mainProjectId: id, softwareId: t.id, sortOrder: i })))
   return id
+}
+
+//the files of sheet/sheet.json stored, and the page they lay out
+async function importSheet(s: z.infer<typeof sheetManifest>, put: (name: string) => Promise<string>, modelId: string) {
+  const images = async (list: z.infer<typeof labelled>[]): Promise<SheetImage[]> => {
+    const out: SheetImage[] = []
+    for (const i of list) out.push({ fileId: await put(i.image), caption: i.label })
+    return out
+  }
+  const blockingIds: string[] = []
+  for (const name of s.blocking?.images ?? []) blockingIds.push(await put(name))
+  const shaders = []
+  for (const shader of s.shaders) shaders.push({ title: shader.title, steps: await images(shader.steps) })
+  const materials = []
+  for (const mat of s.materials) materials.push({ fileId: await put(mat.image), name: mat.name, rows: mat.rows })
+  return sheetBlocks({
+    modelId, view: VIEW,
+    intro:    s.intro ?? null,
+    plans:    { fileId: await put(s.plans.image), text: s.plans.text ?? null },
+    section:  s.section ? { fileId: await put(s.section.image), legend: s.section.legend } : null,
+    blocking: s.blocking
+      ? { imageIds: blockingIds, videoId: s.blocking.video ? await put(s.blocking.video) : null, text: s.blocking.text ?? null }
+      : null,
+    exploded: s.exploded ? { fileId: await put(s.exploded.image), legend: s.exploded.legend, text: s.exploded.text ?? null } : null,
+    wood:     s.wood ? { fileId: await put(s.wood.image), detailId: s.wood.detail ? await put(s.wood.detail) : null, legend: s.wood.legend } : null,
+    shaders,
+    materials,
+    maps:     await images(s.maps),
+    uvId:     s.uv ? await put(s.uv) : null,
+    process:  await images(s.process),
+    specs:    s.specs,
+    outro:    s.outro ?? null,
+  })
 }
 
 async function importGallery(dir: string, uploader: string): Promise<number> {

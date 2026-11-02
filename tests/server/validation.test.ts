@@ -3,6 +3,7 @@ import { detailBlock, mainProjectPatch } from "../../server/validation"
 import { llmsFullTxt, projectPage } from "../../server/seo"
 import { BLOCK_TYPES } from "../../src/components/portfolio/detail/block-types"
 import { CASE_STUDY_VIEWS, caseStudyBlocks } from "../../src/lib/case-study"
+import { sheetBlocks, type SheetMedia } from "../../src/lib/project-sheet"
 import type { DetailBlock, MainProjectDto, PortfolioDto } from "../../src/types/portfolio"
 
 const ID = "7004bd48-4c6b-43da-9bb3-c63a1e64e0cc"
@@ -38,6 +39,28 @@ describe("detail block content schemas", () => {
                 videoId: intro ? ID : null, views, intro, steps: stepList, outro: intro, startRight,
                 evolution: intro ? [{ fileId: ID, label: text }, { fileId: ID, label: text }] : [],
               }))
+    //a sheet with everything, and with each optional band missing in turn
+    const img = { fileId: ID, caption: text }
+    const full: SheetMedia = {
+      modelId: ID, view: "Default", intro: text,
+      plans: { fileId: ID, text }, section: { fileId: ID, legend: [text, text] },
+      blocking: { imageIds: [ID, ID], videoId: ID, text },
+      exploded: { fileId: ID, legend: [text], text },
+      wood: { fileId: ID, detailId: ID, legend: [text] },
+      shaders: [{ title: text, steps: [img, img] }],
+      materials: [{ fileId: ID, name: text, rows: [{ label: text, value: "0.35" }] }],
+      maps: [img], uvId: ID, process: [img, img], specs: [{ label: text, value: text }], outro: text,
+    }
+    const cuts: Partial<SheetMedia>[] = [
+      {}, { intro: null, outro: null }, { section: null }, { plans: { fileId: ID, text: null }, section: null },
+      { blocking: null }, { blocking: { imageIds: [ID], videoId: null, text: null } },
+      { blocking: { imageIds: [ID, ID], videoId: null, text } }, { blocking: { imageIds: [], videoId: ID, text: null } },
+      { exploded: null }, { exploded: { fileId: ID, legend: [], text: null } },
+      { wood: null }, { wood: null, shaders: [] }, { wood: { fileId: ID, detailId: null, legend: [] } },
+      { materials: [] }, { maps: [] }, { uvId: null }, { materials: [], maps: [], uvId: null },
+      { process: [] }, { specs: [] }, { specs: [], outro: null },
+    ]
+    for (const cut of cuts) pages.push(sheetBlocks({ ...full, ...cut }))
     for (const blocks of pages) {
       expect(mainProjectPatch.safeParse({ detailPage: { blocks } }).success).toBe(true)
       //every cell of every row is covered exactly once: no hole, no overlap
