@@ -3,9 +3,15 @@ import {
   Box, Columns2, Film, GalleryHorizontalEnd, Hash, Heading1, ImageIcon, Images,
   ListCollapse, MonitorPlay, MousePointerClick, Quote, Table, Type,
 } from "lucide-vue-next"
+import { embedSrc } from "../../../lib/embed"
+import { pickBilingual } from "../../../lib/markdown"
+import { safeUrl } from "../../../lib/safe-url"
+import type { Lang } from "../../../lib/lang"
 import type {
-  CarouselBlockContent, CompareBlockContent, DetailBlock, DetailBlockContent, DetailBlockType,
-  ImageBlockContent, MarqueeBlockContent, VideoBlockContent,
+  AccordionBlockContent, ButtonBlockContent, CarouselBlockContent, CompareBlockContent,
+  CountersBlockContent, DetailBlock, DetailBlockContent, DetailBlockType, EmbedBlockContent,
+  ImageBlockContent, MarqueeBlockContent, Model3dDto, SpecsBlockContent, TextBlockContent,
+  VideoBlockContent, Viewer3dBlockContent,
 } from "../../../types/portfolio"
 
 //BLOCK TYPE REGISTRY - one entry per type: label key, icon, the size a new
@@ -78,5 +84,51 @@ export function storedContent(b: DetailBlock): DetailBlockContent {
     }
     default:
       return b.content
+  }
+}
+
+//the blocks whose media takes the size of the cell; every other block is
+//text, and its cell grows to fit it
+export const FILL_TYPES: ReadonlySet<DetailBlockType> = new Set([
+  "image", "video", "carousel", "marquee", "compare", "embed", "viewer3d",
+])
+
+//whether a visitor has anything to see in this block: an unfinished one is
+//left out of the public page, and only the editor shows its placeholder
+export function hasContent(b: DetailBlock, lang: Lang, models: Model3dDto[]): boolean {
+  const filled = (t: Parameters<typeof pickBilingual>[0]) => pickBilingual(t, lang).trim() !== ""
+  switch (b.type) {
+    case "text":
+    case "heading":
+    case "quote":
+      return filled((b.content as TextBlockContent).text)
+    case "image":
+      return Boolean((b.content as ImageBlockContent).url)
+    case "video":
+      return Boolean((b.content as VideoBlockContent).url)
+    case "carousel":
+      return (b.content as CarouselBlockContent).items.some((i) => i.url)
+    case "marquee":
+      return (b.content as MarqueeBlockContent).items.some((i) => i.url)
+    case "compare": {
+      const c = b.content as CompareBlockContent
+      return Boolean(c.beforeUrl && c.afterUrl)
+    }
+    case "accordion":
+      return (b.content as AccordionBlockContent).items.some((i) => filled(i.title) || filled(i.body))
+    case "specs":
+      return (b.content as SpecsBlockContent).rows.some((r) => filled(r.label) || filled(r.value))
+    case "counters":
+      return (b.content as CountersBlockContent).items.length > 0
+    case "button": {
+      const c = b.content as ButtonBlockContent
+      return filled(c.label) && safeUrl(c.url) !== null
+    }
+    case "embed":
+      return embedSrc((b.content as EmbedBlockContent).url) !== null
+    case "viewer3d": {
+      const id = (b.content as Viewer3dBlockContent).model3dId
+      return models.some((m) => m.id === id && m.glbUrl)
+    }
   }
 }

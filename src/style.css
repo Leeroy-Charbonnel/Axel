@@ -78,9 +78,9 @@ named token below derives from these, so the accent_color setting (written to
   --site-skeleton-title:  14rem;
   --site-still-aspect:  16 / 9;
   --site-gallery-aspect: 4 / 3;
-  --site-hero-min-height: min(100svh, 56rem);
   --site-fw-display:    800;
   --site-name-fit:      19cqi;
+  --site-email-fit:     7cqi;
   --site-tracking-display: 0.01em;
   --site-duration-fast: 0.18s;
 

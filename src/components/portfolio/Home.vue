@@ -77,10 +77,11 @@ const featuredTitle = computed(() => pickBilingual(props.featured?.title, lang.v
 </template>
 
 <style scoped>
+/*a full gap above, the same gap below as between every other section*/
 .hero {
   display: flex;
   align-items: center;
-  min-height: var(--site-hero-min-height);
+  padding-top: var(--site-section-gap);
 }
 
 .hero__grid {
@@ -176,7 +177,7 @@ const featuredTitle = computed(() => pickBilingual(props.featured?.title, lang.v
 .hero__caption-year { font-variant-numeric: tabular-nums; }
 
 @media (max-width: 1024px) {
-  .hero { min-height: 0; }
+  .hero { padding-top: calc(var(--site-section-gap) / 2); }
   .hero__grid { grid-template-columns: minmax(0, 1fr); }
 }
 </style>

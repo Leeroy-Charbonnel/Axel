@@ -5,6 +5,7 @@ import ToastHost from "./components/ToastHost.vue"
 import ConfirmDialog from "./components/ConfirmDialog.vue"
 import { useLanguage } from "./composables/useLanguage"
 import SideNav      from "./components/portfolio/SideNav.vue"
+import SiteFooter   from "./components/portfolio/SiteFooter.vue"
 import EditBar      from "./components/admin/EditBar.vue"
 import Inspector    from "./components/admin/Inspector.vue"
 import MediaLibraryDialog from "./components/admin/media/MediaLibraryDialog.vue"
@@ -37,6 +38,7 @@ watchEffect(() => {
 
     <main class="portfolio-app__main">
       <RouterView />
+      <SiteFooter v-if="withChrome" />
     </main>
 
     <div class="grain-overlay"></div>
@@ -62,10 +64,13 @@ watchEffect(() => {
 }
 
 /*main stays in the root stacking context so media inside it can sit above the
-grain (see .grain-overlay in style.css)*/
+grain (see .grain-overlay in style.css); a column, so the footer keeps the
+bottom of a short page*/
 .portfolio-app__main {
   position: relative;
   flex: 1 0 auto;
+  display: flex;
+  flex-direction: column;
 }
 
 /*room for the rail on desktop, for the top bar below*/

@@ -18,6 +18,11 @@ const { t } = useLanguage()
 
 const email   = computed(() => props.profile.contact.email.trim().toLowerCase())
 const mailto  = computed(() => (email.value ? safeUrl(`mailto:${email.value}`) : null))
+//a line break, when one is needed, goes before the @ and nowhere else
+const emailParts = computed(() => {
+  const at = email.value.lastIndexOf("@")
+  return at < 0 ? [email.value, ""] : [email.value.slice(0, at), email.value.slice(at)]
+})
 //the stored url is site-relative (/media/...): resolve it before the check
 const cvHref  = computed(() => (props.profile.cvUrl ? safeUrl(new URL(props.profile.cvUrl, window.location.origin).href) : null))
 //a tel: link built from the digits only, so nothing else can ride along
@@ -34,7 +39,7 @@ const telHref = computed(() => (phone.value ? `tel:${phone.value.replace(/[^\d+]
         <EditableRegion kind="profile" :label="t('editorKindProfile')">
           <div class="contact">
             <p class="contact__lead">{{ t("contactLead") }}</p>
-            <a v-if="mailto" :href="mailto" class="contact__email">{{ email }}</a>
+            <a v-if="mailto" :href="mailto" class="contact__email">{{ emailParts[0] }}<wbr>{{ emailParts[1] }}</a>
 
             <div class="contact__details">
               <Availability :profile="profile" />
@@ -59,6 +64,7 @@ const telHref = computed(() => (phone.value ? `tel:${phone.value.replace(/[^\d+]
 
 <style scoped>
 .contact {
+  container-type: inline-size;
   display: flex;
   flex-direction: column;
   gap: var(--spacing-lg);
@@ -72,11 +78,12 @@ const telHref = computed(() => (phone.value ? `tel:${phone.value.replace(/[^\d+]
 .contact__email {
   align-self: flex-start;
   max-width: 100%;
-  font-size: var(--site-fs-h1);
+  /*as large as the column lets a usual address run on one line*/
+  font-size: clamp(var(--site-fs-h3), var(--site-email-fit), var(--site-fs-h1));
   font-weight: var(--site-fw-display);
   line-height: var(--site-lh-tight);
   color: var(--site-text-heading);
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
   text-decoration: underline;
   text-decoration-thickness: var(--border-width-sm);
   text-decoration-color: var(--site-accent);

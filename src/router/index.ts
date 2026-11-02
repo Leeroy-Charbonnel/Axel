@@ -39,6 +39,9 @@ const router = createRouter({
     { path: "/login",           component: () => import("../pages/LoginPage.vue") },
     { path: "/forgot-password", component: () => import("../pages/ForgotPasswordPage.vue") },
     { path: "/reset-password",  component: () => import("../pages/ResetPasswordPage.vue") },
+
+    //anything else: a real page saying so, with the site around it
+    { path: "/:pathMatch(.*)*", component: () => import("../pages/NotFoundPage.vue") },
   ],
 })
 

@@ -95,6 +95,7 @@
   --site-fs-body:     clamp(0.95rem, 0.9rem + 0.2vw, 1.0625rem);
   --site-fs-small:    0.875rem;
   --site-fs-label:    0.75rem;
+  --site-fs-rail:     0.8125rem;
   --site-lh-tight:    1.1;
   --site-lh-body:     1.65;
   --site-tracking-label:   0.18em;
@@ -106,7 +107,7 @@
   --site-gutter:      clamp(16px, 4vw, 64px);
   --site-columns:     12;
   --site-col-gap:     clamp(16px, 2vw, 32px);
-  --site-section-gap: clamp(72px, 10vw, 160px);
+  --site-section-gap: clamp(72px, 8vw, 128px);
   --site-touch-target: 44px;
 
   /*SITE MOTION - one reveal for the whole site, off under reduced motion*/
