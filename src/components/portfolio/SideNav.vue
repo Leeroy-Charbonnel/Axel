@@ -1,144 +1,254 @@
 <script setup lang="ts">
-import { computed, onMounted, onBeforeUnmount, ref } from "vue"
+import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue"
+import { useRoute } from "vue-router"
+import { Menu, X } from "lucide-vue-next"
 import { useLanguage } from "../../composables/useLanguage"
+import { usePortfolio } from "../../composables/usePortfolio"
+import { useSectionNav, type SectionId } from "../../composables/useSectionNav"
+import LangSwitch from "./LangSwitch.vue"
 
-//Vertical-text fixed nav. Matches the floating-layout reference: tiny
-//uppercase labels rotated 90deg, flush against the left edge, stacked
-//vertically and centered. Active section follows the scroll position.
-//
-//Labels are computed so they re-evaluate once the translations API call
-//resolves. Without this, `t()` runs once at setup time before the DB
-//returns and labels stay stuck on the raw keys (navHome, navProjects, ...).
-
+//SITE CHROME. Above 1024px: the vertical rail of section labels on the left,
+//the language switch at its foot. At 1024px and below: a top bar with the name
+//and a menu button opening a modal <dialog> (focus held inside, Escape closes,
+//focus returns to the button).
 const { t } = useLanguage()
+const { data } = usePortfolio()
+const { sections, activeId, go } = useSectionNav()
+const route = useRoute()
 
-const sections = computed(() => [
-  { id: "home",       label: t("navHome") },
-  { id: "projects",   label: t("navProjects") },
-  { id: "gallery",    label: t("navGallery") },
-  { id: "experience", label: t("navExperience") },
-])
+const name = computed(() => data.value?.profile?.name ?? "")
+const onHome = computed(() => route.path === "/")
 
-const activeId = ref("home")
+const menu = ref<HTMLDialogElement | null>(null)
+const menuOpen = ref(false)
 
-function handleScroll() {
-  const scrollY = window.scrollY
-  for (const section of sections.value) {
-    const el = document.getElementById(section.id)
-    if (!el) continue
-    const top = el.offsetTop
-    const bottom = top + el.offsetHeight
-    if (scrollY >= top - 100 && scrollY < bottom - 100) {
-      activeId.value = section.id
-      break
-    }
-  }
+function openMenu() {
+  menu.value?.showModal()
+  menuOpen.value = true
 }
 
-function scrollTo(id: string) {
-  const el = document.getElementById(id)
-  if (!el) return
-  window.scrollTo({ top: el.offsetTop, behavior: "smooth" })
+//Escape arrives as a cancel event, prevented and routed here so the state never drifts
+function closeMenu() {
+  menu.value?.close()
+  menuOpen.value = false
 }
 
-onMounted(() => {
-  window.addEventListener("scroll", handleScroll, { passive: true })
-  handleScroll()
-})
+function pick(id: SectionId) {
+  closeMenu()
+  go(id)
+}
 
-onBeforeUnmount(() => {
-  window.removeEventListener("scroll", handleScroll)
-})
+//a resize to desktop leaves no menu open behind the rail
+const desktop = typeof window !== "undefined" ? window.matchMedia("(min-width: 1025px)") : null
+function onDesktopChange(e: MediaQueryListEvent) { if (e.matches) closeMenu() }
+onMounted(() => desktop?.addEventListener("change", onDesktopChange))
+onBeforeUnmount(() => desktop?.removeEventListener("change", onDesktopChange))
+watch(() => route.fullPath, closeMenu)
 </script>
 
 <template>
-  <nav class="side-nav" aria-label="Sections">
-    <button
-      v-for="section in sections"
-      :key="section.id"
-      type="button"
-      class="side-nav__link"
-      :class="{ 'side-nav__link--active': activeId === section.id }"
-      @click="scrollTo(section.id)"
-    >
-      {{ section.label }}
-    </button>
+  <!--DESKTOP RAIL-->
+  <nav class="rail" :aria-label="t('navSections')">
+    <ul class="rail__list">
+      <li v-for="section in sections" :key="section.id">
+        <a
+          :href="`/#${section.id}`"
+          class="rail__link"
+          :aria-current="onHome && activeId === section.id ? 'true' : undefined"
+          @click.prevent="go(section.id)"
+        >{{ t(section.labelKey) }}</a>
+      </li>
+    </ul>
+    <LangSwitch class="rail__lang" />
   </nav>
+
+  <!--TABLET AND PHONE TOP BAR-->
+  <header class="topbar">
+    <a href="/#home" class="topbar__name" @click.prevent="go('home')">{{ name }}</a>
+    <button
+      type="button"
+      class="topbar__menu-button"
+      aria-controls="site-menu"
+      :aria-expanded="menuOpen"
+      :aria-label="t('navMenuOpen')"
+      @click="openMenu"
+    >
+      <Menu aria-hidden="true" />
+    </button>
+  </header>
+
+  <dialog id="site-menu" ref="menu" class="menu" :aria-label="t('navSections')" @cancel.prevent="closeMenu">
+    <div class="menu__head">
+      <span class="topbar__name">{{ name }}</span>
+      <button type="button" class="topbar__menu-button" :aria-label="t('navMenuClose')" @click="closeMenu">
+        <X aria-hidden="true" />
+      </button>
+    </div>
+    <nav :aria-label="t('navSections')">
+      <ul class="menu__list">
+        <li v-for="section in sections" :key="section.id">
+          <a
+            :href="`/#${section.id}`"
+            class="menu__link"
+            :aria-current="onHome && activeId === section.id ? 'true' : undefined"
+            @click.prevent="pick(section.id)"
+          >{{ t(section.labelKey) }}</a>
+        </li>
+      </ul>
+    </nav>
+    <LangSwitch class="menu__lang" />
+  </dialog>
 </template>
 
 <style scoped>
-.side-nav {
+/*RAIL - fixed to the left edge, labels turned to read bottom to top*/
+.rail {
   position: fixed;
-  top: 50%;
-  left: var(--nav-left);
-  transform: translateY(-50%);
-  z-index: 50;
+  top: 0;
+  bottom: var(--editor-bar-offset);
+  left: 0;
+  z-index: var(--site-z-chrome);
   display: flex;
   flex-direction: column;
-  gap: var(--nav-gap);
+  align-items: center;
+  width: var(--site-rail-width);
+  padding-block: var(--spacing-md);
 }
 
-.side-nav__link {
-  color: var(--color-text-tertiary);
-  background: transparent;
-  border: none;
-  padding: 0;
-  font-size: var(--nav-font-size);
-  font-weight: var(--nav-font-weight);
-  letter-spacing: var(--letter-spacing-wide);
-  text-transform: uppercase;
+/*centred in the rail; the language switch keeps the foot, never overlapping*/
+.rail__list {
+  margin-block: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  list-style: none;
+}
+
+.rail__link {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: var(--site-touch-target);
+  padding: var(--spacing-sm) 0;
   writing-mode: vertical-rl;
   transform: rotate(180deg);
-  cursor: pointer;
-  transition: color var(--transition-fast) ease;
-  font-family: inherit;
+  font-size: var(--site-fs-label);
+  font-weight: var(--font-weight-bold);
+  letter-spacing: var(--site-tracking-label);
+  text-transform: uppercase;
+  color: var(--site-text-caption);
+  transition: color var(--site-duration-fast) ease;
 }
 
-.side-nav__link:hover {
-  color: var(--color-text-hover);
+.rail__link:hover { color: var(--site-text-heading); }
+.rail__link[aria-current="true"] { color: var(--site-accent); }
+
+.rail__lang { flex-direction: column; }
+
+/*TOP BAR - hidden on desktop*/
+.topbar {
+  display: none;
 }
 
-.side-nav__link--active {
-  color: var(--color-accent);
+.topbar__name {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--site-touch-target);
+  font-size: var(--site-fs-label);
+  font-weight: var(--site-fw-display);
+  letter-spacing: var(--site-tracking-label);
+  text-transform: uppercase;
+  color: var(--site-text-heading);
 }
 
-/*Mobile - the desktop vertical-text rail doesn't fit on a narrow viewport
-so we re-orient as a horizontal pill bar pinned to the bottom edge. Same
-behaviour, just laid out differently. simulate-phone mirrors the layout
-for the CssVarsPanel preview without needing an actual narrow window.*/
-@media (max-width: 768px) {
-  .side-nav {
-    top:    auto;
-    bottom: var(--spacing-sm);
-    left:   50%;
-    transform: translateX(-50%);
-    flex-direction: row;
-    gap: var(--spacing-md);
-    padding: var(--spacing-xs) var(--spacing-md);
-    background-color: var(--overlay-bg);
-    backdrop-filter: blur(var(--filter-blur));
-    border: var(--border-width-sm) solid var(--color-gray-medium);
-  }
-  .side-nav__link {
-    writing-mode: horizontal-tb;
-    transform: none;
-  }
+.topbar__menu-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--site-touch-target);
+  height: var(--site-touch-target);
+  margin-right: calc(-1 * var(--spacing-sm));
+  color: var(--site-text-heading);
 }
 
-html.simulate-phone .side-nav {
-  top:    auto;
-  bottom: var(--spacing-sm);
-  left:   50%;
-  transform: translateX(-50%);
-  flex-direction: row;
-  gap: var(--spacing-md);
-  padding: var(--spacing-xs) var(--spacing-md);
-  background-color: var(--overlay-bg);
+.topbar__menu-button svg {
+  width: var(--site-icon);
+  height: var(--site-icon);
+}
+
+/*MENU - a full-screen modal dialog*/
+.menu {
+  width: 100%;
+  max-width: none;
+  height: 100%;
+  max-height: none;
+  padding: 0 var(--site-gutter) var(--spacing-xl);
+  border: none;
+  background-color: var(--site-scrim);
+  color: var(--site-text-heading);
   backdrop-filter: blur(var(--filter-blur));
-  border: var(--border-width-sm) solid var(--color-gray-medium);
 }
-html.simulate-phone .side-nav__link {
-  writing-mode: horizontal-tb;
-  transform: none;
+
+.menu[open] {
+  display: flex;
+  flex-direction: column;
+}
+
+.menu::backdrop { background-color: transparent; }
+
+.menu__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: var(--site-topbar-height);
+  border-bottom: var(--border-width-sm) solid var(--site-line);
+}
+
+.menu__list {
+  display: flex;
+  flex-direction: column;
+  padding-block: var(--spacing-xl);
+  list-style: none;
+}
+
+.menu__link {
+  display: flex;
+  align-items: center;
+  min-height: var(--site-touch-target);
+  padding-block: var(--spacing-xs);
+  font-size: var(--site-fs-h2);
+  font-weight: var(--site-fw-display);
+  letter-spacing: var(--site-tracking-heading);
+  text-transform: uppercase;
+  color: var(--site-text-heading);
+  transition: color var(--site-duration-fast) ease;
+}
+
+.menu__link:hover,
+.menu__link[aria-current="true"] { color: var(--site-accent); }
+
+.menu__lang {
+  margin-top: auto;
+  margin-left: calc(-1 * var(--spacing-sm));
+}
+
+@media (max-width: 1024px) {
+  .rail { display: none; }
+
+  .topbar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: var(--site-z-chrome);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: var(--site-topbar-height);
+    padding-inline: var(--site-gutter);
+    border-bottom: var(--border-width-sm) solid var(--site-line);
+    background-color: var(--site-backdrop);
+    backdrop-filter: blur(var(--filter-blur));
+  }
 }
 </style>

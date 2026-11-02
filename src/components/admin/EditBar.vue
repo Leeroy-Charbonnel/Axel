@@ -1,10 +1,9 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch, type Component } from "vue"
 import { useRoute, useRouter } from "vue-router"
-import { Box, Ellipsis, Eraser, LogOut, Paintbrush, Pencil, PencilOff, Redo2, Save, SlidersHorizontal, Undo2 } from "lucide-vue-next"
+import { Box, Ellipsis, Eraser, LogOut, Pencil, PencilOff, Redo2, Save, SlidersHorizontal, Undo2 } from "lucide-vue-next"
 import { useEditor } from "../../composables/useEditor"
 import { useAdmin } from "../../composables/useAdmin"
-import { useCssVarsPanel } from "../../composables/useCssVarsPanel"
 import { useTranslations } from "../../composables/useTranslations"
 
 //THE ADMIN BAR - the one place the admin edits from. In read mode a small
@@ -15,7 +14,6 @@ import { useTranslations } from "../../composables/useTranslations"
 const editor = useEditor()
 const { editMode, editLang, status, dirty, saving, canUndo, canRedo } = editor
 const { isAdmin, signOut } = useAdmin()
-const { show: showCssPanel } = useCssVarsPanel()
 const { t } = useTranslations()
 const route  = useRoute()
 const router = useRouter()
@@ -31,7 +29,6 @@ interface MenuEntry { key: string; icon: Component; labelKey: string; run: () =>
 const MENU: MenuEntry[] = [
   { key: "settings", icon: SlidersHorizontal, labelKey: "editorMenuSettings", run: () => { void router.push("/settings") } },
   { key: "models",   icon: Box,               labelKey: "editorMenuModels",   run: () => { void router.push({ path: "/settings", query: { tab: "models" } }) } },
-  { key: "css",      icon: Paintbrush,        labelKey: "editorMenuCss",      run: showCssPanel },
   { key: "signout",  icon: LogOut,            labelKey: "signOut",            run: () => { void onSignOut() }, danger: true },
 ]
 
