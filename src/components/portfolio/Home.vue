@@ -4,6 +4,7 @@ import { ArrowDown } from "lucide-vue-next"
 import { useLanguage } from "../../composables/useLanguage"
 import { useSectionNav } from "../../composables/useSectionNav"
 import { IMAGE_SIZES } from "../../lib/media"
+import { pickBilingual } from "../../lib/markdown"
 import EditableRegion from "../admin/EditableRegion.vue"
 import SiteImage from "../SiteImage.vue"
 import Availability from "./Availability.vue"
@@ -24,6 +25,7 @@ const nameParts = computed(() => {
 })
 const headline = computed(() => props.profile.headline[lang.value])
 const pitch    = computed(() => props.profile.pitch[lang.value])
+const featuredTitle = computed(() => pickBilingual(props.featured?.title, lang.value))
 </script>
 
 <template>
@@ -57,7 +59,7 @@ const pitch    = computed(() => props.profile.pitch[lang.value])
         <div class="hero__frame site-frame">
           <SiteImage
             :src="featured.mainImageUrl"
-            :alt="featured.title[lang]"
+            :alt="featuredTitle"
             :sizes="IMAGE_SIZES.hero"
             loading="eager"
             fetchpriority="high"
@@ -66,7 +68,7 @@ const pitch    = computed(() => props.profile.pitch[lang.value])
         </div>
         <figcaption class="hero__caption">
           <span class="site-eyebrow">{{ t("heroFeatured") }}</span>
-          <RouterLink :to="`/project/${featured.id}`" class="hero__caption-link">{{ featured.title[lang] }}</RouterLink>
+          <RouterLink :to="`/project/${featured.id}`" class="hero__caption-link">{{ featuredTitle }}</RouterLink>
           <span v-if="featured.year" class="hero__caption-year">{{ featured.year }}</span>
         </figcaption>
       </figure>

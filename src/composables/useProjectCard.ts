@@ -4,12 +4,11 @@ import { useIsMobile } from "./useIsMobile"
 import { useLanguage } from "./useLanguage"
 import { useLightbox } from "./useLightbox"
 import { usePortfolio } from "./usePortfolio"
-import { statRows } from "../lib/portfolio-utils"
+import { pickBilingual } from "../lib/markdown"
 import type { MainProjectDto, ThumbnailDto } from "../types/portfolio"
 
 //WHAT A PROJECT CARD KNOWS BEYOND ITS MARKUP: the 3D model it can open, the
-//still it shows (lit or wireframe), the slides it hands the lightbox, and its
-//spec strip.
+//still it shows (lit or wireframe) and the slides it hands the lightbox.
 export function useProjectCard(project: Ref<MainProjectDto>) {
   const { lang, t } = useLanguage()
   const { data: portfolioData } = usePortfolio()
@@ -27,9 +26,10 @@ export function useProjectCard(project: Ref<MainProjectDto>) {
   const stillUrl      = computed(() =>
     showWireframe.value && project.value.mainWireframeUrl ? project.value.mainWireframeUrl : project.value.mainImageUrl)
 
-  const title = computed(() => project.value.title[lang.value])
-  const role  = computed(() => project.value.role[lang.value])
-  const stats = computed(() => statRows(project.value.stats, lang.value, t))
+  //the other language when this one is empty, as on the project page
+  const title       = computed(() => pickBilingual(project.value.title, lang.value))
+  const role        = computed(() => pickBilingual(project.value.role, lang.value))
+  const description = computed(() => pickBilingual(project.value.description, lang.value))
 
   const slides = computed(() => {
     const list: { url: string; alt: string }[] = []
@@ -49,5 +49,5 @@ export function useProjectCard(project: Ref<MainProjectDto>) {
     openLightbox(slides.value, slides.value.findIndex((s) => s.url === thumb.url))
   }
 
-  return { lang, t, title, role, stats, viewerSettings, glbUrl, showWireframe, hasWireframe, stillUrl, openStill, openThumbnail }
+  return { lang, t, title, role, description, viewerSettings, glbUrl, showWireframe, hasWireframe, stillUrl, openStill, openThumbnail }
 }

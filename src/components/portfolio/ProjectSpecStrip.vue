@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { computed } from "vue"
-import { useTranslations } from "../../../composables/useTranslations"
-import { statRows } from "../../../lib/portfolio-utils"
-import type { Lang } from "../../../lib/lang"
-import type { ProjectStats } from "../../../types/portfolio"
+import { useTranslations } from "../../composables/useTranslations"
+import { statRows } from "../../lib/portfolio-utils"
+import type { Lang } from "../../lib/lang"
+import type { ProjectStats } from "../../types/portfolio"
 
 //THE SPEC STRIP - full labels over the counts (statRows leaves out a count
 //of zero). Each cell's 1px ring fills the 1px gap with its neighbour's, so
