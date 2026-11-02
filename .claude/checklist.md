@@ -1,12 +1,10 @@
 # Checklist
-Maj 06:45 - 21/26
+Maj 07:20 - 22/26
 
 ## En cours
-- [~] W7 corrections de l'audit design (agent)
 - [~] W8 correctifs de l'audit de code : modeles des projets non publies exposes, blocs malformes -> 500, cache vidable anonymement, optimisation GLB bloquante, encodages d'images, CSRF (agent)
 
 ## A faire
-- [ ] Passe navigateur desktop / tablette / telephone
 - [ ] Tester une vraie sauvegarde admin (inspecteur, bento, editeur 3D)
 - [ ] Mettre a jour CLAUDE.md / SETUP.md (etat constate)
 
@@ -14,6 +12,8 @@ Maj 06:45 - 21/26
 - [!] Contenu a reecrire par Axel : textes humoristiques, lorem du projet 1, stats copiees de 6 cartes galerie, SOFTWARE 6, interets en anglais (contenu, pas du code)
 
 ## Fait
+- [x] W7 corrections design : blocs qui grandissent avec leur contenu, blocs vides caches au public, pages projet sans blocs illustrees, vrai 404, pied de page partout, email sur une ligne, rythme des sections, cartes alignees, rail lisible
+- [x] Passe visuelle 375 / 768 / 1024 / 1440 (captures CDP relues)
 - [x] Audit de code et securite a froid (1 haute, 4 moyennes, 7 basses ; traversal, injection HTML, filtrage publication et auth tiennent)
 - [x] W6 images responsives : route WebP/JPEG redimensionnee + cache, dimensions stockees, SiteImage partout, accueil 53.7 Mo -> 177 Ko (1440 px), heritage supprime (5 colonnes + layout), avatar rapatrie, avertissements 3D traduits
 - [x] Audit design a l'aveugle (captures CDP a 375 / 768 / 1024 / 1440)
