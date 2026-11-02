@@ -12,7 +12,6 @@ import DetailGrid from "../components/portfolio/detail/DetailGrid.vue"
 import BentoEditor from "../components/portfolio/detail/BentoEditor.vue"
 import ProjectMedia from "../components/portfolio/ProjectMedia.vue"
 import MainProject from "../components/portfolio/MainProject.vue"
-import SoftwareChips from "../components/portfolio/SoftwareChips.vue"
 import { hasContent, storedContent } from "../components/portfolio/detail/block-types"
 import NotFoundPage from "./NotFoundPage.vue"
 import type { DetailBlock, DetailPage } from "../types/portfolio"
@@ -20,8 +19,7 @@ import type { DetailBlock, DetailPage } from "../types/portfolio"
 //PROJECT DETAIL PAGE - a technical plan of the project: its position among
 //the projects, the head (the home card in its page variant: facts, model,
 //every thumbnail), the content blocks (or, while there are none, the model and
-//its thumbnails), the credits (software, role, year) and the previous / next
-//published project. For the admin in edit mode the head is the card's
+//its thumbnails) and the previous / next published project. For the admin in edit mode the head is the card's
 //editable region and the blocks become the bento editor; the blocks are this
 //page's own state, saved through the edit bar.
 
@@ -42,7 +40,6 @@ const projectId = computed(() => Number(route.params.id))
 const source  = computed(() => data.value?.mainProjects.find((p) => p.id === projectId.value) ?? null)
 const project = computed(() => source.value ? editor.display("mainProject", source.value) : null)
 const title   = computed(() => pickBilingual(project.value?.title, shownLang.value))
-const role    = computed(() => pickBilingual(project.value?.role, shownLang.value))
 
 const published = computed(() => (data.value?.mainProjects ?? []).filter((p) => p.published))
 const position  = computed(() => published.value.findIndex((p) => p.id === projectId.value))
@@ -140,6 +137,7 @@ function goBack() {
           <nav class="case__position" :aria-label="t('detailPager')">
             <span v-if="position >= 0">{{ indexLabel }}</span>
             <span v-else class="case__draft">{{ t('detailUnpublished') }}</span>
+            <span v-if="project.year">{{ project.year }}</span>
             <RouterLink v-if="prev" :to="`/project/${prev.id}`" class="case__step" :aria-label="t('detailPrev')">
               <ArrowLeft :size="16" aria-hidden="true" />
             </RouterLink>
@@ -157,22 +155,6 @@ function goBack() {
         <ProjectMedia v-else :project="project" />
       </section>
 
-      <section v-if="role || project.year || project.software.length" class="site-container case__credits" :aria-label="t('detailCredits')">
-        <dl class="case__facts">
-          <div v-if="project.software.length" class="case__fact">
-            <dt>{{ t('detailSoftware') }}</dt>
-            <dd><SoftwareChips :software="project.software" /></dd>
-          </div>
-          <div v-if="role" class="case__fact">
-            <dt>{{ t('detailRole') }}</dt>
-            <dd>{{ role }}</dd>
-          </div>
-          <div v-if="project.year" class="case__fact">
-            <dt>{{ t('detailYear') }}</dt>
-            <dd>{{ project.year }}</dd>
-          </div>
-        </dl>
-      </section>
 
       <nav v-if="prev || next" class="site-container case__pager" :aria-label="t('detailPager')">
         <RouterLink v-if="prev" :to="`/project/${prev.id}`" class="case__pager-link">
@@ -257,34 +239,6 @@ function goBack() {
 }
 .case__step:hover { color: var(--site-accent); }
 .case__step:focus-visible { outline: var(--border-width-md) solid hsl(var(--ring)); outline-offset: calc(-1 * var(--border-width-md)); }
-
-/*CREDITS - the hairline on the list, inside the gutters*/
-.case__credits .case__facts {
-  padding-top: var(--spacing-lg);
-  border-top: var(--border-width) solid var(--site-line);
-}
-.case__facts {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--spacing-lg) var(--spacing-3xl);
-  margin: 0;
-}
-.case__fact {
-  display: flex;
-  flex-direction: column;
-  gap: var(--spacing-xxs);
-}
-.case__fact dt {
-  font-size: var(--site-fs-label);
-  text-transform: uppercase;
-  letter-spacing: var(--site-tracking-label);
-  color: var(--site-text-caption);
-}
-.case__fact dd {
-  margin: 0;
-  font-size: var(--site-fs-small);
-  color: var(--site-text-heading);
-}
 
 /*PREVIOUS / NEXT*/
 .case__pager {

@@ -9,8 +9,8 @@ import ThreeViewer from "./ThreeViewer.vue"
 
 //A viewer3d detail-page block: the picked model seen through the view named for
 //this breakpoint. Renders nothing while no model is picked or the id is unknown.
-//The blueprint look stays in wireframe mode, black under white edges, with no
-//mode buttons: it is a plan, not a second render.
+//The blueprint look stays in wireframe mode, white edges over clear surfaces,
+//with no floor and no mode buttons: it is a plan, not a second render.
 
 const props = defineProps<{
   content: Viewer3dBlockContent
@@ -26,6 +26,8 @@ const blueprint = computed(() => props.content.look === "blueprint")
 function asBlueprint(s: ViewerSettings): ViewerSettings {
   return {
     ...s,
+    //no floor, no shadow, no glow: a plan has no light
+    stage: { ...s.stage, ground: false },
     wireframeMode: {
       ...s.wireframeMode,
       overlayOn:      true,

@@ -8,6 +8,7 @@ import EditableRegion from "../admin/EditableRegion.vue"
 import SiteImage from "../SiteImage.vue"
 import AnimatedCounter from "./AnimatedCounter.vue"
 import ProjectMedia from "./ProjectMedia.vue"
+import SoftwareChips from "./SoftwareChips.vue"
 import UnpublishedBadge from "./UnpublishedBadge.vue"
 import type { MainProjectDto } from "../../types/portfolio"
 
@@ -96,6 +97,8 @@ const titleId = `project-${props.project.id}-title`
             <dd class="case__stat-value"><AnimatedCounter :to="s.count" :lang="lang" /></dd>
           </div>
         </dl>
+
+        <SoftwareChips v-if="detail && project.software.length" :software="project.software" />
 
         <!--the project's page has the viewer's own toolbar instead-->
         <div v-if="!detail" class="case__actions">
