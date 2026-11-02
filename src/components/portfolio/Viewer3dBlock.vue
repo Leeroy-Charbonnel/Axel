@@ -1,14 +1,11 @@
 <script setup lang="ts">
 import { computed } from "vue"
 import { usePortfolio } from "../../composables/usePortfolio"
-import { applyEditorPrefs } from "../../composables/useEffectiveViewerSettings"
-import ThreeViewer, { type ViewerSettings } from "./ThreeViewer.vue"
+import { viewerSettingsFor } from "../../composables/useEffectiveViewerSettings"
+import ThreeViewer from "./ThreeViewer.vue"
 
-//Tiny resolver-renderer for a viewer3d detail-page block. Takes the
-//block's content ({ model3dId, desktopView, mobileView }), looks up
-//the model in the portfolio cache, applies the chosen view as
-//startView, and renders ThreeViewer. Renders nothing if no model is
-//picked or the id is unresolved.
+//A viewer3d detail-page block: the picked model seen through the view named for
+//this breakpoint. Renders nothing while no model is picked or the id is unknown.
 
 const props = defineProps<{
   content: { model3dId: string | null; desktopView: string; mobileView: string }
@@ -22,22 +19,22 @@ const resolved = computed(() => {
   if (!c.model3dId) return null
   const model = data.value?.models.find((m) => m.id === c.model3dId)
   if (!model || !model.glbUrl) return null
-  const wantedName = props.mobile ? (c.mobileView || c.desktopView) : c.desktopView
-  const view = wantedName ? model.views.find((v) => v.name === wantedName) : null
-  //Layer the global editor3d_* prefs over the frozen snapshot - same
-  //"globals always win" contract as the main project viewers.
-  const base = applyEditorPrefs(model.viewerSettings, data.value?.editorPrefs) as ViewerSettings
-  const settings: ViewerSettings = view
-    ? { ...base, startView: { pos: view.position, target: view.target } }
-    : base
-  return { glbUrl: model.glbUrl, settings }
+  const viewName = props.mobile ? (c.mobileView || c.desktopView) : c.desktopView
+  return {
+    glbUrl:   model.glbUrl,
+    settings: viewerSettingsFor(model, viewName, data.value?.editorPrefs),
+    poster:   model.thumbnailUrl,
+    alt:      model.name,
+  }
 })
 </script>
 
 <template>
   <ThreeViewer
     v-if="resolved"
-    :glbUrl="resolved.glbUrl"
+    :glb-url="resolved.glbUrl"
     :settings="resolved.settings"
+    :poster="resolved.poster"
+    :alt="resolved.alt"
   />
 </template>
