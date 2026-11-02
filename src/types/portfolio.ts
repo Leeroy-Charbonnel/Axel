@@ -203,8 +203,9 @@ export interface AccordionItem {
 export interface AccordionBlockContent {
   items: AccordionItem[]
 }
-//blueprint: black surfaces under white edges, to sit beside a technical plan
-export type Viewer3dLook = "render" | "blueprint"
+//blueprint: white edges over clear surfaces, to sit beside a technical plan;
+//exploded: the parts set apart along the model's explode axis
+export type Viewer3dLook = "render" | "blueprint" | "exploded"
 export interface Viewer3dBlockContent {
   model3dId:   string | null
   desktopView: string

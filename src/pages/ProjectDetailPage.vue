@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, watch, watchEffect } from "vue"
-import { onBeforeRouteLeave, onBeforeRouteUpdate, useRoute, useRouter } from "vue-router"
+import { onBeforeRouteLeave, onBeforeRouteUpdate, useRoute } from "vue-router"
 import { ArrowLeft, ArrowRight } from "lucide-vue-next"
 import { useEditor } from "../composables/useEditor"
 import { useLanguage } from "../composables/useLanguage"
@@ -24,7 +24,6 @@ import type { DetailBlock, DetailPage } from "../types/portfolio"
 //page's own state, saved through the edit bar.
 
 const route  = useRoute()
-const router = useRouter()
 const { lang, t } = useLanguage()
 const editor = useEditor()
 const { editMode, editLang } = editor
@@ -101,10 +100,9 @@ async function guardLeave() {
 onBeforeRouteLeave(guardLeave)
 onBeforeRouteUpdate(guardLeave)
 
-function goBack() {
-  if (window.history.state?.back) router.back()
-  else void router.push("/")
-}
+//the projects section of the home page, wherever the visitor came from
+//(a previous project included)
+const ALL_PROJECTS = "/#projects"
 </script>
 
 <template>
@@ -120,20 +118,20 @@ function goBack() {
     </div>
 
     <div v-else-if="portfolio.error.value || !project" class="site-container case__missing">
-      <a class="case__back" href="/" @click.prevent="goBack">
+      <RouterLink class="case__back" :to="ALL_PROJECTS">
         <ArrowLeft :size="16" aria-hidden="true" />
         <span>{{ t('detailBack') }}</span>
-      </a>
+      </RouterLink>
       <p class="case__missing-text" role="alert">{{ portfolio.error.value }}</p>
     </div>
 
     <template v-else>
       <header class="site-container case__head">
         <div class="case__bar">
-          <a class="case__back" href="/" @click.prevent="goBack">
+          <RouterLink class="case__back" :to="ALL_PROJECTS">
             <ArrowLeft :size="16" aria-hidden="true" />
             <span>{{ t('detailBack') }}</span>
-          </a>
+          </RouterLink>
           <nav class="case__position" :aria-label="t('detailPager')">
             <span v-if="position >= 0">{{ indexLabel }}</span>
             <span v-else class="case__draft">{{ t('detailUnpublished') }}</span>
@@ -166,6 +164,13 @@ function goBack() {
           <span class="case__pager-title">{{ pickBilingual(next.title, shownLang) }}</span>
         </RouterLink>
       </nav>
+
+      <div class="site-container case__all">
+        <RouterLink class="site-button" :to="ALL_PROJECTS">
+          <ArrowLeft aria-hidden="true" />
+          {{ t('detailBack') }}
+        </RouterLink>
+      </div>
     </template>
   </article>
 </template>
@@ -273,6 +278,8 @@ function goBack() {
   letter-spacing: var(--site-tracking-heading);
   color: var(--site-text-heading);
 }
+
+.case__all { display: flex; justify-content: center; }
 
 /*MISSING / LOADING*/
 .case__missing { display: flex; flex-direction: column; gap: var(--spacing-xl); }

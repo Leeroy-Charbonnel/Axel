@@ -86,12 +86,15 @@ export interface SweepFrame {
 export class WireframeSweep {
   private on = false
   private progress = 0
+  //the way back: the front rises again and turns what it passes normal
+  private reverse = false
   private sweep: Tween | null = null
   private durationMs = 1500
   private style: OverlayStyle = { on: true, color: "#000000", width: 1 }
   private readonly lineMaterial: LineMaterial
   private readonly lineUniforms = {
     uWfProgress: { value: 0 },
+    uWfReverse:  { value: 0 },
     uWfAxis:     { value: new Vector3(1, 0, 0) },
     uWfMin:      { value: 0 },
     uWfRange:    { value: 1 },
@@ -162,6 +165,7 @@ export class WireframeSweep {
 
   //pushes the current progress again, to materials created since
   resync(): void {
+    pushSweepUniforms(this.hooks.materials, { reverse: this.reverse })
     this.setProgress(this.progress)
   }
 
@@ -169,18 +173,30 @@ export class WireframeSweep {
     this.lineMaterial.resolution.set(width, height)
   }
 
+  //From rest, each way sweeps up from the floor; turned around mid-sweep,
+  //the front goes back the way it came.
   enter(animate: boolean): void {
     if (this.on) return
     this.on = true
     if (this.style.on) this.ensureEdges()
-    this.run(1, animate)
+    if (this.reverse && !this.sweep) this.setDirection(false)
+    this.run(this.reverse ? 0 : 1, animate)
   }
 
   leave(animate: boolean): void {
     if (!this.on) return
     this.on = false
     this.hooks.onLeaving()
-    this.run(0, animate)
+    if (!this.reverse && !this.sweep) this.setDirection(true)
+    this.run(this.reverse ? 1 : 0, animate)
+  }
+
+  //from a settled state: the same picture, read from the other end
+  private setDirection(reverse: boolean): void {
+    this.reverse = reverse
+    this.lineUniforms.uWfReverse.value = reverse ? 1 : 0
+    pushSweepUniforms(this.hooks.materials, { reverse })
+    this.setProgress(0)
   }
 
   //frame callback: true while something is animating
@@ -213,13 +229,18 @@ export class WireframeSweep {
     this.progress = v
     this.lineUniforms.uWfProgress.value = v
     pushSweepUniforms(this.hooks.materials, { progress: v })
-    this.hooks.setLightMix(v)
+    this.hooks.setLightMix(this.wireShare())
     this.syncVisibility()
+  }
+
+  //how much of the model is in wireframe, whichever way the front runs
+  private wireShare(): number {
+    return this.reverse ? 1 - this.progress : this.progress
   }
 
   private syncVisibility(): void {
     if (!this.overlays) return
-    const shown = this.style.on && this.progress > 0
+    const shown = this.style.on && this.wireShare() > 0
     for (const o of this.overlays) o.visible = shown && !this.excluded.has(o.parent as Mesh)
   }
 

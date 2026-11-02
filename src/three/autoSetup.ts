@@ -49,7 +49,7 @@ export interface AutoSetup {
   views:  { desktop: CameraView; phone: CameraView }
   orbit:  { minDistance: number; maxDistance: number }
   clip:   { near: number; far: number }
-  ground: { size: number; y: number }
+  ground: { y: number }
   //for the key light of the rig below
   shadow: ShadowFrustum
   lights: SharedLight[]
@@ -261,9 +261,8 @@ export function computeAutoSetup(root: Object3D, opts: AutoSetupOptions = {}): A
   const fill = threeAxisLight("auto-fill", VIEW_AZIMUTH_DEG - 70,  20, 0.6, false, center, radius)
   const rim  = threeAxisLight("auto-rim",  VIEW_AZIMUTH_DEG + 180, 50, 1.0, false, center, radius)
 
-  //SWEEP along the longest side, over the whole box
-  const axisIndex = size.x >= size.y && size.x >= size.z ? 0 : size.y >= size.z ? 1 : 2
-  const axis: Vec3 = [axisIndex === 0 ? 1 : 0, axisIndex === 1 ? 1 : 0, axisIndex === 2 ? 1 : 0]
+  //SWEEP from the floor up, over the whole box
+  const axis: Vec3 = [0, 1, 0]
   //a denser mesh gets a slightly slower pass: SWEEP_MIN_MS at 10k triangles,
   //SWEEP_STEP_MS more per doubling, SWEEP_MAX_MS at most
   const durationMs = Math.round(Math.min(SWEEP_MAX_MS, SWEEP_MIN_MS + SWEEP_STEP_MS * Math.log2(Math.max(1, triangles / 10000))))
@@ -279,10 +278,10 @@ export function computeAutoSetup(root: Object3D, opts: AutoSetupOptions = {}): A
     views:  { desktop, phone },
     orbit:  { minDistance, maxDistance },
     clip:   { near: radius * 0.005, far: maxDistance + radius * 4 },
-    ground: { size: radius * 10, y: box.min.y },
+    ground: { y: box.min.y },
     shadow: shadowFrustum(new Vector3(key.x, key.y, key.z), center, center, radius),
     lights: [key, fill, rim],
-    sweep:  { axis, start: box.min.getComponent(axisIndex), end: box.max.getComponent(axisIndex), durationMs },
+    sweep:  { axis, start: box.min.y, end: box.max.y, durationMs },
     stats: {
       triangles,
       vertices,

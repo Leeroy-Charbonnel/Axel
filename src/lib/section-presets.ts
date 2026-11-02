@@ -19,7 +19,7 @@ const empty = (): Bilingual => ({ fr: "", en: "" })
 export const SECTION_PRESETS: SectionPreset[] = [
   { key: "plans",     labelKey: "sectionPlans",     build: (w) => bandPlans(w, imageTile(null, empty()), viewerTile(null, "", "blueprint")) },
   { key: "blocking",  labelKey: "sectionBlocking",  build: (w) => bandBlocking(w, sequenceTile([], true), videoTile(null), textTile(empty())) },
-  { key: "exploded",  labelKey: "sectionExploded",  build: (w) => bandExploded(w, imageTile(null, empty()), legendTile([empty()], "number"), textTile(empty())) },
+  { key: "exploded",  labelKey: "sectionExploded",  build: (w) => bandExploded(w, viewerTile(null, "", "exploded"), imageTile(null, empty()), legendTile([empty()], "number")) },
   { key: "shaders",   labelKey: "sectionShaders",   build: (w) => bandShaders(w, [{ title: shaderTitle(empty()), squares: sequenceTile([], true) }]) },
   { key: "materials", labelKey: "sectionMaterials", build: (w) => bandMaterials(w,
       { type: "materials", content: { items: [] } }, sequenceTile([], false), [imageTile(null, empty()), imageTile(null, empty())]) },

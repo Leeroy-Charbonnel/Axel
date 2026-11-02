@@ -10,7 +10,9 @@ import ThreeViewer from "./ThreeViewer.vue"
 //A viewer3d detail-page block: the picked model seen through the view named for
 //this breakpoint. Renders nothing while no model is picked or the id is unknown.
 //The blueprint look stays in wireframe mode, white edges over clear surfaces,
-//with no floor and no mode buttons: it is a plan, not a second render.
+//with no floor and no mode buttons: it is a plan, not a second render. The
+//exploded look sets the parts apart, still; its mode buttons go too, as the
+//wireframe lines follow the parts' places in the assembled model.
 
 const props = defineProps<{
   content: Viewer3dBlockContent
@@ -22,6 +24,7 @@ const props = defineProps<{
 const { data } = usePortfolio()
 
 const blueprint = computed(() => props.content.look === "blueprint")
+const exploded = computed(() => props.content.look === "exploded")
 
 function asBlueprint(s: ViewerSettings): ViewerSettings {
   return {
@@ -47,7 +50,7 @@ const resolved = computed(() => {
   const settings = viewerSettingsFor(model, viewName, data.value?.editorPrefs)
   return {
     glbUrl:   model.glbUrl,
-    settings: blueprint.value ? asBlueprint(settings) : settings,
+    settings: blueprint.value ? asBlueprint(settings) : exploded.value ? { ...settings, exploded: true } : settings,
     poster:   model.thumbnailUrl,
     alt:      model.name,
   }
@@ -63,6 +66,6 @@ const resolved = computed(() => {
     :poster-sizes="sizes"
     :alt="resolved.alt"
     :wireframe="blueprint"
-    :toolbar="!blueprint"
+    :toolbar="!blueprint && !exploded"
   />
 </template>

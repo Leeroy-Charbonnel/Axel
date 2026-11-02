@@ -11,6 +11,7 @@ const { t } = useTranslations()
 const looks = computed<{ value: Viewer3dLook; label: string }[]>(() => [
   { value: "render",    label: t("blockLookRender") },
   { value: "blueprint", label: t("blockLookBlueprint") },
+  { value: "exploded",  label: t("blockLookExploded") },
 ])
 
 function apply(v: ModelChoice) {

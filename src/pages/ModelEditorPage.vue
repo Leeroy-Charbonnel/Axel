@@ -119,7 +119,6 @@ const summaryLines = computed(() => {
     t("modelEditorSummaryViews").replace("{names}", s.views.join(", ")),
     t("modelEditorSummaryZoom").replace("{min}", n(s.orbit.min, 2)).replace("{max}", n(s.orbit.max)),
     t("modelEditorSummaryLights").replace("{n}", String(s.lights)),
-    t("modelEditorSummaryShadow").replace("{n}", n(s.shadowOpacity * 100, 0)),
     t("modelEditorSummarySweep").replace("{axis}", axis).replace("{s}", n(s.sweepMs / 1000)),
   ]
   if (s.materialsReset > 0) lines.push(t("modelEditorSummaryMaterials").replace("{n}", String(s.materialsReset)))

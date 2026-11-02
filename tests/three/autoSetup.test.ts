@@ -76,7 +76,6 @@ describe("computeAutoSetup", () => {
     expect(s.clip.near).toBeLessThan(s.orbit.minDistance)
     expect(s.clip.far).toBeGreaterThan(s.orbit.maxDistance)
     expect(s.ground.y).toBe(0)
-    expect(s.ground.size).toBeGreaterThan(4)
   })
 
   test("three-point rig scaled to the model, only the key casts", () => {
@@ -96,11 +95,11 @@ describe("computeAutoSetup", () => {
     expect(small.shadow.far).toBeGreaterThan(small.shadow.near)
   })
 
-  test("sweep runs along the longest side over the whole box", () => {
+  test("sweep runs from the floor up over the whole box", () => {
     const s = computeAutoSetup(boxModel())
-    expect(s.sweep.axis).toEqual([1, 0, 0])
-    expect(s.sweep.start).toBe(8)
-    expect(s.sweep.end).toBe(12)
+    expect(s.sweep.axis).toEqual([0, 1, 0])
+    expect(s.sweep.start).toBe(s.bounds.box.min[1])
+    expect(s.sweep.end).toBe(s.bounds.box.max[1])
     expect(s.sweep.durationMs).toBe(600)
   })
 

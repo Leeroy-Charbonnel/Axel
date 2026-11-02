@@ -73,6 +73,10 @@ export interface WireframeMaterialParams {
 export interface ViewerSettings {
   //null = the default view for the screen, else frame the model automatically
   startView?: StartView | null
+  //EXPLODED VIEW: the parts set apart along explodeAxis (saved per model,
+  //front to back when absent); exploded is the page's request, never saved
+  exploded?:    boolean
+  explodeAxis?: Vec3
   //phone = a frame taller than wide
   defaultViews?: { desktop?: DefaultView; phone?: DefaultView }
   //missing fields follow the auto setup
@@ -80,8 +84,10 @@ export interface ViewerSettings {
     //zoom limits, in multiples of the model radius
     orbitMin?:      number
     orbitMax?:      number
+    //the soft glow on the floor under the model
     ground?:        boolean
-    shadowOpacity?: number
+    //the gap between the model and the floor, in model radii (a hanging object)
+    lift?:          number
   }
   materials?: MaterialState[]
   lights?:    SharedLight[]

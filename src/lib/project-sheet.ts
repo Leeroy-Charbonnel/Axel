@@ -1,4 +1,4 @@
-import type { Bilingual, DetailBlock, DetailBlockContent, DetailBlockType, MaterialItem } from "../types/portfolio"
+import type { Bilingual, DetailBlock, DetailBlockContent, DetailBlockType, MaterialItem, Viewer3dLook } from "../types/portfolio"
 
 //PROJECT SHEET - the detail page of a project imported with a technical plan
 //(scripts/import-renders.ts, sheet/sheet.json), laid out on the 3-column grid
@@ -22,7 +22,7 @@ export interface SheetMedia {
   plansId:   string
   //from the roughest pass to the refined one
   blocking:  { levels: SheetImage[]; videoId: string | null; text: Bilingual | null } | null
-  exploded:  { fileId: string; legend: Bilingual[]; text: Bilingual | null } | null
+  exploded:  { fileId: string; legend: Bilingual[] } | null
   //one row of squares per shader, under its own title
   shaders:   { title: Bilingual; steps: SheetImage[] }[]
   materials: Omit<MaterialItem, "url">[]
@@ -104,10 +104,10 @@ export function bandBlocking(w: SheetWriter, levels: Tile | null, video: Tile | 
   else w.row(side, 2)
 }
 
-//the parts and their nomenclature
-export function bandExploded(w: SheetWriter, view: Tile, legend: Tile | null, text: Tile | null) {
+//the parts set apart in 3D, the numbered drawing and its nomenclature beside them
+export function bandExploded(w: SheetWriter, viewer: Tile, drawing: Tile | null, legend: Tile | null) {
   w.heading(bi("Vue éclatée", "Exploded view"))
-  w.pair(view, present([legend, text]))
+  w.pair(viewer, present([drawing, legend]))
 }
 
 //each shader built square by square, its name beside its squares
@@ -151,7 +151,7 @@ export const imageTile = (fileId: string | null, alt: Bilingual): Tile => ({
 export const videoTile = (fileId: string | null): Tile => ({
   type: "video", content: { fileId, url: null, autoplay: true, loop: true, muted: true, controls: false },
 })
-export const viewerTile = (modelId: string | null, view: string, look: "render" | "blueprint"): Tile => ({
+export const viewerTile = (modelId: string | null, view: string, look: Viewer3dLook): Tile => ({
   type: "viewer3d", content: { model3dId: modelId, desktopView: view, mobileView: view, look },
 })
 export const legendTile = (items: Bilingual[], marker: "number" | "letter"): Tile => ({ type: "legend", content: { marker, items } })
@@ -179,9 +179,9 @@ export function sheetBlocks(m: SheetMedia): DetailBlock[] {
 
   if (m.exploded) {
     bandExploded(w,
+      viewerTile(m.modelId, m.view, "exploded"),
       imageTile(m.exploded.fileId, bi("Vue éclatée", "Exploded view")),
-      m.exploded.legend.length ? legendTile(m.exploded.legend, "number") : null,
-      m.exploded.text ? textTile(m.exploded.text) : null)
+      m.exploded.legend.length ? legendTile(m.exploded.legend, "number") : null)
   }
 
   if (m.shaders.length) {

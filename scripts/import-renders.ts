@@ -87,7 +87,7 @@ const sheetManifest = z.object({
   intro:     bilingual.optional(),
   plans:     z.object({ image: z.string().min(1) }),
   blocking:  z.object({ images: z.array(labelled), video: z.string().min(1).optional(), text: bilingual.optional() }).optional(),
-  exploded:  z.object({ image: z.string().min(1), legend: z.array(bilingual), text: bilingual.optional() }).optional(),
+  exploded:  z.object({ image: z.string().min(1), legend: z.array(bilingual) }).optional(),
   shaders:   z.array(z.object({ title: bilingual, steps: z.array(labelled) })).default([]),
   materials: z.array(z.object({
     image: z.string().min(1),
@@ -168,9 +168,13 @@ function shapeOf({ min, max }: { min: Vec3; max: Vec3 }): ModelShape {
 
 function viewerView({ min, max }: { min: Vec3; max: Vec3 }, camera: { position: Vec3; target: Vec3; fov: number }): { position: Vec3; target: Vec3 } {
   const offset: Vec3 = [(min[0] + max[0]) / 2, min[1], (min[2] + max[2]) / 2]
-  const target = camera.target.map((v, i) => v - offset[i]!) as Vec3
+  //the orbit turns around the model's own vertical axis: the target keeps
+  //the render's height, the camera keeps its offset from it
+  const aimed = camera.target.map((v, i) => v - offset[i]!) as Vec3
+  const target: Vec3 = [0, aimed[1], 0]
+  const shift: Vec3 = [aimed[0], 0, aimed[2]]
   const scale = Math.tan((camera.fov * Math.PI) / 360) / Math.tan((CAMERA_FOV * Math.PI) / 360)
-  const position = camera.position.map((v, i) => target[i]! + (v - offset[i]! - target[i]!) * scale) as Vec3
+  const position = camera.position.map((v, i) => target[i]! + (v - offset[i]! - shift[i]! - target[i]!) * scale) as Vec3
   //a camera straight above or below the model leaves its roll undefined: a
   //step toward the front keeps the model's x axis level on screen
   const distance = Math.hypot(position[0] - target[0], position[1] - target[1], position[2] - target[2])
@@ -293,7 +297,7 @@ async function importSheet(s: z.infer<typeof sheetManifest>, put: (name: string)
     blocking: s.blocking
       ? { levels: await images(s.blocking.images), videoId: s.blocking.video ? await put(s.blocking.video) : null, text: s.blocking.text ?? null }
       : null,
-    exploded: s.exploded ? { fileId: await put(s.exploded.image), legend: s.exploded.legend, text: s.exploded.text ?? null } : null,
+    exploded: s.exploded ? { fileId: await put(s.exploded.image), legend: s.exploded.legend } : null,
     shaders,
     materials,
     maps:     await images(s.maps),

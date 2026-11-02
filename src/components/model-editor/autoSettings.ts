@@ -50,7 +50,7 @@ export function matchPreset(lights: SharedLight[], setup: AutoSetup): LightPrese
 
 //THE VALUE EVERY CONTROL FALLS BACK TO
 export interface AutoValues {
-  stage: { orbitMin: number; orbitMax: number; ground: boolean; shadowOpacity: number }
+  stage: { orbitMin: number; orbitMax: number; ground: boolean; lift: number }
   sweep: { axis: Vec3; start: number; end: number; durationMs: number }
   lights: SharedLight[]
 }
@@ -62,7 +62,7 @@ export function autoValues(setup: AutoSetup): AutoValues {
       orbitMin:      round(setup.orbit.minDistance / r),
       orbitMax:      round(setup.orbit.maxDistance / r),
       ground:        true,
-      shadowOpacity: VIEWER_DEFAULTS.shadowOpacity,
+      lift:          0,
     },
     sweep:  setup.sweep,
     lights: presetLights(setup, "studio"),
@@ -151,7 +151,6 @@ export interface AutoSummary {
   lights:         number
   sweepAxis:      Vec3
   sweepMs:        number
-  shadowOpacity:  number
   materialsReset: number
 }
 
@@ -210,7 +209,6 @@ export function applyAutoSetup(
       lights:         auto.lights.length,
       sweepAxis:      setup.sweep.axis,
       sweepMs:        setup.sweep.durationMs,
-      shadowOpacity:  auto.stage.shadowOpacity,
       materialsReset,
     },
   }

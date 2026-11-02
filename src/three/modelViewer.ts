@@ -6,9 +6,7 @@ import {
   Mesh,
   type MeshStandardMaterial,
   type Object3D,
-  PlaneGeometry,
   Raycaster,
-  ShadowMaterial,
   Spherical,
   type Texture,
   Vector2,
@@ -47,6 +45,9 @@ const INTRO_POLAR_OFFSET = 0.2
 const INTRO_MIN_POLAR = 0.05
 const RESET_MS = 700
 const AUTO_ROTATE_SPEED = 0.6
+//the exploded view: the gap between two parts, in shares of the model's depth along the axis
+const EXPLODE_GAP = 0.12
+const DEFAULT_EXPLODE_AXIS: Vec3 = [0, 0, 1]
 //the studio environment under clay, dimmer than a lit render so the grey reads as grey
 const CLAY_ENV_INTENSITY = 0.5
 
@@ -87,7 +88,6 @@ const tuple = (v: Vector3): Vec3 => [v.x, v.y, v.z]
 export class ModelViewer {
   readonly core: ViewerCore
   private readonly env: EnvironmentManager
-  private readonly ground: Mesh
   private readonly floorGlow: Mesh
   private readonly abort = new AbortController()
   private settings: ViewerSettings = {}
@@ -114,6 +114,8 @@ export class ModelViewer {
   private introPending = false
   private disposed = false
   private compiling: Promise<unknown> | null = null
+  //the parts' bounds once set apart, which the camera frames instead of the model's
+  private explodedBox: Box3 | null = null
   private readonly opts: ModelViewerOptions
 
   //Throws when WebGL is unavailable.
@@ -128,11 +130,6 @@ export class ModelViewer {
       this.applyAnisotropy()
     })
     this.env  = new EnvironmentManager(this.core.scene, this.core.renderer, this.core.requestRender)
-    this.ground = new Mesh(new PlaneGeometry(1, 1), new ShadowMaterial({ opacity: VIEWER_DEFAULTS.shadowOpacity }))
-    this.ground.rotation.x = -Math.PI / 2
-    this.ground.receiveShadow = true
-    this.ground.visible = false
-    this.core.scene.add(this.ground)
     this.floorGlow = createFloorGlow()
     this.core.scene.add(this.floorGlow)
     this.core.addFrameCallback((dt, now) => this.frame(dt, now))
@@ -228,9 +225,6 @@ export class ModelViewer {
     this.applyMaterialOverrides()
     this.buildLights(false)
 
-    this.ground.scale.setScalar(setup.ground.size)
-    this.ground.position.y = setup.ground.y
-    placeFloorGlow(this.floorGlow, setup.bounds.center, setup.bounds.radius, setup.ground.y)
     this.applyStage()
 
     const cam = this.core.camera
@@ -258,7 +252,9 @@ export class ModelViewer {
     this.sweep.setExcluded(new Set(this.picked.keys()))
     this.configureSweep()
 
-    if (gltf.animations.length > 0) {
+    if (settings.exploded) this.explode(new Vector3(...(settings.explodeAxis ?? DEFAULT_EXPLODE_AXIS)).normalize())
+    //an exploded model stays still: its animation would move the parts back
+    else if (gltf.animations.length > 0) {
       this.mixer = new AnimationMixer(root)
       this.mixer.clipAction(gltf.animations[0]!).play()
       this.mixer.update(0)
@@ -417,7 +413,31 @@ export class ModelViewer {
 
   //CAMERA
 
+  //EXPLODED VIEW - each part moved along the axis, in the order it sits, so
+  //the parts follow one another with a gap and none overlaps; the stack keeps
+  //the model's centre. Static: a plan, not an animation.
+  private explode(axis: Vector3): void {
+    const parts = this.meshes.map((mesh) => {
+      const b = new Box3().setFromObject(mesh)
+      return { mesh, at: b.getCenter(new Vector3()).dot(axis), half: (b.max.dot(axis) - b.min.dot(axis)) / 2 }
+    }).sort((a, b) => a.at - b.at)
+    const model = this.box()
+    const depth = model.max.dot(axis) - model.min.dot(axis)
+    const gap = depth * EXPLODE_GAP
+    const stack = parts.reduce((sum, p) => sum + 2 * p.half, 0) + gap * (parts.length - 1)
+    let cursor = model.getCenter(new Vector3()).dot(axis) - stack / 2
+    for (const p of parts) {
+      const move = cursor + p.half - p.at
+      cursor += 2 * p.half + gap
+      const world = p.mesh.getWorldPosition(new Vector3()).addScaledVector(axis, move)
+      p.mesh.position.copy(p.mesh.parent ? p.mesh.parent.worldToLocal(world) : world)
+      p.mesh.updateMatrixWorld(true)
+    }
+    this.explodedBox = new Box3().setFromObject(this.model!)
+  }
+
   private box(): Box3 {
+    if (this.explodedBox) return this.explodedBox.clone()
     const b = this.setup!.bounds.box
     return new Box3(new Vector3(...b.min), new Vector3(...b.max))
   }
@@ -463,9 +483,11 @@ export class ModelViewer {
 
   private applyStage(): void {
     const stage = this.settings.stage
-    this.ground.visible = stage?.ground ?? true
-    this.floorGlow.visible = this.ground.visible
-    ;(this.ground.material as ShadowMaterial).opacity = stage?.shadowOpacity ?? VIEWER_DEFAULTS.shadowOpacity
+    this.floorGlow.visible = stage?.ground ?? true
+    if (this.setup) {
+      const { center, radius } = this.setup.bounds
+      placeFloorGlow(this.floorGlow, center, radius, this.setup.ground.y - (stage?.lift ?? 0) * radius)
+    }
   }
 
   private placeCamera(): void {

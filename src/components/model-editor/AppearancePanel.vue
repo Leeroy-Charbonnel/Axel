@@ -134,14 +134,15 @@ onMounted(() => {
       <h3 class="ed-form__title">{{ t('modelEditorStage') }}</h3>
       <ToggleField :label="t('modelEditorGround')" :hint="t('modelEditorGroundHint')" :model-value="stage.ground ?? true" @update:model-value="(v) => setStage('ground', v)" />
       <SliderField
-        v-if="stage.ground"
-        :label="t('modelEditorShadowOpacity')"
-        :model-value="stage.shadowOpacity ?? VIEWER_DEFAULTS.shadowOpacity"
+        :label="t('modelEditorLift')"
+        :hint="t('modelEditorLiftHint')"
+        :model-value="stage.lift ?? auto.stage.lift"
         :min="0"
         :max="1"
         :step="0.01"
-        :auto="auto.stage.shadowOpacity"
-        @update:model-value="(v) => setStage('shadowOpacity', v)"
+        unit="×R"
+        :auto="auto.stage.lift"
+        @update:model-value="(v) => setStage('lift', v)"
       />
       <SliderField
         :label="t('modelEditorZoomMin')"
