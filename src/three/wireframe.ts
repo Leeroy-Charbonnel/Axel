@@ -64,6 +64,8 @@ export interface WireframeHooks {
   onEntered(): void
   //about to sweep back: switch to the normal environment
   onLeaving(): void
+  //swept back: no line is left on the model
+  onLeft(): void
   requestRender(): void
   //the lines' colour along the sweep front
   glowColor: string
@@ -189,6 +191,7 @@ export class WireframeSweep {
     if (done) {
       this.sweep = null
       if (this.on) this.hooks.onEntered()
+      else this.hooks.onLeft()
     }
     return true
   }
@@ -201,6 +204,7 @@ export class WireframeSweep {
       this.sweep = null
       this.setProgress(to)
       if (this.on) this.hooks.onEntered()
+      else this.hooks.onLeft()
     }
     this.hooks.requestRender()
   }

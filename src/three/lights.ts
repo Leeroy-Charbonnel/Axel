@@ -1,7 +1,6 @@
 import { Color, DirectionalLight, Group, PointLight, Vector3 } from "three"
 import type { SharedLight } from "./types"
 
-const SHADOW_MAP_SIZE    = 1024
 const SHADOW_BIAS        = -0.0002
 const SHADOW_NORMAL_BIAS = 0.02
 const POINT_LIGHT_DECAY  = 2
@@ -42,7 +41,8 @@ export class LightRig {
   readonly group = new Group()
   private readonly live: LiveLight[] = []
 
-  constructor(specs: SharedLight[]) {
+  //shadowMapSize: from the render quality (quality.ts)
+  constructor(specs: SharedLight[], shadowMapSize: number) {
     for (const spec of specs) {
       if (spec.enabled === false) continue
       const castShadow = spec.castShadow ?? spec.type === "directional"
@@ -57,7 +57,7 @@ export class LightRig {
       light.position.set(spec.x, spec.y, spec.z)
       light.castShadow = castShadow
       if (castShadow) {
-        light.shadow.mapSize.set(SHADOW_MAP_SIZE, SHADOW_MAP_SIZE)
+        light.shadow.mapSize.set(shadowMapSize, shadowMapSize)
         light.shadow.bias       = SHADOW_BIAS
         light.shadow.normalBias = SHADOW_NORMAL_BIAS
       }

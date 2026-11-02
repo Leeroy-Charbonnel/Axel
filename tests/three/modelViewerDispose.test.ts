@@ -11,6 +11,7 @@ mock.module("../../src/three/core", () => ({
     renderer: {
       compileAsync: () => new Promise<void>((resolve) => { finishCompile = resolve }),
       getSize:      (v: Vector2) => v.set(800, 600),
+      capabilities: { getMaxAnisotropy: () => 1 },
     },
     scene:    new Scene(),
     camera:   new PerspectiveCamera(),
@@ -18,6 +19,10 @@ mock.module("../../src/three/core", () => ({
     requestRender:    () => {},
     addFrameCallback: () => () => {},
     onResize:         () => {},
+    onQualityChange:  () => {},
+    quality:          { maxPixelRatio: 1, shadowMapSize: 1024, softShadows: false, ambientOcclusion: false, anisotropy: 1 },
+    setModelRadius:   () => {},
+    setAmbientOcclusionAllowed: () => {},
     setActive:        () => {},
     dispose:          () => { coreDisposed++ },
   }),

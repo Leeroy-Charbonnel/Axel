@@ -25,6 +25,7 @@ describe("the file's own edges", () => {
       authoredEdges: [source],
       setLightMix: () => {},
       onEntered: () => {},
+      onLeft: () => {},
       onLeaving: () => {},
       requestRender: () => {},
       glowColor: "#00ffff",

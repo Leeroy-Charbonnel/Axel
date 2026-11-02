@@ -10,6 +10,7 @@ import {
   Raycaster,
   ShadowMaterial,
   Spherical,
+  type Texture,
   Vector2,
   Vector3,
 } from "three"
@@ -52,6 +53,8 @@ const CLAY_ENV_INTENSITY = 0.5
 export interface ModelViewerOptions {
   canvas:        HTMLCanvasElement
   maxPixelRatio: number
+  //a phone or a tablet: never the heaviest render quality
+  touch:         boolean
   //no intro flight, no auto-rotate, no sweep animation, no looping animation
   reducedMotion: boolean
   autoRotate:    boolean
@@ -116,7 +119,14 @@ export class ModelViewer {
   //Throws when WebGL is unavailable.
   constructor(opts: ModelViewerOptions) {
     this.opts = opts
-    this.core = createViewerCore(opts.canvas, { maxPixelRatio: opts.maxPixelRatio })
+    this.core = createViewerCore(opts.canvas, { maxPixelRatio: opts.maxPixelRatio, touch: opts.touch })
+    //a lower quality level: smaller shadow maps, coarser texture filtering
+    this.core.onQualityChange(() => {
+      if (!this.setup) return
+      this.lightKey = ""
+      this.buildLights(this.mode === "clay")
+      this.applyAnisotropy()
+    })
     this.env  = new EnvironmentManager(this.core.scene, this.core.renderer, this.core.requestRender)
     this.ground = new Mesh(new PlaneGeometry(1, 1), new ShadowMaterial({ opacity: VIEWER_DEFAULTS.shadowOpacity }))
     this.ground.rotation.x = -Math.PI / 2
@@ -211,6 +221,8 @@ export class ModelViewer {
     })
     //the copies hold the textures now; only the source programs go
     for (const s of copies.keys()) s.dispose()
+    this.applyAnisotropy()
+    this.core.setModelRadius(setup.bounds.radius)
 
     this.applyEmissivePicks()
     this.applyMaterialOverrides()
@@ -236,6 +248,8 @@ export class ModelViewer {
       },
       onEntered: () => void this.env.set(this.settings.wireframeMode?.hdrUrl, this.settings.wireframeMode?.hdrIntensity ?? 1),
       onLeaving: () => void this.env.set(this.settings.normalMode?.hdrUrl, this.settings.normalMode?.hdrIntensity ?? 1),
+      //the ambient occlusion pass would take the lines for surfaces: back once they are gone
+      onLeft: () => this.core.setAmbientOcclusionAllowed(this.mode === "render"),
       requestRender: this.core.requestRender,
       glowColor: this.opts.glowColor,
     })
@@ -290,6 +304,9 @@ export class ModelViewer {
       this.setClay(false)
       this.applyLighting()
     }
+    //ambient occlusion suits the lit render only; leaving the wireframe, onLeft brings it back
+    if (mode !== "render") this.core.setAmbientOcclusionAllowed(false)
+    else if (previous === "clay") this.core.setAmbientOcclusionAllowed(true)
     if (mode === "wireframe") this.sweep.enter(animate)
     else if (previous === "wireframe") this.sweep.leave(animate && mode === "render")
     if (mode === "clay") {
@@ -427,6 +444,21 @@ export class ModelViewer {
     const cam = this.core.camera
     cam.far = Math.max(setup.clip.far, controls.maxDistance + radius * 4)
     cam.updateProjectionMatrix()
+  }
+
+  //sharp textures at grazing angles (wood grain on a side), as much as the level and the GPU allow
+  private applyAnisotropy(): void {
+    const level = Math.min(this.core.quality.anisotropy, this.core.renderer.capabilities.getMaxAnisotropy())
+    for (const mat of this.materials) {
+      for (const value of Object.values(mat)) {
+        const tex = value as Texture | null
+        if (tex?.isTexture && tex.anisotropy !== level) {
+          tex.anisotropy = level
+          tex.needsUpdate = true
+        }
+      }
+    }
+    this.core.requestRender()
   }
 
   private applyStage(): void {
@@ -603,7 +635,7 @@ export class ModelViewer {
       this.rig.dispose()
     }
     const saved = this.settings.lights ?? []
-    this.rig = new LightRig(saved.length > 0 && !auto ? saved : setup.lights)
+    this.rig = new LightRig(saved.length > 0 && !auto ? saved : setup.lights, this.core.quality.shadowMapSize)
     this.rig.fitShadows(new Vector3(...setup.bounds.center), setup.bounds.radius)
     this.rig.setModeMix(this.lightMix)
     this.core.scene.add(this.rig.group)

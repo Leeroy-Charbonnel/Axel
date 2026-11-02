@@ -92,6 +92,7 @@ async function start() {
       const created = new ModelViewer({
         canvas: canvas.value,
         maxPixelRatio: touch ? TOUCH_MAX_DPR : DESKTOP_MAX_DPR,
+        touch,
         reducedMotion,
         autoRotate: props.autoRotate,
         glowColor: siteAccent(),

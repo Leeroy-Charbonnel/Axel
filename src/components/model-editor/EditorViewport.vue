@@ -63,6 +63,7 @@ async function start(url: string | null | undefined) {
     const v = new ModelViewer({
       canvas: canvas.value,
       maxPixelRatio: MAX_PIXEL_RATIO,
+      touch: window.matchMedia("(pointer: coarse)").matches,
       reducedMotion: window.matchMedia("(prefers-reduced-motion: reduce)").matches,
       autoRotate: false,
       glowColor: siteAccent(),
