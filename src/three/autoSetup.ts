@@ -259,8 +259,8 @@ export function computeAutoSetup(root: Object3D, opts: AutoSetupOptions = {}): A
   //SWEEP along the longest side, over the whole box
   const axisIndex = size.x >= size.y && size.x >= size.z ? 0 : size.y >= size.z ? 1 : 2
   const axis: Vec3 = [axisIndex === 0 ? 1 : 0, axisIndex === 1 ? 1 : 0, axisIndex === 2 ? 1 : 0]
-  //a denser mesh gets a slower pass: 1 s at 10k triangles, +0.25 s per doubling, 3 s at most
-  const durationMs = Math.round(Math.min(3000, Math.max(1000, 1000 + 250 * Math.log2(Math.max(1, triangles / 10000)))))
+  //a denser mesh gets a slightly slower pass: 0.6 s at 10k triangles, +0.1 s per doubling, 1 s at most
+  const durationMs = Math.round(Math.min(1000, Math.max(600, 600 + 100 * Math.log2(Math.max(1, triangles / 10000)))))
 
   return {
     bounds: {

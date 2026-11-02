@@ -38,7 +38,6 @@ interface SweepUniformSet {
   uWfSpecScale:     { value: number }
   uWfEmissive:      { value: Color }
   uWfEmissiveBoost: { value: number }
-  uWfGlow:          { value: Color }
 }
 
 function freshUniformSet(boost: number): SweepUniformSet {
@@ -55,31 +54,22 @@ function freshUniformSet(boost: number): SweepUniformSet {
     uWfSpecScale:     { value: wf.specularIntensity },
     uWfEmissive:      { value: new Color(VIEWER_DEFAULTS.wireframeModeColor) },
     uWfEmissiveBoost: { value: boost },
-    uWfGlow:          { value: new Color(VIEWER_DEFAULTS.wireframeGlowColor) },
   }
 }
 
 //SHADER PATCHES
 
-//THE SWEEP FRONT AND ITS GLOW, shared with the wireframe lines (wireframe.ts).
-//wfFront() is how far a world position sits behind the front, in sweep units:
-//0 or more means swept. The position is clamped, so a fragment before
-//sweepStart or past sweepEnd belongs to the first or last slice: nothing is
-//swept at progress 0 and everything is at 1. wfGlow() is the light along the
-//front: a long trail behind it, a short lead ahead, none at either end.
-export const WF_SWEEP_GLSL =
-  "uniform float uWfProgress;\nuniform vec3 uWfAxis;\nuniform float uWfMin;\nuniform float uWfRange;\nuniform vec3 uWfGlow;\n" +
+//THE SWEEP FRONT, shared with the wireframe lines (wireframe.ts). wfFront() is
+//how far a world position sits behind the front, in sweep units: 0 or more
+//means swept. The position is clamped, so a fragment before sweepStart or past
+//sweepEnd belongs to the first or last slice: nothing is swept at progress 0
+//and everything is at 1.
+export const WF_FRONT_GLSL =
+  "uniform float uWfProgress;\nuniform vec3 uWfAxis;\nuniform float uWfMin;\nuniform float uWfRange;\n" +
   "float wfFront(vec3 worldPos) {\n" +
   "  float t = clamp((dot(worldPos, uWfAxis) - uWfMin) / max(uWfRange, 0.0001), 0.0, 1.0);\n" +
   "  return uWfProgress * 1.04 - 0.02 - t;\n" +
-  "}\n" +
-  "float wfGlow(float d) {\n" +
-  "  float shape = d >= 0.0 ? exp(-d / 0.12) : exp(d / 0.015);\n" +
-  "  return shape * sin(PI * uWfProgress);\n" +
   "}\n"
-
-//how much brighter than the lit surface the front shines
-const GLOW_STRENGTH = "2.5"
 
 const VERTEX_COMMON = "#include <common>\nvarying vec3 vWfWorldPos;"
 const VERTEX_POS    = "#include <project_vertex>\nvWfWorldPos = (modelMatrix * vec4(transformed, 1.0)).xyz;"
@@ -87,7 +77,7 @@ const VERTEX_POS    = "#include <project_vertex>\nvWfWorldPos = (modelMatrix * v
 const FRAGMENT_COMMON =
   "#include <common>\n" +
   "varying vec3 vWfWorldPos;\n" +
-  WF_SWEEP_GLSL +
+  WF_FRONT_GLSL +
   "uniform vec3 uWfTint;\n" +
   "uniform float uWfMetalness;\nuniform float uWfRoughness;\n" +
   "uniform float uWfEnvScale;\nuniform float uWfSpecScale;\n" +
@@ -100,9 +90,6 @@ const FRAGMENT_MASK =
   "float wfMask = step(0.0, wfD);\n" +
   "diffuseColor.rgb = mix(diffuseColor.rgb, uWfTint, wfMask);\n"
 
-const FRAGMENT_GLOW_OUT =
-  "outgoingLight += uWfGlow * wfGlow(wfD) * " + GLOW_STRENGTH + ";\n" +
-  "#include <opaque_fragment>"
 
 const FRAGMENT_ROUGHNESS =
   "#include <roughnessmap_fragment>\nroughnessFactor = mix(roughnessFactor, uWfRoughness, wfMask);\n"
@@ -149,7 +136,6 @@ function patchShader(shader: WebGLProgramParametersWithUniforms, uniforms: Sweep
       .replace("#include <project_vertex>", VERTEX_POS)
     frag = frag
       .replace("#include <map_fragment>", FRAGMENT_MASK)
-      .replace("#include <opaque_fragment>", FRAGMENT_GLOW_OUT)
     if (lit) {
       frag = frag
         .replace("#include <roughnessmap_fragment>", FRAGMENT_ROUGHNESS)

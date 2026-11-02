@@ -28,9 +28,14 @@ Vite proxies `/api` and `/media` to the Express server on 3001. The dev server
 serves and writes files in the local `storage/files`, so a dev database copied
 from prod also needs the prod files copied there (see "Refreshing dev from prod").
 
-`bun scripts/seed-showcase.ts` creates three unpublished "Showcase" projects in
-the dev database whose detail pages use every block type; re-running it replaces
-them. `/styleguide` (admin) shows the tokens, the fields and every block.
+`bun scripts/import-renders.ts <folder> [--retire]` turns render folders into
+projects in the dev database. A folder with `model.glb` becomes a main project:
+the model is optimized like an upload, and its page is a case study built by
+`src/lib/case-study.ts`. A folder with `card.jpg` becomes a gallery card. Each
+folder carries a `manifest.json`. Re-running updates the same rows, matched by
+French title, and reuses the files already imported. `--retire` unpublishes
+every other project and card. `/styleguide` (admin) shows the tokens, the fields
+and one block of each type taken from those pages.
 
 There is no `GITHUB_TOKEN` and no `.npmrc`. The shared package this used to
 install from a private registry is gone: the template is copied into the repo,

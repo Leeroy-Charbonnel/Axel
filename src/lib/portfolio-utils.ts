@@ -1,12 +1,6 @@
 //PORTFOLIO formatting helpers shared by the home page and the detail blocks.
 
 //Compact number formatter for the animated counters: 1234 -> "1k", 1500000 -> "2M".
-export function formatNumber(num: number): string {
-  if (num >= 1_000_000) return `${Math.round(num / 1_000_000)}M`
-  if (num >= 1000)      return `${Math.round(num / 1000)}k`
-  return Math.round(num).toString()
-}
-
 type StatKey = "triangles" | "vertices" | "faces" | "edges"
 
 interface StatSource {
@@ -19,6 +13,7 @@ interface StatSource {
 export interface StatRow {
   key:   StatKey
   label: string
+  count: number
   value: string
 }
 
@@ -35,5 +30,5 @@ export function statRows(stats: StatSource, lang: string, t: (key: string) => st
   const format = new Intl.NumberFormat(lang)
   return STAT_ORDER
     .filter(({ key }) => (stats[key] ?? 0) > 0)
-    .map(({ key, labelKey }) => ({ key, label: t(labelKey), value: format.format(stats[key] ?? 0) }))
+    .map(({ key, labelKey }) => ({ key, label: t(labelKey), count: stats[key] ?? 0, value: format.format(stats[key] ?? 0) }))
 }

@@ -1,7 +1,7 @@
 import type { DetailBlock } from "../types/portfolio"
 
 //BENTO LAYOUT - pure geometry of the detail-page grid, shared by the public
-//render, the editor and the showcase seed. Desktop is 3 columns of rows with a
+//render, the editor and the case-study builder. Desktop is 3 columns of rows with a
 //minimum height that grow with their text; phone is one column whose rows come
 //from mobileY / mobileH.
 

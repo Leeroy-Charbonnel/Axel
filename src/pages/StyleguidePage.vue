@@ -1,12 +1,10 @@
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from "vue"
+import { computed, reactive, ref } from "vue"
 import { useConfirm } from "../composables/useConfirm"
 import { useLanguage } from "../composables/useLanguage"
 import { usePortfolio } from "../composables/usePortfolio"
 import { useToast, type ToastType } from "../composables/useToast"
-import { useMediaLibrary, mediaTypeOf } from "../components/admin/media/useMediaLibrary"
 import { pickBilingual } from "../lib/markdown"
-import { SHOWCASE_PREFIX, showcaseProjects } from "../lib/showcase-content"
 import { BLOCK_TYPES } from "../components/portfolio/detail/block-types"
 import DetailGrid from "../components/portfolio/detail/DetailGrid.vue"
 import ProjectSpecStrip from "../components/portfolio/ProjectSpecStrip.vue"
@@ -24,7 +22,6 @@ const { lang, t } = useLanguage()
 const toast = useToast()
 const { confirm } = useConfirm()
 const { data } = usePortfolio()
-const media = useMediaLibrary()
 
 const WIDTHS = [
   { px: 375,  label: "styleguideWidthPhone" },
@@ -43,25 +40,11 @@ const SECTIONS = [
   { id: "blocks",   label: "styleguideBlocks" },
 ]
 
-onMounted(() => { void media.load() })
-
-//one block of each type, taken from the showcase content and laid at its
-//default size; a type the files cannot illustrate shows its empty state
+//one block of each type, taken from the case studies on the site and laid at
+//its default size; a type no page uses shows its empty state
+const pages = computed(() => (data.value?.mainProjects ?? []).filter((p) => p.detailPage.blocks.length > 0))
 const samples = computed<{ type: string; label: string; blocks: DetailBlock[] }[]>(() => {
-  const files = media.files.value
-  //renders already on the site first, like the seed: the library also holds logos
-  const site = data.value
-  const shown = new Set(site ? [
-    ...site.mainProjects.flatMap((p) => [p.mainImageUrl, ...p.thumbnails.map((th) => th.url)]),
-    ...site.galleryProjects.map((g) => g.imageUrl),
-  ] : [])
-  const images = files
-    .filter((f) => mediaTypeOf(f) === "image")
-    .sort((a, b) => Number(shown.has(b.url)) - Number(shown.has(a.url)))
-    .map((f) => ({ id: f.id, url: f.url }))
-  const videos = files.filter((f) => mediaTypeOf(f) === "video").map((f) => ({ id: f.id, url: f.url }))
-  const models = (data.value?.models ?? []).filter((m) => m.views.length).map((m) => ({ id: m.id, name: m.name, view: m.views[0]!.name }))
-  const pool = images.length ? showcaseProjects({ images, videos, models }).flatMap((p) => p.blocks) : []
+  const pool = pages.value.flatMap((p) => p.detailPage.blocks)
   return BLOCK_TYPES.map((def) => {
     const found = pool.find((b) => b.type === def.type)
     const block: DetailBlock = {
@@ -71,8 +54,6 @@ const samples = computed<{ type: string; label: string; blocks: DetailBlock[] }[
     return { type: def.type, label: t(def.labelKey), blocks: [block] }
   })
 })
-
-const showcase = computed(() => (data.value?.mainProjects ?? []).filter((p) => p.title.fr.startsWith(SHOWCASE_PREFIX)))
 
 const TOASTS: { type: ToastType; label: string }[] = [
   { type: "success", label: "styleguideToastSuccess" },
@@ -107,9 +88,9 @@ const sampleStats = { vertices: 48210, edges: 96030, faces: 0, triangles: 95640 
       <nav class="sg__nav" :aria-label="t('styleguideNav')">
         <a v-for="s in SECTIONS" :key="s.id" :href="`#sg-${s.id}`" class="sg__nav-link">{{ t(s.label) }}</a>
       </nav>
-      <div v-if="showcase.length" class="sg__showcase">
+      <div v-if="pages.length" class="sg__showcase">
         <span class="sg__label">{{ t('styleguideShowcaseLinks') }}</span>
-        <RouterLink v-for="p in showcase" :key="p.id" :to="`/project/${p.id}`" class="sg__nav-link">{{ pickBilingual(p.title, lang) }}</RouterLink>
+        <RouterLink v-for="p in pages" :key="p.id" :to="`/project/${p.id}`" class="sg__nav-link">{{ pickBilingual(p.title, lang) }}</RouterLink>
       </div>
     </header>
 
@@ -178,7 +159,6 @@ const sampleStats = { vertices: 48210, edges: 96030, faces: 0, triangles: 95640 
           @click="frameWidth = w.px"
         >{{ t(w.label) }} {{ w.px }}</button>
       </div>
-      <p v-if="media.error.value" class="ed-error" role="alert">{{ media.error.value }}</p>
       <div class="sg__frame" :style="{ width: `${frameWidth}px` }">
         <article v-for="s in samples" :key="s.type" class="sg__block">
           <h3 class="sg__h3">{{ s.label }}</h3>

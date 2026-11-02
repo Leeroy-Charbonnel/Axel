@@ -3,6 +3,7 @@ import { computed, onBeforeUnmount, onMounted, ref, shallowRef, watch } from "vu
 import { Box, Cylinder, Grid3x3, Maximize, Minimize, RotateCcw, TriangleAlert } from "lucide-vue-next"
 import { useLanguage } from "../../composables/useLanguage"
 import SiteImage from "../SiteImage.vue"
+import { inLoadTurn } from "../../three/loadQueue"
 import type { ModelViewer } from "../../three/modelViewer"
 import type { ViewerMode, ViewerSettings } from "../../three/types"
 
@@ -76,20 +77,25 @@ async function start() {
   progress.value = 0
   errorDetail.value = ""
   try {
-    const { ModelViewer } = await import("../../three/modelViewer")
-    if (run !== generation) return
-    const v = new ModelViewer({
-      canvas: canvas.value,
-      maxPixelRatio: touch ? TOUCH_MAX_DPR : DESKTOP_MAX_DPR,
-      reducedMotion,
-      autoRotate: props.autoRotate,
+    //null when this viewer was torn down while it waited for its turn
+    const v = await inLoadTurn(async () => {
+      if (run !== generation || !canvas.value) return null
+      const { ModelViewer } = await import("../../three/modelViewer")
+      if (run !== generation) return null
+      const created = new ModelViewer({
+        canvas: canvas.value,
+        maxPixelRatio: touch ? TOUCH_MAX_DPR : DESKTOP_MAX_DPR,
+        reducedMotion,
+        autoRotate: props.autoRotate,
+      })
+      viewer.value = created
+      syncActive()
+      await created.load(props.glbUrl, settingsOrEmpty(), (loaded, total) => {
+        progress.value = total ? loaded / total : null
+      })
+      return created
     })
-    viewer.value = v
-    syncActive()
-    await v.load(props.glbUrl, settingsOrEmpty(), (loaded, total) => {
-      progress.value = total ? loaded / total : null
-    })
-    if (run !== generation) return
+    if (!v || run !== generation) return
     v.setMode(mode.value)
     phase.value = "ready"
     if (onScreen.value) v.playIntro()

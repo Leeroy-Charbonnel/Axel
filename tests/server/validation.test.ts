@@ -2,22 +2,34 @@ import { describe, expect, test } from "bun:test"
 import { detailBlock, mainProjectPatch } from "../../server/validation"
 import { llmsFullTxt, projectPage } from "../../server/seo"
 import { BLOCK_TYPES } from "../../src/components/portfolio/detail/block-types"
-import { showcaseProjects } from "../../src/lib/showcase-content"
+import { caseStudyBlocks } from "../../src/lib/case-study"
 import type { DetailBlock, MainProjectDto, PortfolioDto } from "../../src/types/portfolio"
 
 const ID = "7004bd48-4c6b-43da-9bb3-c63a1e64e0cc"
 const frame = { id: "b1", x: 0, y: 0, w: 1, h: 1 }
 
 describe("detail block content schemas", () => {
-  test("every block the editor creates, and every showcase block, is accepted", () => {
+  test("every block the editor creates, and every case-study block, is accepted", () => {
     for (const def of BLOCK_TYPES) {
       const result = detailBlock.safeParse({ ...frame, type: def.type, content: def.create() })
       expect(result.success).toBe(true)
     }
-    const media = { images: [{ id: ID, url: null }], videos: [{ id: ID, url: null }], models: [{ id: ID, name: "Dragon", view: "Face" }] }
-    for (const p of showcaseProjects(media)) {
-      expect(mainProjectPatch.safeParse({ detailPage: { blocks: p.blocks } }).success).toBe(true)
+    const text = { fr: "Texte", en: "Text" }
+    const full = caseStudyBlocks({
+      modelId: ID, view: "Default", mainId: ID, wireId: ID, detailIds: [ID, ID], videoId: ID,
+      description: text, role: text, year: "2026", software: ["Blender"],
+      stats: { vertices: 1, edges: 2, faces: 3, triangles: 4 },
+    })
+    const bare = caseStudyBlocks({
+      modelId: ID, view: "Default", mainId: ID, wireId: ID, detailIds: [], videoId: null,
+      description: text, role: text, year: "", software: [], stats: { vertices: 1, edges: 2 },
+    })
+    for (const blocks of [full, bare]) {
+      expect(mainProjectPatch.safeParse({ detailPage: { blocks } }).success).toBe(true)
     }
+    //bands follow each other: no row is left empty
+    const rows = new Set(full.flatMap((b) => Array.from({ length: b.h }, (_, i) => b.y + i)))
+    expect(rows.size).toBe(Math.max(...full.map((b) => b.y + b.h)))
   })
 
   test("a content that does not match its type is refused", () => {

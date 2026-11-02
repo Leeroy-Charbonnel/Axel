@@ -3,31 +3,36 @@ import { LineMaterial } from "three/examples/jsm/lines/LineMaterial.js"
 import { LineSegments2 } from "three/examples/jsm/lines/LineSegments2.js"
 import { LineSegmentsGeometry } from "three/examples/jsm/lines/LineSegmentsGeometry.js"
 import { VIEWER_DEFAULTS } from "../lib/viewer-defaults"
-import { pushSweepUniforms, type SweepMaterial, WF_SWEEP_GLSL } from "./materials"
+import { pushSweepUniforms, type SweepMaterial, WF_FRONT_GLSL } from "./materials"
 import { computeEdgesInWorker } from "./wireframeEdges"
 
 //WIREFRAME MODE. One sweep plane crosses the model: behind it the surface turns
-//to the wireframe look and the edge lines appear, together, with a blue light
-//along the front (lights blend on the same curve). Leaving runs the same sweep
-//back.
+//to the wireframe look and the edge lines appear, together, the lines glowing
+//blue along the front (lights blend on the same curve). Leaving runs the same
+//sweep back.
 //
 //The edge geometry is built the first time the lines are needed, in a worker.
 
 const LINE_OPACITY      = 0.9
 const OVERLAY_RENDER_ORDER = 998
 
-//LINE SHADER PATCH - the line material reads the same front as the surfaces:
-//a line shows once swept and takes the glow colour near the front
+//LINE SHADER PATCH - the lines read the same front as the surfaces: a line
+//shows once swept, and only the lines glow: bright blue at the front, fading
+//over a short trail, none once the sweep has ended
 const LINE_VERTEX_COMMON = "#include <common>\nvarying vec3 vWfWorldPos;"
 const LINE_VERTEX_POS =
   "vec4 end = modelViewMatrix * vec4( instanceEnd, 1.0 );\n" +
   "vWfWorldPos = (modelMatrix * vec4(position.y < 0.5 ? instanceStart : instanceEnd, 1.0)).xyz;"
-const LINE_FRAGMENT_COMMON = "#include <common>\nvarying vec3 vWfWorldPos;\n" + WF_SWEEP_GLSL
+const LINE_FRAGMENT_COMMON =
+  "#include <common>\nvarying vec3 vWfWorldPos;\n" + WF_FRONT_GLSL +
+  "uniform vec3 uWfGlow;\n" +
+  "float wfGlow(float d) {\n" +
+  "  return exp(-max(d, 0.0) / 0.15) * sin(PI * uWfProgress);\n" +
+  "}\n"
 const LINE_FRAGMENT_OUT =
-  "gl_FragColor = vec4( diffuseColor.rgb, alpha );\n" +
   "float wfD = wfFront(vWfWorldPos);\n" +
-  "gl_FragColor.rgb = mix(gl_FragColor.rgb, uWfGlow, clamp(wfGlow(wfD), 0.0, 1.0));\n" +
-  "gl_FragColor.a *= step(0.0, wfD);"
+  "float wfG = clamp(wfGlow(wfD), 0.0, 1.0);\n" +
+  "gl_FragColor = vec4( mix(diffuseColor.rgb, uWfGlow * 1.6, wfG), max(alpha, wfG) * step(0.0, wfD) );"
 
 interface Tween {
   from:     number

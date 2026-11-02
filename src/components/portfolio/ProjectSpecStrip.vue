@@ -2,11 +2,12 @@
 import { computed } from "vue"
 import { useTranslations } from "../../composables/useTranslations"
 import { statRows } from "../../lib/portfolio-utils"
+import AnimatedCounter from "./AnimatedCounter.vue"
 import type { Lang } from "../../lib/lang"
 import type { ProjectStats } from "../../types/portfolio"
 
-//THE SPEC STRIP - full labels over the counts (statRows leaves out a count
-//of zero). Each cell's 1px ring fills the 1px gap with its neighbour's, so
+//THE SPEC STRIP - full labels over the counts, which count up as the strip
+//scrolls in (statRows leaves out a count of zero). Each cell's 1px ring fills the 1px gap with its neighbour's, so
 //the hairlines stay single and a short last row leaves no filled hole.
 const props = defineProps<{ stats: ProjectStats; lang: Lang }>()
 const { t } = useTranslations()
@@ -18,7 +19,7 @@ const rows = computed(() => statRows(props.stats, props.lang, t))
   <dl v-if="rows.length" class="spec-strip" :aria-label="t('projectSpecs')">
     <div v-for="s in rows" :key="s.key" class="spec-strip__item">
       <dt class="spec-strip__label">{{ s.label }}</dt>
-      <dd class="spec-strip__value">{{ s.value }}</dd>
+      <dd class="spec-strip__value"><AnimatedCounter :to="s.count" :lang="lang" /></dd>
     </div>
   </dl>
 </template>
