@@ -14,11 +14,27 @@ describe("detail block content schemas", () => {
       const result = detailBlock.safeParse({ ...frame, type: def.type, content: def.create() })
       expect(result.success).toBe(true)
     }
-    const views = Object.fromEntries(CASE_STUDY_VIEWS.map((v) => [v, ID]))
-    const full = caseStudyBlocks({ modelId: ID, view: "Default", mainId: ID, wireId: ID, detailIds: [ID, ID, ID], videoId: ID, views })
-    const bare = caseStudyBlocks({ modelId: ID, view: "Default", mainId: ID, wireId: ID, detailIds: [], videoId: null, views: {} })
-    const partial = caseStudyBlocks({ modelId: ID, view: "Default", mainId: ID, wireId: ID, detailIds: [ID], videoId: ID, views: { "vp-clay": ID, "vp-front": ID, "vp-top": ID, "vp-textures": ID } })
-    for (const blocks of [full, bare, partial]) {
+    //every shape, with and without an introduction, with every, some or no views
+    //and steps of every aspect, starting on either side
+    const text = { fr: "Texte", en: "Text" }
+    const viewSets = [
+      Object.fromEntries(CASE_STUDY_VIEWS.map((v) => [v, ID])),
+      { "vp-clay": ID, "vp-front": ID, "vp-top": ID, "vp-textures": ID },
+      { "vp-wire": ID, "vp-exploded": ID },
+      {},
+    ]
+    const steps = [0.8, 1, 1.78, 1.5, 0.75].map((aspect) => ({ image: { fileId: ID, aspect }, title: text, text }))
+    const pages = []
+    for (const shape of ["tall", "wide", "compact"] as const)
+      for (const intro of [text, null])
+        for (const views of viewSets)
+          for (const stepList of [steps, []])
+            for (const startRight of [false, true])
+              pages.push(caseStudyBlocks({
+                modelId: ID, view: "Default", shape, mainId: ID, wireId: ID, detailIds: [ID, ID, ID],
+                videoId: intro ? ID : null, views, intro, steps: stepList, outro: intro, startRight,
+              }))
+    for (const blocks of pages) {
       expect(mainProjectPatch.safeParse({ detailPage: { blocks } }).success).toBe(true)
       //every cell of every row is covered exactly once: no hole, no overlap
       const height = Math.max(...blocks.map((b) => b.y + b.h))

@@ -1,12 +1,18 @@
 import type { Bilingual, DetailBlock, DetailBlockContent, DetailBlockType } from "../types/portfolio"
 
 //CASE STUDY - the detail page of a project imported from a render folder
-//(scripts/import-renders.ts), packed on the 3-column grid: the model next to
-//its clay and wireframe views, the orthographic views, the exploded view with
-//the topology and the texture maps, the render against its wireframe next to
-//the turntable, and the details. A band takes the files the folder has and
-//never leaves a hole. The page header already carries the description, the
-//numbers, the role and the software, so the blocks repeat none of it.
+//(scripts/import-renders.ts), told as a making-of on the 3-column grid:
+//- an opening that follows the object's silhouette: a tall object gets a
+//  narrow, tall viewer beside the introduction, a wide one a wide viewer above
+//  it, a compact one a large viewer with the text at its side;
+//- the making-of: each step's image sized by its own aspect, its text beside
+//  it, the sides alternating from one step to the next;
+//- the working views (orthographic, exploded, clay, topology, maps), the
+//  renders (wireframe comparison, turntable, details) and the closing words.
+//A band takes what the folder has and never leaves a hole. The page header
+//already carries the description, the numbers, the role and the software.
+
+export type ModelShape = "tall" | "wide" | "compact"
 
 export type CaseStudyView =
   | "vp-clay" | "vp-wire" | "vp-front" | "vp-side" | "vp-top"
@@ -16,15 +22,32 @@ export const CASE_STUDY_VIEWS: CaseStudyView[] = [
   "vp-clay", "vp-wire", "vp-front", "vp-side", "vp-top", "vp-exploded", "vp-topology", "vp-textures", "screen",
 ]
 
+export interface CaseStudyImage {
+  fileId: string
+  //width / height
+  aspect: number
+}
+
+export interface CaseStudyStep {
+  image: CaseStudyImage
+  title: Bilingual
+  text:  Bilingual
+}
+
 export interface CaseStudyMedia {
   modelId:   string
   view:      string
+  shape:     ModelShape
   mainId:    string
   wireId:    string
   detailIds: string[]
   videoId:   string | null
-  //viewport views and extras, when the folder has them
   views:     Partial<Record<CaseStudyView, string>>
+  intro:     Bilingual | null
+  steps:     CaseStudyStep[]
+  outro:     Bilingual | null
+  //which side the first making-of image takes, so two pages do not open alike
+  startRight: boolean
 }
 
 const bi = (fr: string, en: string): Bilingual => ({ fr, en })
@@ -46,6 +69,12 @@ interface Tile {
   content: DetailBlockContent
 }
 
+//a step's text as markdown: its title, then its paragraph
+const stepText = (s: CaseStudyStep): Bilingual => ({
+  fr: `### ${s.title.fr}\n\n${s.text.fr}`,
+  en: `### ${s.title.en}\n\n${s.text.en}`,
+})
+
 export function caseStudyBlocks(m: CaseStudyMedia): DetailBlock[] {
   const blocks: DetailBlock[] = []
   let n = 0
@@ -55,17 +84,18 @@ export function caseStudyBlocks(m: CaseStudyMedia): DetailBlock[] {
     blocks.push({ id: `cs${++n}`, type: t.type, x, y: top, w, h, mobileY: phoneY, mobileH: phoneH, content: t.content })
     phoneY += phoneH
   }
-  const image = (name: CaseStudyView): Tile | null => {
+  const viewImage = (name: CaseStudyView): Tile | null => {
     const fileId = m.views[name]
     return fileId ? { type: "image", content: { fileId, url: null, alt: VIEW_ALT[name], fit: "cover" } } : null
   }
   const present = (tiles: (Tile | null)[]) => tiles.filter((t): t is Tile => t !== null)
+  const text = (b: Bilingual): Tile => ({ type: "text", content: { text: b } })
 
   function heading(fr: string, en: string) {
     place({ type: "heading", content: { text: bi(fr, en) } }, 0, y, 3, 1, 1)
     y += 1
   }
-  //a large tile on two columns with up to two small ones stacked beside it
+  //a large tile on two columns with up to two small ones stacked at its right
   function pair(main: Tile, smalls: Tile[], mainPhoneH: number) {
     if (smalls.length === 0) {
       place(main, 0, y, 3, 3, mainPhoneH)
@@ -89,22 +119,65 @@ export function caseStudyBlocks(m: CaseStudyMedia): DetailBlock[] {
     y += 1
   }
 
-  heading("Le modèle", "The model")
-  pair(
-    { type: "viewer3d", content: { model3dId: m.modelId, desktopView: m.view, mobileView: m.view } },
-    present([image("vp-clay"), image("vp-wire")]),
-    2,
-  )
-  row(present([image("vp-front"), image("vp-side"), image("vp-top")]))
+  //OPENING - the viewer shaped like the object, the introduction beside it
+  const viewer: Tile = { type: "viewer3d", content: { model3dId: m.modelId, desktopView: m.view, mobileView: m.view } }
+  const intro = m.intro ? text(m.intro) : null
+  const side = present([viewImage("vp-clay"), viewImage("vp-wire")]).slice(0, 2)
+  if (m.shape === "tall") {
+    //four rows: the viewer on one column, the introduction and the side views on two
+    place(viewer, 0, y, 1, 4, 3)
+    const sideTop = intro ? y + 2 : y
+    const sideH = intro ? 2 : 4
+    if (intro) place(intro, 1, y, 2, side.length ? 2 : 4, 2)
+    if (side.length === 2) side.forEach((t, i) => place(t, 1 + i, sideTop, 1, sideH, 1))
+    else if (side.length === 1) place(side[0]!, 1, sideTop, 2, sideH, 1)
+    else if (!intro) blocks[blocks.length - 1]!.w = 3
+    y += 4
+  } else if (m.shape === "wide") {
+    place(viewer, 0, y, 3, 2, 2)
+    y += 2
+    if (intro) {
+      place(intro, 0, y, side.length ? 2 : 3, 2, 2)
+      side.slice(0, 2).forEach((t, i) => place(t, 2, y + i, 1, side.length === 1 ? 2 : 1, 1))
+      y += 2
+    } else row(side)
+  } else if (intro) {
+    place(viewer, 0, y, 2, 3, 2)
+    place(intro, 2, y, 1, 3, 2)
+    y += 3
+    row(side)
+  } else {
+    pair(viewer, side, 2)
+  }
 
-  const exploded = image("vp-exploded")
-  const making = present([image("vp-topology"), image("vp-textures")])
-  if (exploded || making.length) {
-    heading("Construction", "Construction")
+  //MAKING-OF - image and text side by side, the image sized by its aspect
+  if (m.steps.length) {
+    heading("Conception", "Making-of")
+    m.steps.forEach((s, i) => {
+      const portrait = s.image.aspect < 0.95
+      const square = !portrait && s.image.aspect < 1.25
+      const imageW = portrait || square ? 1 : 2
+      const h = portrait ? 3 : 2
+      const imageLeft = (i % 2 === 0) !== m.startRight
+      const img: Tile = { type: "image", content: { fileId: s.image.fileId, url: null, alt: s.title, fit: portrait ? "contain" : "cover" } }
+      place(img, imageLeft ? 0 : 3 - imageW, y, imageW, h, portrait ? 3 : 2)
+      place(text(stepText(s)), imageLeft ? imageW : 0, y, 3 - imageW, h, 2)
+      y += h
+    })
+  }
+
+  //WORKING VIEWS - the orthographic set, then the exploded view with its close-ups
+  const ortho = present([viewImage("vp-front"), viewImage("vp-side"), viewImage("vp-top")])
+  const exploded = viewImage("vp-exploded")
+  const making = present([viewImage("vp-topology"), viewImage("vp-textures")])
+  if (ortho.length || exploded || making.length) {
+    heading("Vues de travail", "Working views")
+    row(ortho)
     if (exploded) pair(exploded, making, 1)
     else row(making)
   }
 
+  //RENDERS - the wireframe comparison beside the turntable, then the details
   heading("Rendus", "Renders")
   const video: Tile | null = m.videoId
     ? { type: "video", content: { fileId: m.videoId, url: null, autoplay: true, loop: true, muted: true, controls: false } }
@@ -114,9 +187,14 @@ export function caseStudyBlocks(m: CaseStudyMedia): DetailBlock[] {
       beforeFileId: m.wireId, beforeUrl: null, afterFileId: m.mainId, afterUrl: null,
       beforeLabel: bi("Fil de fer", "Wireframe"), afterLabel: bi("Rendu", "Render"), followMouse: false,
     } },
-    present([video, image("screen")]),
+    present([video, viewImage("screen")]),
     2,
   )
   row(m.detailIds.slice(0, 3).map((fileId) => ({ type: "image", content: { fileId, url: null, fit: "cover" } })))
+
+  if (m.outro) {
+    place(text(m.outro), 0, y, 3, 1, 2)
+    y += 1
+  }
   return blocks
 }

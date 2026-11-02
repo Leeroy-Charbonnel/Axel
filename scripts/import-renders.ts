@@ -26,7 +26,7 @@ import { file, galleryProject, mainProject, mainProjectSoftware, model3d, softwa
 import { galleryProjectPatch, mainProjectPatch } from "../server/validation"
 import { measureImage, STORAGE_DIR } from "../server/uploads"
 import { optimizeModel } from "../server/model-optimize"
-import { CASE_STUDY_VIEWS, caseStudyBlocks, type CaseStudyView } from "../src/lib/case-study"
+import { CASE_STUDY_VIEWS, caseStudyBlocks, type CaseStudyStep, type CaseStudyView, type ModelShape } from "../src/lib/case-study"
 import { CAMERA_FOV } from "../src/three/autoSetup"
 
 const VIEW = "Default"
@@ -64,6 +64,16 @@ const mainManifest = z.object({
   camera:      z.object({ position: vec3, target: vec3, fov: z.number().positive() }),
 })
 const galleryManifest = z.object({ title: bilingual, stats })
+const processManifest = z.object({
+  intro: bilingual,
+  steps: z.array(z.object({ image: z.string().min(1), title: bilingual, text: bilingual })),
+  outro: bilingual,
+})
+
+//height over the larger footprint side above which an object is tall, and the
+//reverse for wide
+const TALL_RATIO = 1.4
+const WIDE_RATIO = 1.6
 
 function refuseProduction() {
   const dev = process.env.DATABASE_URL
@@ -105,10 +115,23 @@ async function storeFile(dir: string, slug: string, name: string, uploader: stri
 //ground, centred on the vertical axis (modelViewer.ts), so the camera moves by
 //the same offset. Its distance is scaled to the viewer's field of view, so the
 //model fills the frame as it fills main.jpg.
-async function viewerView(glbPath: string, camera: { position: Vec3; target: Vec3; fov: number }): Promise<{ position: Vec3; target: Vec3 }> {
+async function glbBounds(glbPath: string): Promise<{ min: Vec3; max: Vec3 }> {
   await MeshoptDecoder.ready
   const io = new NodeIO().registerExtensions(ALL_EXTENSIONS).registerDependencies({ "meshopt.decoder": MeshoptDecoder })
   const { min, max } = getBounds((await io.read(glbPath)).getRoot().getDefaultScene()!)
+  return { min: min as Vec3, max: max as Vec3 }
+}
+
+//TALL, WIDE OR COMPACT - the silhouette the case-study page is laid out for
+function shapeOf({ min, max }: { min: Vec3; max: Vec3 }): ModelShape {
+  const height = max[1] - min[1]
+  const width = Math.max(max[0] - min[0], max[2] - min[2])
+  if (height > width * TALL_RATIO) return "tall"
+  if (width > height * WIDE_RATIO) return "wide"
+  return "compact"
+}
+
+function viewerView({ min, max }: { min: Vec3; max: Vec3 }, camera: { position: Vec3; target: Vec3; fov: number }): { position: Vec3; target: Vec3 } {
   const offset: Vec3 = [(min[0] + max[0]) / 2, min[1], (min[2] + max[2]) / 2]
   const target = camera.target.map((v, i) => v - offset[i]!) as Vec3
   const scale = Math.tan((camera.fov * Math.PI) / 360) / Math.tan((CAMERA_FOV * Math.PI) / 360)
@@ -121,7 +144,7 @@ function detailNames(dir: string): string[] {
   return readdirSync(dir).filter((n) => /^detail-\d+\.(jpe?g|png|webp)$/i.test(n)).sort()
 }
 
-async function importMain(dir: string, uploader: string): Promise<number> {
+async function importMain(dir: string, uploader: string, startRight: boolean): Promise<number> {
   const m = mainManifest.parse(JSON.parse(readFileSync(join(dir, "manifest.json"), "utf8")))
   const put = (name: string) => storeFile(dir, m.slug, name, uploader)
   const has = (name: string) => existsSync(join(dir, name))
@@ -135,6 +158,15 @@ async function importMain(dir: string, uploader: string): Promise<number> {
   const wireName = (name: string) => name.replace(/(\.[a-z]+)$/i, "-wire$1")
   const detailWireIds = await Promise.all(details.map((n) => (has(wireName(n)) ? put(wireName(n)) : null)))
   const videoId = has("turntable.mp4") ? await put("turntable.mp4") : null
+  //the making-of, when the folder has one: process/process.json and its images
+  const story = has("process/process.json")
+    ? processManifest.parse(JSON.parse(readFileSync(join(dir, "process", "process.json"), "utf8")))
+    : null
+  const steps: CaseStudyStep[] = []
+  for (const s of story?.steps ?? []) {
+    const { width, height } = await measureImage(join(dir, s.image))
+    steps.push({ image: { fileId: await put(s.image), aspect: width / height }, title: s.title, text: s.text })
+  }
   //the viewport views and extras: vp-clay.jpg, screen.gif...
   const shots: Partial<Record<CaseStudyView, string>> = {}
   for (const name of CASE_STUDY_VIEWS) {
@@ -143,7 +175,8 @@ async function importMain(dir: string, uploader: string): Promise<number> {
   }
 
   //MODEL - one per GLB, optimized once
-  const view = await viewerView(join(dir, "model.glb"), m.camera)
+  const bounds = await glbBounds(join(dir, "model.glb"))
+  const view = viewerView(bounds, m.camera)
   const views = [{ name: VIEW, position: view.position, target: view.target, wireframe: false }]
   let [model] = await db.select().from(model3d).where(eq(model3d.sourceGlbFileId, glbId))
   if (!model) [model] = await db.select().from(model3d).where(eq(model3d.glbFileId, glbId))
@@ -165,7 +198,8 @@ async function importMain(dir: string, uploader: string): Promise<number> {
     model3dId: model!.id, model3dDesktopView: VIEW, model3dMobileView: VIEW,
     thumbnails,
     detailPage: { blocks: caseStudyBlocks({
-      modelId: model!.id, view: VIEW, mainId, wireId, detailIds, videoId, views: shots,
+      modelId: model!.id, view: VIEW, shape: shapeOf(bounds), mainId, wireId, detailIds, videoId, views: shots,
+      intro: story?.intro ?? null, steps, outro: story?.outro ?? null, startRight,
     }) },
     stats: m.stats,
   })
@@ -213,7 +247,7 @@ async function main() {
     if (!existsSync(join(dir, "manifest.json")) || !existsSync(join(dir, "model.glb"))) {
       throw new Error(`${name}: a main project folder needs manifest.json and model.glb`)
     }
-    mainIds.push(await importMain(dir, uploader))
+    mainIds.push(await importMain(dir, uploader, mainIds.length % 2 === 1))
     console.log(`main project ${name} -> #${mainIds.at(-1)}`)
   }
   const galleryIds: number[] = []
