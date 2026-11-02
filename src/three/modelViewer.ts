@@ -45,11 +45,16 @@ const INTRO_POLAR_OFFSET = 0.2
 const INTRO_MIN_POLAR = 0.05
 const RESET_MS = 700
 const AUTO_ROTATE_SPEED = 0.6
-//the exploded view: the gap between two parts, in shares of the model's depth along the axis
-const EXPLODE_GAP = 0.12
-const DEFAULT_EXPLODE_AXIS: Vec3 = [0, 0, 1]
 //the studio environment under clay, dimmer than a lit render so the grey reads as grey
 const CLAY_ENV_INTENSITY = 0.5
+
+//a label point on the canvas, in CSS pixels from its top left corner
+export interface LabelPoint {
+  x:       number
+  y:       number
+  //false behind the camera
+  visible: boolean
+}
 
 export interface ModelViewerOptions {
   canvas:        HTMLCanvasElement
@@ -114,8 +119,9 @@ export class ModelViewer {
   private introPending = false
   private disposed = false
   private compiling: Promise<unknown> | null = null
-  //the parts' bounds once set apart, which the camera frames instead of the model's
-  private explodedBox: Box3 | null = null
+  //the label points in the scene, once the model is set on the ground
+  private labelPoints: Vector3[] = []
+  private labelListener: ((points: LabelPoint[]) => void) | null = null
   private readonly opts: ModelViewerOptions
 
   //Throws when WebGL is unavailable.
@@ -188,6 +194,8 @@ export class ModelViewer {
     root.position.z -= c.z
     root.position.y -= raw.min.y
     root.updateMatrixWorld(true)
+    //the label points move with the model
+    this.labelPoints = (settings.labels ?? []).map((p) => new Vector3(...p).add(root.position))
 
     const setup = computeAutoSetup(root, { animations: gltf.animations })
     this.setup = setup
@@ -252,9 +260,7 @@ export class ModelViewer {
     this.sweep.setExcluded(new Set(this.picked.keys()))
     this.configureSweep()
 
-    if (settings.exploded) this.explode(new Vector3(...(settings.explodeAxis ?? DEFAULT_EXPLODE_AXIS)).normalize())
-    //an exploded model stays still: its animation would move the parts back
-    else if (gltf.animations.length > 0) {
+    if (gltf.animations.length > 0) {
       this.mixer = new AnimationMixer(root)
       this.mixer.clipAction(gltf.animations[0]!).play()
       this.mixer.update(0)
@@ -413,31 +419,7 @@ export class ModelViewer {
 
   //CAMERA
 
-  //EXPLODED VIEW - each part moved along the axis, in the order it sits, so
-  //the parts follow one another with a gap and none overlaps; the stack keeps
-  //the model's centre. Static: a plan, not an animation.
-  private explode(axis: Vector3): void {
-    const parts = this.meshes.map((mesh) => {
-      const b = new Box3().setFromObject(mesh)
-      return { mesh, at: b.getCenter(new Vector3()).dot(axis), half: (b.max.dot(axis) - b.min.dot(axis)) / 2 }
-    }).sort((a, b) => a.at - b.at)
-    const model = this.box()
-    const depth = model.max.dot(axis) - model.min.dot(axis)
-    const gap = depth * EXPLODE_GAP
-    const stack = parts.reduce((sum, p) => sum + 2 * p.half, 0) + gap * (parts.length - 1)
-    let cursor = model.getCenter(new Vector3()).dot(axis) - stack / 2
-    for (const p of parts) {
-      const move = cursor + p.half - p.at
-      cursor += 2 * p.half + gap
-      const world = p.mesh.getWorldPosition(new Vector3()).addScaledVector(axis, move)
-      p.mesh.position.copy(p.mesh.parent ? p.mesh.parent.worldToLocal(world) : world)
-      p.mesh.updateMatrixWorld(true)
-    }
-    this.explodedBox = new Box3().setFromObject(this.model!)
-  }
-
   private box(): Box3 {
-    if (this.explodedBox) return this.explodedBox.clone()
     const b = this.setup!.bounds.box
     return new Box3(new Vector3(...b.min), new Vector3(...b.max))
   }
@@ -479,6 +461,23 @@ export class ModelViewer {
       }
     }
     this.core.requestRender()
+  }
+
+  //the label points on screen, after every frame drawn
+  onLabels(listener: (points: LabelPoint[]) => void): void {
+    this.labelListener = listener
+    this.core.requestRender()
+  }
+
+  private emitLabels(): void {
+    if (!this.labelListener || !this.labelPoints.length) return
+    const canvas = this.core.renderer.domElement
+    const w = canvas.clientWidth, h = canvas.clientHeight
+    const v = new Vector3()
+    this.labelListener(this.labelPoints.map((p) => {
+      v.copy(p).project(this.core.camera)
+      return { x: (v.x + 1) / 2 * w, y: (1 - v.y) / 2 * h, visible: v.z < 1 }
+    }))
   }
 
   private applyStage(): void {
@@ -537,6 +536,7 @@ export class ModelViewer {
   }
 
   private frame(dt: number, now: number): boolean {
+    this.emitLabels()
     let busy = false
     if (this.flight) {
       const f = this.flight

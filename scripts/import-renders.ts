@@ -87,7 +87,13 @@ const sheetManifest = z.object({
   intro:     bilingual.optional(),
   plans:     z.object({ image: z.string().min(1) }),
   blocking:  z.object({ images: z.array(labelled), video: z.string().min(1).optional(), text: bilingual.optional() }).optional(),
-  exploded:  z.object({ image: z.string().min(1), legend: z.array(bilingual) }).optional(),
+  exploded:  z.object({
+    image:  z.string().min(1),
+    legend: z.array(bilingual),
+    //the model set apart, and one point per legend number in its frame
+    glb:    z.string().min(1).optional(),
+    labels: z.array(vec3).optional(),
+  }).optional(),
   shaders:   z.array(z.object({ title: bilingual, steps: z.array(labelled) })).default([]),
   materials: z.array(z.object({
     image: z.string().min(1),
@@ -248,7 +254,7 @@ async function importMain(dir: string, uploader: string, startRight: boolean): P
   const thumbnails = detailIds.map((fileId, i) => ({ fileId, wireframeFileId: detailWireIds[i] ?? null, description: m.title }))
   //the technical plan when the folder has one, else the making-of
   const sheet = has("sheet/sheet.json")
-    ? await importSheet(sheetManifest.parse(JSON.parse(readFileSync(join(dir, "sheet", "sheet.json"), "utf8"))), (name) => put(`sheet/${name}`), model!.id)
+    ? await importSheet(sheetManifest.parse(JSON.parse(readFileSync(join(dir, "sheet", "sheet.json"), "utf8"))), (name) => put(`sheet/${name}`), model!.id, m.title.en)
     : null
   const values = mainProjectPatch.required().parse({
     title: m.title, description: m.description, published: true, role: m.role, year: m.year,
@@ -279,8 +285,21 @@ async function importMain(dir: string, uploader: string, startRight: boolean): P
   return id
 }
 
+//the exploded model: its own row, optimized once, its marks in its settings
+async function explodedModel(glbId: string, name: string, labels: Vec3[]): Promise<string> {
+  let [row] = await db.select().from(model3d).where(eq(model3d.sourceGlbFileId, glbId))
+  if (!row) [row] = await db.select().from(model3d).where(eq(model3d.glbFileId, glbId))
+  if (!row) [row] = await db.insert(model3d).values({ name, glbFileId: glbId, views: [] }).returning()
+  const settings = { ...(row!.viewerSettings ?? {}), labels }
+  await db.update(model3d).set({ name, viewerSettings: settings, updatedAt: new Date() }).where(eq(model3d.id, row!.id))
+  if (!row!.sourceGlbFileId) await optimizeModel({ ...row!, viewerSettings: settings })
+  return row!.id
+}
+
 //the files of sheet/sheet.json stored, and the page they lay out
-async function importSheet(s: z.infer<typeof sheetManifest>, put: (name: string) => Promise<string>, modelId: string) {
+async function importSheet(
+  s: z.infer<typeof sheetManifest>, put: (name: string) => Promise<string>, modelId: string, title: string,
+) {
   const images = async (list: z.infer<typeof labelled>[]): Promise<SheetImage[]> => {
     const out: SheetImage[] = []
     for (const i of list) out.push({ fileId: await put(i.image), caption: i.label })
@@ -297,7 +316,13 @@ async function importSheet(s: z.infer<typeof sheetManifest>, put: (name: string)
     blocking: s.blocking
       ? { levels: await images(s.blocking.images), videoId: s.blocking.video ? await put(s.blocking.video) : null, text: s.blocking.text ?? null }
       : null,
-    exploded: s.exploded ? { fileId: await put(s.exploded.image), legend: s.exploded.legend } : null,
+    exploded: s.exploded
+      ? {
+        fileId:  await put(s.exploded.image),
+        modelId: s.exploded.glb ? await explodedModel(await put(s.exploded.glb), `${title} (exploded)`, s.exploded.labels ?? []) : null,
+        legend:  s.exploded.legend,
+      }
+      : null,
     shaders,
     materials,
     maps:     await images(s.maps),

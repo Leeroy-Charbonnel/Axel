@@ -22,7 +22,8 @@ export interface SheetMedia {
   plansId:   string
   //from the roughest pass to the refined one
   blocking:  { levels: SheetImage[]; videoId: string | null; text: Bilingual | null } | null
-  exploded:  { fileId: string; legend: Bilingual[] } | null
+  //modelId: the model saved apart, with its numbered marks; without it, the drawing
+  exploded:  { fileId: string; modelId: string | null; legend: Bilingual[] } | null
   //one row of squares per shader, under its own title
   shaders:   { title: Bilingual; steps: SheetImage[] }[]
   materials: Omit<MaterialItem, "url">[]
@@ -104,10 +105,10 @@ export function bandBlocking(w: SheetWriter, levels: Tile | null, video: Tile | 
   else w.row(side, 2)
 }
 
-//the parts set apart in 3D, the numbered drawing and its nomenclature beside them
-export function bandExploded(w: SheetWriter, viewer: Tile, drawing: Tile | null, legend: Tile | null) {
+//the parts set apart, numbered, and their nomenclature beside them
+export function bandExploded(w: SheetWriter, view: Tile, legend: Tile | null) {
   w.heading(bi("Vue éclatée", "Exploded view"))
-  w.pair(viewer, present([drawing, legend]))
+  w.pair(view, present([legend]))
 }
 
 //each shader built square by square, its name beside its squares
@@ -179,8 +180,9 @@ export function sheetBlocks(m: SheetMedia): DetailBlock[] {
 
   if (m.exploded) {
     bandExploded(w,
-      viewerTile(m.modelId, m.view, "exploded"),
-      imageTile(m.exploded.fileId, bi("Vue éclatée", "Exploded view")),
+      m.exploded.modelId
+        ? viewerTile(m.exploded.modelId, "", "exploded")
+        : imageTile(m.exploded.fileId, bi("Vue éclatée", "Exploded view")),
       m.exploded.legend.length ? legendTile(m.exploded.legend, "number") : null)
   }
 

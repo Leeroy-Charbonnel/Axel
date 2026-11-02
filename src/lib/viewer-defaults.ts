@@ -30,7 +30,7 @@ export const VIEWER_DEFAULTS = {
 //THE BLUEPRINT LOOK of a detail-page viewer: white edges over surfaces left
 //clear, so the page shows through them, as on a technical plan
 export const BLUEPRINT_LOOK = {
-  lineColor: "#ffffff",
+  lineColor: "#8a8a8a",
   material:  { color: "#000000", metalness: 0, roughness: 1, envMapIntensity: 0, specularIntensity: 0, clear: true },
 } as const
 

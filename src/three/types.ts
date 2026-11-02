@@ -73,10 +73,9 @@ export interface WireframeMaterialParams {
 export interface ViewerSettings {
   //null = the default view for the screen, else frame the model automatically
   startView?: StartView | null
-  //EXPLODED VIEW: the parts set apart along explodeAxis (saved per model,
-  //front to back when absent); exploded is the page's request, never saved
-  exploded?:    boolean
-  explodeAxis?: Vec3
+  //numbered marks on the model (an exploded view's legend), in the file's
+  //own frame, numbered 01, 02... in this order
+  labels?: Vec3[]
   //phone = a frame taller than wide
   defaultViews?: { desktop?: DefaultView; phone?: DefaultView }
   //missing fields follow the auto setup

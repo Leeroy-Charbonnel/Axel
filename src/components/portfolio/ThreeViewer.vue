@@ -5,7 +5,7 @@ import { useLanguage } from "../../composables/useLanguage"
 import SiteImage from "../SiteImage.vue"
 import { inLoadTurn } from "../../three/loadQueue"
 import { siteAccent } from "../../lib/accent"
-import type { ModelViewer } from "../../three/modelViewer"
+import type { LabelPoint, ModelViewer } from "../../three/modelViewer"
 import type { ViewerMode, ViewerSettings } from "../../three/types"
 
 //PUBLIC 3D VIEWER, transparent so the model floats on the page. Fetches three.js
@@ -28,7 +28,9 @@ const props = withDefaults(defineProps<{
   toolbar?:     boolean
   //under the model, or a column of icons at its right
   toolbarSide?: "bottom" | "right"
-}>(), { wireframe: false, poster: null, posterSizes: "100vw", alt: "", autoRotate: false, toolbar: true, toolbarSide: "bottom" })
+  //the model's label points drawn as numbered marks (an exploded view)
+  labels?:      boolean
+}>(), { labels: false, wireframe: false, poster: null, posterSizes: "100vw", alt: "", autoRotate: false, toolbar: true, toolbarSide: "bottom" })
 
 const emit = defineEmits<{ "update:wireframe": [on: boolean] }>()
 
@@ -57,6 +59,7 @@ const visible = ref(false)
 const onScreen = ref(false)
 const pageHidden = ref(false)
 const viewer = shallowRef<ModelViewer | null>(null)
+const labelPoints = ref<LabelPoint[]>([])
 
 let reducedMotion = false
 let touch = false
@@ -107,6 +110,7 @@ async function start() {
     if (!v || run !== generation) return
     //the starting mode is there from the first frame, never swept in
     v.setMode(mode.value, false)
+    if (props.labels) v.onLabels((points) => { labelPoints.value = points })
     phase.value = "ready"
     if (onScreen.value) v.playIntro()
   } catch (err) {
@@ -229,6 +233,16 @@ watch(() => props.glbUrl, () => {
     :aria-busy="phase === 'loading'"
   >
     <canvas ref="canvas" class="three-viewer__canvas" :class="{ 'three-viewer__canvas--ready': phase === 'ready' }" />
+
+    <ol v-if="labels && phase === 'ready'" class="three-viewer__labels" aria-hidden="true">
+      <li
+        v-for="(p, i) in labelPoints"
+        v-show="p.visible"
+        :key="i"
+        class="three-viewer__label"
+        :style="{ transform: `translate(${p.x}px, ${p.y}px)` }"
+      >{{ String(i + 1).padStart(2, "0") }}</li>
+    </ol>
 
     <SiteImage
       v-if="poster && (phase === 'error' || phase === 'lost')"
@@ -415,6 +429,32 @@ the controls sit above them*/
 }
 
 /*a column of icons, centred on the right edge; the names stay in aria-label and title*/
+/*NUMBERED MARKS - centred on their point, the legend's boxes*/
+.three-viewer__labels {
+  position: absolute;
+  inset: 0;
+  z-index: var(--vsui-z-dropdown);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  pointer-events: none;
+}
+.three-viewer__label {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: inline-grid;
+  place-content: center;
+  min-width: var(--site-mark);
+  height: var(--site-mark);
+  margin: calc(var(--site-mark) / -2) 0 0 calc(var(--site-mark) / -2);
+  border: var(--border-width-sm) solid var(--site-line-strong);
+  background-color: var(--site-backdrop);
+  font-size: var(--site-fs-label);
+  font-variant-numeric: tabular-nums;
+  color: var(--site-text-heading);
+}
+
 .three-viewer__toolbar--right {
   left: auto;
   right: var(--vsui-space-md);
