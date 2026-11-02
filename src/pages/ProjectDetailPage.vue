@@ -193,7 +193,7 @@ function goBack() {
 .case {
   display: flex;
   flex-direction: column;
-  gap: var(--site-section-gap);
+  gap: var(--spacing-3xl);
   padding-top: var(--spacing-3xl);
   padding-bottom: var(--site-section-gap);
   font-family: var(--site-font);

@@ -43,7 +43,7 @@ const titleId = `project-${props.project.id}-title`
         <div class="case__body">
           <p v-if="description" class="case__description">{{ description }}</p>
 
-          <ProjectSpecStrip :stats="project.stats" :lang="lang" class="case__specs" />
+          <ProjectSpecStrip :stats="project.stats" :lang="lang" inline class="case__specs" />
 
           <SoftwareChips :software="project.software" :aria-label="t('projectSoftware')" />
 
@@ -58,12 +58,13 @@ const titleId = `project-${props.project.id}-title`
 </template>
 
 <style scoped>
-/*desktop: the still on 8 columns, the facts on 4; stacked below 1025px*/
+/*desktop: the model on 8 columns, the facts on 4 and centred against it, so
+each card reads as a pair rather than a block; stacked below 1025px*/
 .case {
   position: relative;
   display: grid;
   grid-template-columns: minmax(0, 8fr) minmax(0, 4fr);
-  align-items: start;
+  align-items: center;
   gap: var(--site-col-gap);
 }
 

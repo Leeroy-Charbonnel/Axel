@@ -9,7 +9,9 @@
       "Bash(bun install)",
       "Bash(bun add better-auth helmet)",
       "Bash(bun add lucide-vue-next)",
-      "Bash(git:*)"
+      "Bash(git:*)",
+      "mcp__terminal__run_in_terminal",
+      "mcp__terminal__stop_terminal_tab"
     ]
   }
 }

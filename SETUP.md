@@ -28,13 +28,14 @@ Vite proxies `/api` and `/media` to the Express server on 3001. The dev server
 serves and writes files in the local `storage/files`, so a dev database copied
 from prod also needs the prod files copied there (see "Refreshing dev from prod").
 
-`bun scripts/import-renders.ts <folder> [--retire] [--order=a,b]` turns render folders into
-projects in the dev database. A folder with `model.glb` becomes a main project:
-the model is optimized like an upload, and its page is a case study built by
-`src/lib/case-study.ts`. A folder with `card.jpg` becomes a gallery card. Each
-folder carries a `manifest.json`. Re-running updates the same rows, matched by
-French title, and reuses the files already imported. `--retire` unpublishes
-every other project and card. `/styleguide` (admin) shows the tokens, the fields
+`bun scripts/import-renders.ts <folder> --main=a,b,c [--retire]` turns render
+folders into projects in the dev database. The folders named in `--main`, in
+that order, become main projects: the model is optimized like an upload and the
+page is a case study built by `src/lib/case-study.ts` from the views the folder
+has. Every other folder with a `card.jpg` becomes a gallery card. Each folder
+carries a `manifest.json`. Re-running updates the same rows, matched by French
+title, and reuses the files already imported. `--retire` unpublishes every
+other project and card. `/styleguide` (admin) shows the tokens, the fields
 and one block of each type taken from those pages.
 
 There is no `GITHUB_TOKEN` and no `.npmrc`. The shared package this used to

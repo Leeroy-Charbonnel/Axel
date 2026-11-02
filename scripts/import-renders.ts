@@ -1,17 +1,17 @@
 #!/usr/bin/env bun
 //IMPORT RENDER FOLDERS AS REAL PROJECTS - each folder under the given root
 //holds a manifest.json and its files (see the render session's contract):
-//- with a model.glb it becomes a main project: model_3d row (optimized like an
-//  upload), main image, wireframe, thumbnails, and a case-study page;
-//- with a card.jpg it becomes a gallery card.
+//- the folders named in --main, in that order, become main projects: model_3d
+//  row (optimized like an upload), main image, wireframe, thumbnails, and a
+//  case-study page;
+//- every other folder with a card.jpg becomes a gallery card, by name.
 //
 //IDEMPOTENT: a file already imported (same "<slug>/<name>" original name) is
 //reused, a project or card with the same French title is updated in place.
-//--retire unpublishes every other main project and gallery card. --order lists
-//folder names to put first, in that order; the rest follow by name.
+//--retire unpublishes every other main project and gallery card.
 //DATABASE_URL only, never the production database.
 //
-//Usage: bun scripts/import-renders.ts <root> [--retire] [--order=a,b,c]
+//Usage: bun scripts/import-renders.ts <root> --main=a,b,c [--retire]
 
 import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, statSync } from "node:fs"
 import { randomUUID } from "node:crypto"
@@ -26,10 +26,11 @@ import { file, galleryProject, mainProject, mainProjectSoftware, model3d, softwa
 import { galleryProjectPatch, mainProjectPatch } from "../server/validation"
 import { measureImage, STORAGE_DIR } from "../server/uploads"
 import { optimizeModel } from "../server/model-optimize"
-import { caseStudyBlocks } from "../src/lib/case-study"
+import { CASE_STUDY_VIEWS, caseStudyBlocks, type CaseStudyView } from "../src/lib/case-study"
 import { CAMERA_FOV } from "../src/three/autoSetup"
 
 const VIEW = "Default"
+const THUMBNAILS = 3
 
 const MIME: Record<string, { mime: string; kind: string; dir: string }> = {
   ".jpg":  { mime: "image/jpeg",        kind: "image", dir: "images" },
@@ -132,6 +133,12 @@ async function importMain(dir: string, uploader: string): Promise<number> {
   const wireName = (name: string) => name.replace(/(\.[a-z]+)$/i, "-wire$1")
   const detailWireIds = await Promise.all(details.map((n) => (has(wireName(n)) ? put(wireName(n)) : null)))
   const videoId = has("turntable.mp4") ? await put("turntable.mp4") : null
+  //the viewport views and extras: vp-clay.jpg, screen.gif...
+  const shots: Partial<Record<CaseStudyView, string>> = {}
+  for (const name of CASE_STUDY_VIEWS) {
+    const file = [".jpg", ".png", ".gif"].map((ext) => name + ext).find(has)
+    if (file) shots[name] = await put(file)
+  }
 
   //MODEL - one per GLB, optimized once
   const view = await viewerView(join(dir, "model.glb"), m.camera)
@@ -148,14 +155,15 @@ async function importMain(dir: string, uploader: string): Promise<number> {
     console.log(`  ${m.slug}: GLB ${(report.bytesBefore / 1048576).toFixed(1)} MB -> ${(report.bytesAfter / 1048576).toFixed(1)} MB`)
   }
 
-  const thumbnails = detailIds.map((fileId, i) => ({ fileId, wireframeFileId: detailWireIds[i] ?? null, description: m.title }))
+  //the card shows three thumbnails; the page's carousel shows every detail
+  const thumbnails = detailIds.slice(0, THUMBNAILS).map((fileId, i) => ({ fileId, wireframeFileId: detailWireIds[i] ?? null, description: m.title }))
   const values = mainProjectPatch.required().parse({
     title: m.title, description: m.description, published: true, role: m.role, year: m.year,
     mainImageFileId: mainId, mainWireframeFileId: wireId,
     model3dId: model!.id, model3dDesktopView: VIEW, model3dMobileView: VIEW,
     thumbnails,
     detailPage: { blocks: caseStudyBlocks({
-      modelId: model!.id, view: VIEW, mainId, wireId, detailIds, videoId,
+      modelId: model!.id, view: VIEW, mainId, wireId, detailIds, videoId, views: shots,
     }) },
     stats: m.stats,
   })
@@ -192,29 +200,33 @@ async function importGallery(dir: string, uploader: string): Promise<number> {
 async function main() {
   refuseProduction()
   const root = process.argv[2]
-  if (!root) throw new Error("usage: bun scripts/import-renders.ts <root> [--retire] [--order=a,b,c]")
+  const mains = process.argv.find((a) => a.startsWith("--main="))?.slice("--main=".length).split(",")
+  if (!root || !mains) throw new Error("usage: bun scripts/import-renders.ts <root> --main=a,b,c [--retire]")
   const retire = process.argv.includes("--retire")
-  const order = process.argv.find((a) => a.startsWith("--order="))?.slice("--order=".length).split(",") ?? []
-  const rank = (name: string) => (order.includes(name) ? order.indexOf(name) : order.length)
   const uploader = await adminId()
 
   const mainIds: number[] = []
-  const galleryIds: number[] = []
-  for (const name of readdirSync(root).sort().sort((a, b) => rank(a) - rank(b))) {
+  for (const name of mains) {
     const dir = join(root, name)
-    if (!statSync(dir).isDirectory() || !existsSync(join(dir, "manifest.json"))) continue
-    if (existsSync(join(dir, "model.glb"))) {
-      mainIds.push(await importMain(dir, uploader))
-      console.log(`main project ${name} -> #${mainIds.at(-1)}`)
-    } else if (existsSync(join(dir, "card.jpg"))) {
-      galleryIds.push(await importGallery(dir, uploader))
-      console.log(`gallery card ${name} -> #${galleryIds.at(-1)}`)
-    } else {
-      console.warn(`${name}: neither model.glb nor card.jpg, skipped`)
+    if (!existsSync(join(dir, "manifest.json")) || !existsSync(join(dir, "model.glb"))) {
+      throw new Error(`${name}: a main project folder needs manifest.json and model.glb`)
     }
+    mainIds.push(await importMain(dir, uploader))
+    console.log(`main project ${name} -> #${mainIds.at(-1)}`)
+  }
+  const galleryIds: number[] = []
+  for (const name of readdirSync(root).sort()) {
+    const dir = join(root, name)
+    if (mains.includes(name) || !statSync(dir).isDirectory()) continue
+    if (!existsSync(join(dir, "manifest.json")) || !existsSync(join(dir, "card.jpg"))) {
+      console.warn(`${name}: no manifest.json and card.jpg, skipped`)
+      continue
+    }
+    galleryIds.push(await importGallery(dir, uploader))
+    console.log(`gallery card ${name} -> #${galleryIds.at(-1)}`)
   }
 
-  //ORDER - the imported rows first, in folder order
+  //ORDER - the imported rows first, in the order above
   for (const [i, id] of mainIds.entries()) await db.update(mainProject).set({ sortOrder: i }).where(eq(mainProject.id, id))
   for (const [i, id] of galleryIds.entries()) await db.update(galleryProject).set({ sortOrder: i }).where(eq(galleryProject.id, id))
 

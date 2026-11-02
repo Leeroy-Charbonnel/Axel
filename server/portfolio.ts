@@ -204,9 +204,12 @@ async function buildPortfolio(admin: boolean): Promise<PortfolioDto> {
   return { ...portfolio, images }
 }
 
-//PUBLIC MEMO. A successful admin write bumps the generation when it ends: a
-//build that started earlier, even mid-write, holds an older generation and is
-//never served again.
+//PUBLIC MEMO, production only. A successful admin write bumps the generation
+//when it ends: a build that started earlier, even mid-write, holds an older
+//generation and is never served again. In development the dev database is also
+//written by scripts (import-renders, seeds) the server never hears about, so
+//every request builds afresh.
+const MEMOIZE = process.env.NODE_ENV === "production"
 let generation = 0
 let memo: { generation: number; value: Promise<PortfolioDto> } | null = null
 
@@ -216,6 +219,7 @@ function invalidate(): void {
 }
 
 export function publicPortfolio(): Promise<PortfolioDto> {
+  if (!MEMOIZE) return buildPortfolio(false)
   if (memo && memo.generation === generation) return memo.value
   const value = buildPortfolio(false)
   const entry = { generation, value }

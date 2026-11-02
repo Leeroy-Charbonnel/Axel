@@ -61,14 +61,14 @@ named token below derives from these, so the accent_color setting (written to
   --site-dot-halo:      4px;
   --site-icon:          18px;
   --site-icon-sm:       14px;
-  --site-thumb-count:   4;
-  --site-thumb-row:     calc((100vw - 2 * var(--site-gutter) - 3 * var(--spacing-xs)) / 4);
+  --site-thumb-count:   3;
+  --site-thumb-row:     calc((100vw - 2 * var(--site-gutter) - 2 * var(--spacing-xs)) / 3);
   --site-wire-wipe:     0.8s;
   --site-number-size:   clamp(2.5rem, 1rem + 5vw, 6rem);
   --site-avatar:        96px;
   --site-gallery-min:   17rem;
   --site-spec-min:      7.5rem;
-  --site-case-gap:      calc(var(--site-section-gap) * 0.6);
+  --site-case-gap:      var(--spacing-xl);
   --site-hover-zoom:    1.03;
   --site-underline-offset: 0.18em;
   /*loading placeholders, sized like what they stand in for*/

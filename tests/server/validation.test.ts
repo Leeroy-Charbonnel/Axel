@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test"
 import { detailBlock, mainProjectPatch } from "../../server/validation"
 import { llmsFullTxt, projectPage } from "../../server/seo"
 import { BLOCK_TYPES } from "../../src/components/portfolio/detail/block-types"
-import { caseStudyBlocks } from "../../src/lib/case-study"
+import { CASE_STUDY_VIEWS, caseStudyBlocks } from "../../src/lib/case-study"
 import type { DetailBlock, MainProjectDto, PortfolioDto } from "../../src/types/portfolio"
 
 const ID = "7004bd48-4c6b-43da-9bb3-c63a1e64e0cc"
@@ -14,14 +14,18 @@ describe("detail block content schemas", () => {
       const result = detailBlock.safeParse({ ...frame, type: def.type, content: def.create() })
       expect(result.success).toBe(true)
     }
-    const full = caseStudyBlocks({ modelId: ID, view: "Default", mainId: ID, wireId: ID, detailIds: [ID, ID], videoId: ID })
-    const bare = caseStudyBlocks({ modelId: ID, view: "Default", mainId: ID, wireId: ID, detailIds: [], videoId: null })
-    for (const blocks of [full, bare]) {
+    const views = Object.fromEntries(CASE_STUDY_VIEWS.map((v) => [v, ID]))
+    const full = caseStudyBlocks({ modelId: ID, view: "Default", mainId: ID, wireId: ID, detailIds: [ID, ID, ID], videoId: ID, views })
+    const bare = caseStudyBlocks({ modelId: ID, view: "Default", mainId: ID, wireId: ID, detailIds: [], videoId: null, views: {} })
+    const partial = caseStudyBlocks({ modelId: ID, view: "Default", mainId: ID, wireId: ID, detailIds: [ID], videoId: ID, views: { "vp-clay": ID, "vp-front": ID, "vp-top": ID, "vp-textures": ID } })
+    for (const blocks of [full, bare, partial]) {
       expect(mainProjectPatch.safeParse({ detailPage: { blocks } }).success).toBe(true)
+      //every cell of every row is covered exactly once: no hole, no overlap
+      const height = Math.max(...blocks.map((b) => b.y + b.h))
+      const cells = blocks.flatMap((b) => Array.from({ length: b.w * b.h }, (_, i) => `${b.x + (i % b.w)},${b.y + Math.floor(i / b.w)}`))
+      expect(new Set(cells).size).toBe(cells.length)
+      expect(cells.length).toBe(height * 3)
     }
-    //bands follow each other: no row is left empty
-    const rows = new Set(full.flatMap((b) => Array.from({ length: b.h }, (_, i) => b.y + i)))
-    expect(rows.size).toBe(Math.max(...full.map((b) => b.y + b.h)))
   })
 
   test("a content that does not match its type is refused", () => {

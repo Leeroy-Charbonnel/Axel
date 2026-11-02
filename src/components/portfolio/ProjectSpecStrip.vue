@@ -9,14 +9,15 @@ import type { ProjectStats } from "../../types/portfolio"
 //THE SPEC STRIP - full labels over the counts, which count up as the strip
 //scrolls in (statRows leaves out a count of zero). Each cell's 1px ring fills the 1px gap with its neighbour's, so
 //the hairlines stay single and a short last row leaves no filled hole.
-const props = defineProps<{ stats: ProjectStats; lang: Lang }>()
+//inline: one light row of figures, for the home cards; the boxed strip heads a project page
+const props = defineProps<{ stats: ProjectStats; lang: Lang; inline?: boolean }>()
 const { t } = useTranslations()
 
 const rows = computed(() => statRows(props.stats, props.lang, t))
 </script>
 
 <template>
-  <dl v-if="rows.length" class="spec-strip" :aria-label="t('projectSpecs')">
+  <dl v-if="rows.length" class="spec-strip" :class="{ 'spec-strip--inline': inline }" :aria-label="t('projectSpecs')">
     <div v-for="s in rows" :key="s.key" class="spec-strip__item">
       <dt class="spec-strip__label">{{ s.label }}</dt>
       <dd class="spec-strip__value"><AnimatedCounter :to="s.count" :lang="lang" /></dd>
@@ -50,5 +51,17 @@ const rows = computed(() => statRows(props.stats, props.lang, t))
   font-weight: var(--font-weight-bold);
   font-variant-numeric: tabular-nums;
   color: var(--site-text-heading);
+}
+
+.spec-strip--inline {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-sm) var(--spacing-xl);
+  margin: 0;
+}
+.spec-strip--inline .spec-strip__item {
+  flex-direction: column-reverse;
+  padding: 0;
+  box-shadow: none;
 }
 </style>
