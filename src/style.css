@@ -2,43 +2,11 @@
 @tailwind components;
 @tailwind utilities;
 
-/*PORTFOLIO color system - dark-only design layered on shadcn-vue HSL.
-CssVarsPanel writes accent_color directly to --primary,
-so changing the cyan accent retints buttons, focus rings, and any var(--color-primary).
-The light theme block exists but the portfolio forces .dark on <html> at boot.*/
-
+/*PORTFOLIO COLOR SYSTEM - dark only, layered on the shadcn-vue HSL vars. Every
+named token below derives from these, so the accent_color setting (written to
+--primary) retints buttons, focus rings and every var(--color-primary).*/
 @layer base {
   :root {
-    /*Light fallback - never displayed in this project (dark is forced).
-    Kept so the theme toggle still works if it is ever exposed.*/
-    --background:             0 0% 98%;
-    --foreground:             0 0% 12%;
-    --card:                   0 0% 100%;
-    --card-foreground:        0 0% 12%;
-    --popover:                0 0% 100%;
-    --popover-foreground:     0 0% 12%;
-    --primary:                185 65% 51%;
-    --primary-foreground:     0 0% 100%;
-    --secondary:              0 0% 96%;
-    --secondary-foreground:   0 0% 12%;
-    --muted:                  0 0% 96%;
-    --muted-foreground:       0 0% 35%;
-    --accent:                 0 0% 96%;
-    --accent-foreground:      0 0% 12%;
-    --destructive:            0 72% 51%;
-    --destructive-foreground: 0 0% 100%;
-    --success:                142 71% 45%;
-    --warning:                38 92% 50%;
-    --info:                   217 91% 60%;
-    --border-color:           0 0% 88%;
-    --input:                  0 0% 88%;
-    --ring:                   185 65% 51%;
-    --radius:                 0.5rem;
-  }
-
-  .dark {
-    /*Portfolio dark theme - near-black surface, cyan accent, cool grays.
-    Matches the original portfolio's #000 background and #2dced4 accent.*/
     --background:             0 0% 0%;
     --foreground:             0 0% 65%;
     --card:                   0 0% 4%;
@@ -61,25 +29,69 @@ The light theme block exists but the portfolio forces .dark on <html> at boot.*/
     --border-color:           0 0% 16%;
     --input:                  0 0% 16%;
     --ring:                   185 65% 51%;
+    --radius:                 0.5rem;
+    /*the light the public site writes with; its text levels are alphas of it*/
+    --ink:                    0 0% 100%;
   }
 }
 
-/*DERIVED tokens - everything below resolves to the shadcn HSL vars above.
-project components use these named tokens; changing one HSL value flows
-through the whole UI.*/
+/*DERIVED tokens - everything below resolves to the HSL vars above*/
 :root {
+  /*SITE TEXT LEVELS on the black ground. Contrast on black: heading 18:1,
+  body 10:1, caption 5.3:1 (WCAG AA for body text is 4.5:1).*/
+  --site-text-heading: hsl(var(--ink) / 0.94);
+  --site-text-body:    hsl(var(--ink) / 0.7);
+  --site-text-caption: hsl(var(--ink) / 0.5);
+  --site-line:         hsl(var(--ink) / 0.14);
+  --site-line-strong:  hsl(var(--ink) / 0.32);
+  --site-surface:      hsl(var(--ink) / 0.04);
+  --site-surface-hover: hsl(var(--ink) / 0.08);
+  --site-accent:       hsl(var(--primary));
+  --site-on-accent:    hsl(var(--background));
+  --site-backdrop:     hsl(var(--background) / 0.82);
+  --site-scrim:        hsl(var(--background) / 0.92);
+  --site-available:    hsl(var(--success));
+  --site-available-halo: hsl(var(--success) / 0.18);
+
+  /*SITE CHROME AND DETAILS*/
+  --site-topbar-height: 60px;
+  --site-rail-width:    72px;
+  --site-chrome-top:    0px;
+  --site-frame-mark:    14px;
+  --site-frame-offset:  6px;
+  --site-dot:           8px;
+  --site-dot-halo:      4px;
+  --site-icon:          18px;
+  --site-icon-sm:       14px;
+  --site-thumb:         72px;
+  --site-avatar:        96px;
+  --site-gallery-min:   17rem;
+  --site-spec-min:      7.5rem;
+  --site-case-gap:      calc(var(--site-section-gap) * 0.6);
+  --site-hover-zoom:    1.03;
+  --site-underline-offset: 0.18em;
+  /*loading placeholders, sized like what they stand in for*/
+  --site-skeleton-long:   80%;
+  --site-skeleton-mid:    60%;
+  --site-skeleton-short:  50%;
+  --site-skeleton-button: 12rem;
+  --site-skeleton-title:  14rem;
+  --site-still-aspect:  16 / 9;
+  --site-gallery-aspect: 4 / 3;
+  --site-hero-min-height: min(100svh, 56rem);
+  --site-fw-display:    800;
+  --site-name-fit:      19cqi;
+  --site-tracking-display: 0.01em;
+  --site-duration-fast: 0.18s;
+
   /*Generic mapping*/
   --color-primary:       hsl(var(--primary));
-  --color-primary-fg:    hsl(var(--primary-foreground));
   --text-main:           hsl(var(--foreground));
   --text-muted:          hsl(var(--muted-foreground));
   --bg-main:             hsl(var(--background));
-  --bg-surface:          hsl(var(--card));
   --border:              hsl(var(--border-color));
   --line-accent:         linear-gradient(90deg, transparent 0%, hsl(var(--border-color)) 50%, transparent 100%);
 
-  /*Portfolio-specific named tokens (replace the old portfolio --color-* tokens,
-  but derived from shadcn HSL so a single accent change flows everywhere).*/
   --color-background:           hsl(var(--background));
   --color-background-secondary: hsl(0 0% 6%);
   --color-background-tertiary:  hsl(0 0% 8% / 0.7);
@@ -87,43 +99,37 @@ through the whole UI.*/
   --color-background-gray-100:  hsl(0 0% 10%);
   --color-background-gray-150:  hsl(0 0% 17%);
   --color-background-gray-200:  hsl(0 0% 20%);
-  --color-background-gray-250:  hsl(0 0% 22%);
-  --color-background-gray-300:  hsl(0 0% 26%);
 
   --color-text:              hsl(var(--foreground));
-  --color-text-hover:        hsl(0 0% 100%);
-  --color-text-secondary:    hsl(0 0% 100% / 0.7);
-  --color-text-tertiary:     hsl(0 0% 100% / 0.5);
+  --color-text-hover:        hsl(var(--ink));
+  --color-text-secondary:    hsl(var(--ink) / 0.7);
+  --color-text-tertiary:     hsl(var(--ink) / 0.5);
 
-  --color-accent-neutral:    hsl(0 0% 100%);
+  --color-accent-neutral:    hsl(var(--ink));
   --color-accent:            hsl(var(--primary));
   --color-accent-hover:      hsl(0 0% 94%);
 
   --color-border-primary:    hsl(0 0% 87%);
   --color-border-muted:      hsl(0 0% 65%);
-  --color-border-accent:     hsl(0 0% 100%);
-  --color-gray-dark:         hsl(0 0% 10%);
+  --color-border-accent:     hsl(var(--ink));
   --color-gray-medium:       hsl(0 0% 20%);
   --color-gray-light:        hsl(0 0% 40%);
 
   --semi-transparent-dark:   hsl(0 0% 0% / 0.24);
 
   /*Typography*/
-  --font-weight-regular: 400;
-  --font-weight-medium:  500;
-  --font-weight-bold:    700;
-  --font-weight-black:   900;
+  --font-weight-regular:  400;
+  --font-weight-medium:   500;
+  --font-weight-semibold: 600;
+  --font-weight-bold:     700;
+  --font-weight-black:    900;
 
   --font-size-xs:   0.8rem;
   --font-size-sm:   0.9rem;
-  --font-size-base: 1rem;
   --font-size-md:   1.2rem;
   --font-size-lg:   1.5rem;
   --font-size-xl:   2rem;
   --font-size-2xl:  2.5rem;
-  --font-size-3xl:  3rem;
-  --font-size-4xl:  4rem;
-  --font-size-5xl:  5rem;
 
   --letter-spacing-tight:  0.05em;
   --letter-spacing-normal: 0.1em;
@@ -138,38 +144,27 @@ through the whole UI.*/
   --spacing-xl:  2rem;
   --spacing-2xl: 3rem;
   --spacing-3xl: 4rem;
-  --spacing-4xl: 5rem;
   --spacing-5xl: 8rem;
-  --spacing-6xl: 10rem;
 
   /*Borders + radius*/
   --border-width:    1px;
   --border-width-sm: 1px;
   --border-width-md: 2px;
   --border-width-lg: 3px;
-  --border-width-xl: 4px;
 
-  /*RADII - portfolio uses square corners everywhere. Keep the named tokens
-  so existing components keep compiling, but resolve them to 0. The single
-  exception is --border-radius-full, used for genuine circles (avatars, the
-  Sketchfab wireframe toggle button).*/
-  --border-radius-sm:   0;
-  --border-radius-md:   0;
-  --border-radius-lg:   0;
-  --border-radius-xl:   0;
+  /*square corners everywhere; this one is for real circles*/
   --border-radius-full: 100vh;
 
-  --grid-size:     1rem;
+  /*FILM GRAIN - a 300px tile shown at 150px, so it stays sharp on 2x screens*/
+  --grain-texture: url("/textures/grain.webp");
   --grain-size:    150px;
   --grain-opacity: 0.12;
   --filter-blur:   6px;
-  --tooltip-delay: 0.7s;
   --transition-fast: 0.2s;
   /*the slower of the two, for anything that travels across the viewport*/
   --transition-slow: 0.3s;
 
-  /*THE DARK GROUND UNDER ANYTHING THAT FLOATS. Written literally as
-  hsl(0 0% 0% / 0.6) in six components before this existed.*/
+  /*THE DARK GROUND UNDER ANYTHING THAT FLOATS*/
   --overlay-bg: hsl(0 0% 0% / 0.6);
 
   /*the confirmation sits above the lightbox and the side panel: it is the only
@@ -177,16 +172,16 @@ through the whole UI.*/
   --z-confirm: 10000;
   --confirm-width: 26rem;
 
-  /*--tag-bg drives every stat-badge / pill / empty-viewer surface in the
-  portfolio. Defaults to a translucent foreground tint so it visually maps
-  to whatever the user sets for foreground, but the side panel can override
-  it directly with a flat color and the change propagates everywhere.*/
+  /*the public chrome: above the page and its regions, below the editor panels*/
+  --site-z-chrome: 50;
+
+  /*every stat badge, pill and empty-viewer surface*/
   --tag-bg: hsl(var(--foreground) / 0.1);
 
-  /*THE 3D EDITOR SURFACES. The editor panel sits over the viewer canvas, so it
-  needs a flat ground of its own rather than the page background, and rules that
-  read against it. These were written literally on about thirty declarations in
-  ModelEditorPage and CssVarsPanel.*/
+  /*the viewer stage ratio of the 3D models list in the settings*/
+  --mp-viewer-aspect: 16 / 9;
+
+  /*THE 3D EDITOR SURFACES*/
   --editor-panel-bg: hsl(0 0% 0%);
   --editor-border:   hsl(0 0% 20%);
   --editor-rule:     hsl(var(--foreground) / 0.06);
@@ -226,83 +221,10 @@ through the whole UI.*/
   --editor-z-media:         1500;
   /*raised by html.editor-editing so bottom-docked things clear the bar*/
   --editor-bar-offset:      0px;
-
-  /*--panel-width starts at 0 and is raised by .css-panel-open on the root
-  when the CSS variables side panel is open, so body and all the fixed-right
-  UI (lang switch, admin gear) reserve real space for the panel instead of
-  letting it overlay on top of content.*/
-  --panel-width: 0px;
-
-  /*DOMAIN-SPECIFIC TOKENS - per-section knobs the CSS panel exposes one
-  group at a time. Components below use these instead of the global spacing
-  / font tokens so the admin can tweak each section independently and the
-  randomize-section button can shuffle them in isolation. Defaults mirror
-  the values the components used before the refactor.*/
-
-  /*MAIN PROJECT*/
-  --mp-padding-y:         4rem;
-  --mp-margin-bottom:     10rem;
-  --mp-section-gap:       3rem;
-  --mp-title-size:        2.5rem;
-  --mp-number-size:       6rem;
-  --mp-description-size:  1rem;
-  --mp-description-lh:    1.75;
-  --mp-stat-value-size:   2rem;
-  --mp-stat-badge-size:   2rem;
-  --mp-stat-gap:          1rem;
-  --mp-viewer-aspect:     16 / 9;
-  --mp-thumb-aspect:      1;
-  --mp-thumb-strip-width: 16%;
-  --mp-thumb-gap:         0.4rem;
-  --mp-thumb-bg:          hsl(var(--foreground) / 0.1);  /*thumbnail box fill - separate knob from --tag-bg*/
-  --mp-software-size:     0.8rem;
-  --mp-details-gap:       4rem;
-
-  /*GALLERY*/
-  --gallery-columns:          3;
-  --gallery-gap:              2rem;
-  --gallery-card-padding:     1rem;
-  --gallery-thumb-aspect:     4 / 3;
-  --gallery-title-size:       1.2rem;
-  --gallery-stat-size:        0.9rem;
-  --gallery-stat-badge-size:  1.5rem;
-
-  /*HOME (title screen)*/
-  --home-grid-size:           50px;
-  --home-grid-line-width:     1px;
-  --home-grid-drift-speed:    20s;
-  --home-title-size:          5rem;
-  --home-subtitle-size:       2rem;
-  --home-role-size:           1.2rem;
-  --home-container-margin:    170px;
-  --home-content-gap:         1rem;
-  --home-arrow-delay:         1.5s;
-
-  /*NAV (vertical side nav)*/
-  --nav-font-size:   0.8rem;
-  --nav-gap:         1.5rem;
-  --nav-left:        1rem;
-  --nav-font-weight: 700;
-
-  /*EXPERIENCE*/
-  --exp-period-column:        8rem;
-  --exp-grid-gap:             1rem;
-  --exp-item-gap:             3rem;
-  --exp-content-padding-left: 2rem;
-  --exp-title-size:           1.5rem;
-  --exp-company-size:         1.2rem;
-  --exp-bullet-gap:           0.4rem;
-  --exp-line-height:          1.6;
+  /*an unpublished item, as the admin sees it in edit mode*/
+  --editor-unpublished-opacity: 0.45;
 
   /*shared surface tokens - mapped to shadcn so the components inherit the theme*/
-  --vsui-nav-bg:                 hsl(var(--background));
-  --vsui-nav-border:             hsl(var(--border-color));
-  --vsui-nav-fg:                 hsl(var(--foreground));
-  --vsui-nav-gear-hover-bg:      hsl(var(--muted));
-  --vsui-dropdown-bg:            hsl(var(--popover));
-  --vsui-dropdown-border:        hsl(var(--border-color));
-  --vsui-dropdown-fg:            hsl(var(--popover-foreground));
-  --vsui-dropdown-item-hover-bg: hsl(var(--muted));
   --vsui-input-bg:               hsl(var(--muted) / 0.4);
   --vsui-input-border:           hsl(var(--border-color));
   --vsui-input-focus-bg:         hsl(var(--muted) / 0.6);
@@ -310,11 +232,15 @@ through the whole UI.*/
   --vsui-btn-bg:                 hsl(var(--primary));
   --vsui-btn-fg:                 hsl(var(--primary-foreground));
   --vsui-divider:                hsl(var(--border-color));
-  --vsui-text-muted:             hsl(var(--muted-foreground));
   --vsui-line-accent:            var(--line-accent);
   --vsui-google-btn-border:      hsl(var(--border-color));
   --vsui-google-btn-hover-bg:    hsl(var(--muted));
   --vsui-danger-fg:              hsl(var(--destructive));
+}
+
+/*below the desktop breakpoint the side rail becomes a top bar*/
+@media (max-width: 1024px) {
+  :root { --site-chrome-top: var(--site-topbar-height); }
 }
 
 * {
@@ -325,17 +251,21 @@ through the whole UI.*/
 
 html {
   font-size: 15px;
-}
-
-html, body {
-  overflow-x: hidden;
   scrollbar-width: thin;
   scrollbar-color: var(--color-gray-light) var(--color-background);
 }
 
+@media (prefers-reduced-motion: no-preference) {
+  html { scroll-behavior: smooth; }
+}
+
+/*clip, not hidden: hidden would make body a scroll container and break position: sticky*/
+html, body { overflow-x: clip; }
+
 body {
-  font-family: 'Montserrat', ui-sans-serif, system-ui, -apple-system, sans-serif;
-  line-height: 1.6;
+  font-family: var(--site-font);
+  font-size: var(--site-fs-body);
+  line-height: var(--site-lh-body);
   -webkit-font-smoothing: antialiased;
   background: hsl(var(--background));
   color: var(--color-text);
@@ -347,12 +277,22 @@ a {
   text-decoration: none;
 }
 
-/*CSS variables side panel - reserves real layout space instead of overlaying.
-.css-panel-open is toggled on <html> by the panel's setup. Body shifts left
-via padding-right; the fixed-right UI (lang switch + admin gear) shifts in
-sync so nothing sits underneath the panel.*/
-html.css-panel-open                         { --panel-width: 28rem; }
-html.css-panel-open body                    { padding-right: var(--panel-width); }
+/*ONE FOCUS RING for everything that takes the keyboard*/
+:focus-visible {
+  outline: var(--border-width-md) solid hsl(var(--ring));
+  outline-offset: var(--border-width-lg);
+}
+
+/*REDUCED MOTION - every transition and animation on the site collapses to an instant change*/
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    transition-delay: 0s !important;
+  }
+}
+
 /*EDITING - the docked edit bar reserves its height at the bottom, and the
 desktop inspector reserves its width on the right so it never covers the item
 being edited. Below 1025px the inspector is a bottom sheet over the page.*/
@@ -384,42 +324,110 @@ button {
   padding: 0;
 }
 
-/*PORTFOLIO global helpers (used across the section components).*/
-.container {
-  width: 80%;
-  max-width: 1200px;
-  margin-left: auto;
-  margin-right: auto;
-  padding-left: var(--spacing-md);
-  padding-right: var(--spacing-md);
+/*SITE PRIMITIVES - shared by the public pages*/
+.site-container {
+  width: 100%;
+  max-width: calc(var(--site-max-width) + 2 * var(--site-gutter));
+  margin-inline: auto;
+  padding-inline: var(--site-gutter);
 }
 
-/*BORDER HELPER - the variable name carried over from the original portfolio
-where 'border-radius-sm' was misused as a width. Now correctly uses the
---border-width-* scale.*/
-.border-sm { border: var(--border-width-sm) solid var(--color-border-primary); }
+.site-section {
+  padding-block: calc(var(--site-section-gap) / 2);
+  scroll-margin-top: var(--site-chrome-top);
+}
 
-.section-title {
-  font-size: var(--font-size-2xl);
-  font-weight: var(--font-weight-bold);
-  letter-spacing: var(--letter-spacing-wide);
-  margin-bottom: var(--spacing-lg);
+.site-eyebrow {
+  font-size: var(--site-fs-label);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: var(--site-tracking-label);
   text-transform: uppercase;
-  text-align: center;
-  position: relative;
-  display: inline-block;
-  left: 50%;
-  transform: translateX(-50%);
+  color: var(--site-text-caption);
 }
 
-.section-title::after {
-  content: '';
+/*BUTTONS - both variants carry the same 1px border, so hover never resizes them*/
+.site-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-xs);
+  min-height: var(--site-touch-target);
+  padding: 0 var(--spacing-lg);
+  border: var(--border-width-sm) solid var(--site-line-strong);
+  font-size: var(--site-fs-label);
+  font-weight: var(--font-weight-bold);
+  letter-spacing: var(--site-tracking-label);
+  text-transform: uppercase;
+  color: var(--site-text-heading);
+  background-color: transparent;
+  cursor: pointer;
+  transition: background-color var(--site-duration-fast) ease, border-color var(--site-duration-fast) ease, color var(--site-duration-fast) ease;
+}
+
+.site-button:hover {
+  border-color: var(--site-text-heading);
+  background-color: var(--site-surface-hover);
+}
+
+.site-button--primary {
+  border-color: var(--site-accent);
+  background-color: var(--site-accent);
+  color: var(--site-on-accent);
+}
+
+.site-button--primary:hover {
+  border-color: var(--site-text-heading);
+  background-color: var(--site-text-heading);
+  color: var(--site-on-accent);
+}
+
+.site-button svg {
+  width: var(--site-icon-sm);
+  height: var(--site-icon-sm);
+  flex-shrink: 0;
+}
+
+/*VIEWFINDER FRAME - a hairline box with corner marks, the frame of a render.
+The marks are eight gradients on one pseudo-element.*/
+.site-frame {
+  position: relative;
+  border: var(--border-width-sm) solid var(--site-line);
+}
+
+.site-frame::before {
+  content: "";
   position: absolute;
-  width: 50%;
-  height: var(--border-width-sm);
-  background-color: var(--color-text);
-  bottom: calc(-1 * var(--spacing-xs));
-  left: 25%;
+  inset: calc(-1 * var(--site-frame-offset));
+  z-index: 3;
+  pointer-events: none;
+  --mark: linear-gradient(var(--site-line-strong), var(--site-line-strong));
+  background:
+    var(--mark) top left / var(--site-frame-mark) var(--border-width-sm),
+    var(--mark) top left / var(--border-width-sm) var(--site-frame-mark),
+    var(--mark) top right / var(--site-frame-mark) var(--border-width-sm),
+    var(--mark) top right / var(--border-width-sm) var(--site-frame-mark),
+    var(--mark) bottom left / var(--site-frame-mark) var(--border-width-sm),
+    var(--mark) bottom left / var(--border-width-sm) var(--site-frame-mark),
+    var(--mark) bottom right / var(--site-frame-mark) var(--border-width-sm),
+    var(--mark) bottom right / var(--border-width-sm) var(--site-frame-mark);
+  background-repeat: no-repeat;
+}
+
+/*an unpublished item in edit mode: dimmed, with its badge on top*/
+.site-unpublished > :not(.site-unpublished__badge) { opacity: var(--editor-unpublished-opacity); }
+
+.site-unpublished__badge {
+  position: absolute;
+  top: var(--spacing-sm);
+  right: var(--spacing-sm);
+  z-index: var(--editor-z-region);
+  padding: var(--spacing-xxs) var(--spacing-xs);
+  font-size: var(--site-fs-label);
+  font-weight: var(--font-weight-bold);
+  letter-spacing: var(--letter-spacing-tight);
+  text-transform: uppercase;
+  color: var(--editor-on-accent);
+  background-color: var(--editor-warning);
 }
 
 /*MARKDOWN typography - shared by every rendered-markdown surface (detail
@@ -619,28 +627,20 @@ remove icon buttons.*/
 }
 .dp-row { display: flex; align-items: center; gap: var(--spacing-xs); }
 
-/*Full-bleed film-grain overlay - position:absolute so the grain SCROLLS
-with the page (fixed-position grain felt locked-in-place and the user
-explicitly rejected that). The grain stretches inset:0 over .portfolio-app,
-which is a flex column with min-height:100vh and grows to the full document
-height as content stacks. Z:1 sits above section backgrounds (which paint
-at z:auto) so the grain reaches every corner of the page; media (img,
-iframe, video, canvas) is lifted to z:2 below so it covers the grain
-instead of being covered by it.*/
+
+/*FILM GRAIN over the whole page. position: absolute so the grain scrolls with
+the page; z 1 sits above section backgrounds, and media is lifted to z 2 below
+so the grain never covers a render.*/
 .grain-overlay {
   position: absolute;
   inset: 0;
-  background-image: url('/textures/grain.png');
+  background-image: var(--grain-texture);
   background-size: var(--grain-size);
   z-index: 1;
   pointer-events: none;
   opacity: var(--grain-opacity);
 }
 
-/*Lift every media element above the grain layer so the grain texture never
-appears on top of a photo, Sketchfab embed, gallery thumbnail or video.
-Anything visual the user can recognise as content gets its own z-index
-higher than .grain-overlay above.*/
 img,
 video,
 iframe,
@@ -648,72 +648,3 @@ canvas {
   position: relative;
   z-index: 2;
 }
-
-/*===========================================================================
-RESPONSIVE - global token overrides for tablet (<= 1024px) and phone
-(<= 480px). Component CSS already handles structural collapses (grids
-becoming columns, side-nav becoming a bottom bar). These rules shrink
-the visual scale so titles + spacing don't dominate the viewport.
-Every phone-mode rule below ALSO fires when html.simulate-phone is set
-(the CssVarsPanel adds it when its drag makes the page area narrow).
-The CssVarsPanel itself uses the same tokens; .css-panel re-declares
-them locally so its UI doesn't shrink in simulate-phone mode.*/
-@media (max-width: 1024px) {
-  :root {
-    --mp-title-size:        2rem;
-    --mp-number-size:       4rem;
-    --mp-stat-value-size:   1.6rem;
-    --mp-stat-badge-size:   1.7rem;
-    --mp-details-gap:       2rem;
-    --home-title-size:      4rem;
-    --home-subtitle-size:   1.6rem;
-    --home-container-margin: 60px;
-  }
-}
-
-/*Note: the CssVarsPanel writes the active mode's chosen values back
-onto :root inline so the cascade picks them up regardless of which
-@media rules also match. These :root overrides act as defaults when
-the panel hasn't been edited.*/
-@media (max-width: 480px) {
-  :root {
-    --mp-padding-y:         2rem;
-    --mp-margin-bottom:     4rem;
-    --mp-section-gap:       1.5rem;
-    --mp-title-size:        1.4rem;
-    --mp-number-size:       2.5rem;
-    --mp-description-size:  0.9rem;
-    --mp-stat-value-size:   1.2rem;
-    --mp-stat-badge-size:   1.4rem;
-    --mp-stat-gap:          0.5rem;
-    --mp-software-size:     0.7rem;
-    --mp-details-gap:       1rem;
-
-    --gallery-gap:          0.75rem;
-    --gallery-card-padding: 0.6rem;
-    --gallery-title-size:   0.95rem;
-    --gallery-stat-size:    0.7rem;
-    --gallery-stat-badge-size: 1.1rem;
-
-    --home-title-size:      2.4rem;
-    --home-subtitle-size:   1.2rem;
-    --home-role-size:       0.9rem;
-    --home-container-margin: 20px;
-    --home-grid-size:       30px;
-
-    --nav-font-size:        0.7rem;
-    --nav-gap:              0.6rem;
-  }
-  .container { padding-left: var(--spacing-sm); padding-right: var(--spacing-sm); }
-  .section-title { font-size: var(--font-size-lg); }
-}
-
-/*Class-driven simulate-phone: same structural rules as the 480px media
-query so the CssVarsPanel can preview phone layout in a desktop window.
-The class is added on html by the panel when its width + the viewport
-combo leaves under 768px for the page area.*/
-html.simulate-phone .container {
-  padding-left: var(--spacing-sm);
-  padding-right: var(--spacing-sm);
-}
-html.simulate-phone .section-title { font-size: var(--font-size-lg); }

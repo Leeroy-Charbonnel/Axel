@@ -1,5 +1,5 @@
 import { createApp } from "vue"
-//structural variables before style.css, so the project palette can override them
+import "@fontsource-variable/montserrat"
 //structural variables first, so style.css below can override them
 import "./tokens.css"
 import "./auth-card.css"

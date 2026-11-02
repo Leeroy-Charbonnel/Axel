@@ -1,48 +1,36 @@
 <script setup lang="ts">
 import { onBeforeUnmount, ref, watch } from "vue"
-import { useInView } from "../../composables/useInView"
+import { useReveal } from "../../composables/useReveal"
 import { formatNumber } from "../../lib/portfolio-utils"
 
-interface Props {
-  from:     number
-  to:       number
-  duration?: number
-}
+//COUNTS UP TO `to` WHEN IT SCROLLS IN. It shows the final value until the
+//observer says it is below the viewport, so a counter that is never observed,
+//or a visitor who asked for less motion, reads the real number.
+const props = withDefaults(defineProps<{ from: number; to: number; duration?: number }>(), { duration: 2 })
 
-const props = withDefaults(defineProps<Props>(), {
-  duration: 2,
-})
-
-const root = ref<HTMLSpanElement | null>(null)
-const display = ref(formatNumber(props.from))
-const { inView } = useInView(root, { once: true, rootMargin: "0px 0px 100px 0px" })
+const root = ref<HTMLElement | null>(null)
+const display = ref(formatNumber(props.to))
+const { pending } = useReveal(root)
 
 const easeOut = (x: number) => 1 - Math.pow(1 - x, 2)
-
-//rAF id kept so the loop can be cancelled when the component unmounts
 let rafId: number | null = null
 
-watch(inView, (isInView) => {
-  if (!isInView) return
-
-  //honor the user's reduced-motion preference
-  if (window.matchMedia("(prefers-reduced-motion)").matches) {
-    display.value = formatNumber(props.to)
+watch(pending, (isPending) => {
+  if (isPending) {
+    display.value = formatNumber(props.from)
     return
   }
-
   const startTs = performance.now()
   const total = props.duration * 1000
-
   function tick(ts: number) {
     const progress = Math.min((ts - startTs) / total, 1)
-    const current = props.from + (props.to - props.from) * easeOut(progress)
-    display.value = formatNumber(current)
+    display.value = formatNumber(props.from + (props.to - props.from) * easeOut(progress))
     if (progress < 1) rafId = requestAnimationFrame(tick)
   }
-
   rafId = requestAnimationFrame(tick)
 })
+
+watch(() => props.to, (to) => { if (!pending.value) display.value = formatNumber(to) })
 
 onBeforeUnmount(() => {
   if (rafId !== null) cancelAnimationFrame(rafId)
