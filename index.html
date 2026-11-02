@@ -1,15 +1,24 @@
 <!doctype html>
-<html lang="en" class="dark">
+<html lang="fr" class="dark">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="Portfolio of Axel Offret, 3D Artist showcasing 3D modeling and design work." />
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;700;900&display=swap" rel="stylesheet">
-    <script src="https://static.sketchfab.com/api/sketchfab-viewer-1.12.1.js"></script>
-    <title>Axel Offret - 3D Artist Portfolio</title>
+    <!-- In production Express replaces the title and the description with the page's own, see server/site.ts -->
+    <meta name="description" content="Portfolio of Axel Offret, 3D artist." />
+    <title>Axel Offret - 3D Artist</title>
+    <style>
+      /* the server-rendered content inside #app, shown until Vue mounts over it */
+      .seo-snapshot {
+        max-width: var(--vsui-page-width);
+        margin: 0 auto;
+        padding: var(--vsui-space-xl) var(--vsui-space-md);
+        color: var(--text-main);
+        font-size: var(--vsui-text-base);
+      }
+      .seo-snapshot a { color: inherit; }
+      .seo-snapshot img { max-width: 100%; height: auto; }
+    </style>
   </head>
   <body>
     <div id="app"></div>
