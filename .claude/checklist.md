@@ -1,13 +1,12 @@
 # Checklist
-Maj 03:05 - 10/20
+Maj 04:20 - 15/23
 
 ## En cours
-- [~] W4a refonte de l'accueil + responsive telephone/tablette (agent)
 - [~] W4b page projet, editeur bento, styleguide, pages de test pleines de composants (agent)
-- [~] W5 editeur 3D refait avec bouton de reglage auto + optimiseur GLB branche (agent)
 
 ## A faire
-- [ ] Fusionner W4a, W4b, W5 et verifier
+- [ ] Fusionner W4b et verifier
+- [ ] Images responsives : variantes WebP redimensionnees + srcset (PNG 1920px servis bruts)  (ajoute en cours de route)
 - [ ] Ajouter les traductions du viewer (14 cles W2)
 - [ ] Retirer l'heritage (Sketchfab, champs viewer legacy, colonnes mortes)
 - [ ] Passe navigateur desktop / tablette / telephone
@@ -20,6 +19,11 @@ Maj 03:05 - 10/20
 ## Bloque
 
 ## Fait
+- [x] W5 editeur 3D refait : Reglage automatique, 4 panneaux, vues en bandeau, une seule sauvegarde, optimiseur branche, 4 modeles optimises (22->0.9, 25.7->4.7, 16.1->2.6, 39.4->9.9 Mo)
+- [x] Apparition au scroll verifiee : contenu visible par defaut, faux positif de la capture
+- [x] W4a accueil refait : hero, etudes de cas, galerie, parcours, a propos, contact, pied de page, menu mobile, Montserrat local, grain 41 Ko
+- [x] Un seul tap pour la 3D sur tactile
+- [x] Brouillons de test depublies en dev (experience Poste, galerie Nouvel element, projet Dragon)
 - [x] Copier la base de prod sur la dev (93 fichiers, 4 projets, 9 galerie, 4 experiences)
 - [x] Copier les medias de prod dans storage/files local (93/93, 514 Mo)
 - [x] Cartographier le code et auditer le site (4 audits croises + passe visuelle)
