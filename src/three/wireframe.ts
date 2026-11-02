@@ -42,8 +42,9 @@ interface Tween {
   duration: number
 }
 
+//out, not in-out: the front moves on the click, then settles
 function ease(t: number): number {
-  return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2
+  return 1 - Math.pow(1 - t, 3)
 }
 
 function tweenValue(tw: Tween, now: number): { value: number; done: boolean } {

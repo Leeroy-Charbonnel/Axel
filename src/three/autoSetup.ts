@@ -166,10 +166,10 @@ function triangleCount(geometry: BufferGeometry): number {
   return Math.floor(count / 3)
 }
 
-//the wireframe pass, kept brisk
-const SWEEP_MIN_MS  = 300
-const SWEEP_STEP_MS = 40
-const SWEEP_MAX_MS  = 500
+//the wireframe pass
+const SWEEP_MIN_MS  = 600
+const SWEEP_STEP_MS = 100
+const SWEEP_MAX_MS  = 1000
 
 export function computeAutoSetup(root: Object3D, opts: AutoSetupOptions = {}): AutoSetup {
   const fov = opts.fov ?? CAMERA_FOV

@@ -101,7 +101,7 @@ describe("computeAutoSetup", () => {
     expect(s.sweep.axis).toEqual([1, 0, 0])
     expect(s.sweep.start).toBe(8)
     expect(s.sweep.end).toBe(12)
-    expect(s.sweep.durationMs).toBe(300)
+    expect(s.sweep.durationMs).toBe(600)
   })
 
   test("sweep duration grows with the triangle count and is capped", () => {
@@ -111,8 +111,8 @@ describe("computeAutoSetup", () => {
     const s = computeAutoSetup(dense)
     expect(s.sweep.axis).toEqual([0, 1, 0])
     expect(s.stats.triangles).toBe(196608)
-    expect(s.sweep.durationMs).toBeGreaterThan(300)
-    expect(s.sweep.durationMs).toBeLessThanOrEqual(500)
+    expect(s.sweep.durationMs).toBeGreaterThan(600)
+    expect(s.sweep.durationMs).toBeLessThanOrEqual(1000)
   })
 
   test("stats of a simple box", () => {
