@@ -40,6 +40,10 @@ export function computeEdgesInWorker(geometries: BufferGeometry[]): Promise<Floa
       worker.terminate()
       reject(new Error(`edge worker failed: ${e.message}`))
     }
+    worker.onmessageerror = () => {
+      worker.terminate()
+      reject(new Error("edge worker sent an answer that could not be deserialized"))
+    }
     const request: EdgeRequest = { jobs }
     worker.postMessage(request, transfer)
   })

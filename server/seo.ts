@@ -1,5 +1,6 @@
 import type {
-  Bilingual, DetailBlock, ExperienceDto, MainProjectDto, PortfolioDto, ProfileDto,
+  AccordionBlockContent, Bilingual, DetailBlock, ExperienceDto, ImageBlockContent, MainProjectDto, PortfolioDto,
+  ProfileDto, QuoteBlockContent, SpecsBlockContent, TextBlockContent,
 } from "../src/types/portfolio"
 import type { Lang } from "../src/lib/lang"
 import { derivativeUrl, storedImage, type ImageFormat } from "../src/lib/media"
@@ -208,23 +209,23 @@ function projectFacts(p: MainProjectDto, lang: Lang): string {
   return facts.length ? `<ul>${facts.join("")}</ul>` : ""
 }
 
+//The public portfolio only carries blocks that passed their schema
+//(portfolio.ts): the required fields are there, the optional ones may not be.
 function blockHtml(data: PortfolioDto, block: DetailBlock, lang: Lang): string {
-  const c = block.content as unknown as Record<string, unknown>
   switch (block.type) {
-    case "heading": return `<h2>${escapeHtml(pick(c.text as Bilingual, lang))}</h2>`
-    case "text":    return paragraphs(pick(c.text as Bilingual, lang))
-    case "quote":   return `<blockquote>${paragraphs(pick(c.text as Bilingual, lang))}</blockquote>`
+    case "heading": return `<h2>${escapeHtml(pick((block.content as TextBlockContent).text, lang))}</h2>`
+    case "text":    return paragraphs(pick((block.content as TextBlockContent).text, lang))
+    case "quote":   return `<blockquote>${paragraphs(pick((block.content as QuoteBlockContent).text, lang))}</blockquote>`
     case "accordion":
-      return (c.items as Array<{ title: Bilingual; body: Bilingual }>)
+      return (block.content as AccordionBlockContent).items
         .map((it) => `<h3>${escapeHtml(pick(it.title, lang))}</h3>${paragraphs(pick(it.body, lang))}`).join("")
     case "specs":
-      return `<dl>${(c.rows as Array<{ label: Bilingual; value: Bilingual }>)
+      return `<dl>${(block.content as SpecsBlockContent).rows
         .map((r) => `<dt>${escapeHtml(pick(r.label, lang))}</dt><dd>${escapeHtml(pick(r.value, lang))}</dd>`).join("")}</dl>`
     case "image": {
-      const url = c.url as string | null
-      if (!url) return ""
-      const alt = c.alt ? pick(c.alt as Bilingual, lang) : ""
-      return snapshotImg(data, url, alt)
+      const c = block.content as ImageBlockContent
+      if (!c.url) return ""
+      return snapshotImg(data, c.url, c.alt ? pick(c.alt, lang) : "")
     }
     default: return ""
   }
@@ -502,16 +503,15 @@ export function llmsTxt(data: PortfolioDto, site: string): string {
 }
 
 function blockText(block: DetailBlock, lang: Lang): string {
-  const c = block.content as unknown as Record<string, unknown>
   switch (block.type) {
-    case "heading": return `#### ${pick(c.text as Bilingual, lang)}`
-    case "text":    return pick(c.text as Bilingual, lang)
-    case "quote":   return pick(c.text as Bilingual, lang).split("\n").map((l) => `> ${l}`).join("\n")
+    case "heading": return `#### ${pick((block.content as TextBlockContent).text, lang)}`
+    case "text":    return pick((block.content as TextBlockContent).text, lang)
+    case "quote":   return pick((block.content as QuoteBlockContent).text, lang).split("\n").map((l) => `> ${l}`).join("\n")
     case "accordion":
-      return (c.items as Array<{ title: Bilingual; body: Bilingual }>)
+      return (block.content as AccordionBlockContent).items
         .map((it) => `**${pick(it.title, lang)}**\n\n${pick(it.body, lang)}`).join("\n\n")
     case "specs":
-      return (c.rows as Array<{ label: Bilingual; value: Bilingual }>)
+      return (block.content as SpecsBlockContent).rows
         .map((r) => `- ${pick(r.label, lang)} : ${pick(r.value, lang)}`).join("\n")
     default: return ""
   }

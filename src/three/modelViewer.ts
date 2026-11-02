@@ -105,6 +105,7 @@ export class ModelViewer {
   private flight: Flight | null = null
   private introPending = false
   private disposed = false
+  private compiling: Promise<unknown> | null = null
   private readonly opts: ModelViewerOptions
 
   //Throws when WebGL is unavailable.
@@ -237,7 +238,12 @@ export class ModelViewer {
     await envReady
     if (this.disposed) return
     //compile off the first frame where the driver allows it
-    await this.core.renderer.compileAsync(this.core.scene, this.core.camera)
+    this.compiling = this.core.renderer.compileAsync(this.core.scene, this.core.camera)
+    try {
+      await this.compiling
+    } finally {
+      this.compiling = null
+    }
     if (this.disposed) return
 
     this.placeCamera()
@@ -316,6 +322,18 @@ export class ModelViewer {
   dispose(loseContext: boolean): void {
     this.disposed = true
     this.abort.abort()
+    //three's compile poll reads the materials' programs: freeing them under it
+    //throws inside the poll, where nobody catches it
+    const compiling = this.compiling
+    if (compiling) {
+      const release = () => this.release(loseContext)
+      compiling.then(release, release)
+      return
+    }
+    this.release(loseContext)
+  }
+
+  private release(loseContext: boolean): void {
     this.sweep?.dispose()
     this.rig?.dispose()
     this.env.dispose()

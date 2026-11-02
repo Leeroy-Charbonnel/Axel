@@ -63,6 +63,8 @@ app.use(imagesRouter)
 app.use("/media", express.static(STORAGE_DIR, {
   immutable: true,
   maxAge:    "30d",
+  //storage/files/.cache holds the image derivatives, served by imagesRouter only
+  dotfiles:  "ignore",
   //belt on top of the upload allow-list: the browser must not sniff a stored
   //file into active content on this origin
   setHeaders: (res) => {
@@ -75,6 +77,7 @@ app.use(compression())
 //AUTH HANDLER - before any body parser, better-auth reads the body itself
 app.all("/api/auth/{*path}", toNodeHandler(auth))
 
+//clears the public portfolio memo once an admin write has succeeded
 app.use("/api", invalidateOnWrite)
 
 //the one route allowed a large body (an editor snapshot with dozens of
