@@ -166,6 +166,9 @@ function resetView() {
   viewer.value?.resetView()
 }
 
+//a page button that opens the model full screen, as the toolbar's does
+defineExpose({ toggleFullscreen })
+
 onMounted(() => {
   reducedMotion  = window.matchMedia("(prefers-reduced-motion: reduce)").matches
   touch = window.matchMedia("(pointer: coarse)").matches

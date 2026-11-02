@@ -70,6 +70,9 @@ export interface ThumbnailDto {
 //- button:    single CTA link
 //- embed:     iframe embed (YouTube / Sketchfab / any url)
 //- viewer3d:  embeds a reusable model_3d asset via named views
+//- legend:    numbered or lettered list matching the marks drawn on a plan
+//- sequence:  a row of images, each with its caption (stages, maps)
+//- materials: one swatch per material, its name and its parameters
 export type DetailBlockType =
   | "text"
   | "heading"
@@ -85,6 +88,9 @@ export type DetailBlockType =
   | "button"
   | "embed"
   | "viewer3d"
+  | "legend"
+  | "sequence"
+  | "materials"
 
 //PER-BLOCK STYLE - shared by every block type (Excel-like border
 //controls in the panel). Optional so pre-existing blocks keep working;
@@ -197,10 +203,38 @@ export interface AccordionItem {
 export interface AccordionBlockContent {
   items: AccordionItem[]
 }
+//blueprint: black surfaces under white edges, to sit beside a technical plan
+export type Viewer3dLook = "render" | "blueprint"
 export interface Viewer3dBlockContent {
   model3dId:   string | null
   desktopView: string
   mobileView:  string
+  look?:       Viewer3dLook
+}
+//the marks drawn on a plan: 01, 02... or A, B...
+export type LegendMarker = "number" | "letter"
+export interface LegendBlockContent {
+  marker: LegendMarker
+  items:  Bilingual[]
+}
+export interface SequenceItem {
+  fileId:  string
+  url:     string | null
+  caption: Bilingual
+}
+export interface SequenceBlockContent {
+  //numbered steps joined by a dash, or plain captions
+  numbered: boolean
+  items:    SequenceItem[]
+}
+export interface MaterialItem {
+  fileId: string
+  url:    string | null
+  name:   Bilingual
+  rows:   Array<{ label: Bilingual; value: string }>
+}
+export interface MaterialsBlockContent {
+  items: MaterialItem[]
 }
 
 //Union narrowed by DetailBlock.type at usage sites.
@@ -213,6 +247,9 @@ export type DetailBlockContent =
   | CarouselBlockContent
   | MarqueeBlockContent
   | CompareBlockContent
+  | LegendBlockContent
+  | SequenceBlockContent
+  | MaterialsBlockContent
   | AccordionBlockContent
   | SpecsBlockContent
   | CountersBlockContent

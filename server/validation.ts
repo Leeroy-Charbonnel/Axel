@@ -73,7 +73,20 @@ const BLOCK_CONTENT = {
   //the two contents that become a link or an iframe src
   button:    z.strictObject({ label: bilingual, url: httpUrl, newTab: z.boolean() }),
   embed:     z.strictObject({ url: httpUrl }),
-  viewer3d:  z.strictObject({ model3dId: fileId.nullable(), desktopView: z.string(), mobileView: z.string() }),
+  viewer3d:  z.strictObject({
+               model3dId:   fileId.nullable(),
+               desktopView: z.string(),
+               mobileView:  z.string(),
+               look:        z.enum(["render", "blueprint"]).optional(),
+             }),
+  legend:    z.strictObject({ marker: z.enum(["number", "letter"]), items: z.array(bilingual) }),
+  sequence:  z.strictObject({ numbered: z.boolean(), items: z.array(imageItem.extend({ caption: bilingual })) }),
+  materials: z.strictObject({
+               items: z.array(imageItem.extend({
+                 name: bilingual,
+                 rows: z.array(z.strictObject({ label: bilingual, value: z.string() })),
+               })),
+             }),
 } as const
 
 const blockFrame = {
@@ -99,6 +112,7 @@ export const detailBlock = z.discriminatedUnion("type", [
   blockOf("text"), blockOf("heading"), blockOf("quote"), blockOf("image"), blockOf("video"),
   blockOf("carousel"), blockOf("marquee"), blockOf("compare"), blockOf("accordion"), blockOf("specs"),
   blockOf("counters"), blockOf("button"), blockOf("embed"), blockOf("viewer3d"),
+  blockOf("legend"), blockOf("sequence"), blockOf("materials"),
 ])
 
 export const mainProjectPatch = z.strictObject({

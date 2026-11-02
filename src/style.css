@@ -69,6 +69,10 @@ named token below derives from these, so the accent_color setting (written to
   --site-case-aspect:   4 / 3;
   --site-stat-badge:    1.6rem;
   --site-stat-value:    7ch;
+  --site-mark:          1.6rem;
+  --site-cross:         9px;
+  --site-swatch:        clamp(3.5rem, 2rem + 3vw, 5rem);
+  --site-seq-min:       7rem;
   --site-avatar:        96px;
   --site-gallery-min:   17rem;
   --site-spec-min:      7.5rem;

@@ -1,6 +1,7 @@
 import type {
   AccordionBlockContent, Bilingual, DetailBlock, ExperienceDto, ImageBlockContent, MainProjectDto, PortfolioDto,
-  ProfileDto, QuoteBlockContent, SpecsBlockContent, TextBlockContent,
+  LegendBlockContent, MaterialsBlockContent, ProfileDto, QuoteBlockContent, SequenceBlockContent,
+  SpecsBlockContent, TextBlockContent,
 } from "../src/types/portfolio"
 import type { Lang } from "../src/lib/lang"
 import { derivativeUrl, storedImage, type ImageFormat } from "../src/lib/media"
@@ -227,6 +228,13 @@ function blockHtml(data: PortfolioDto, block: DetailBlock, lang: Lang): string {
       if (!c.url) return ""
       return snapshotImg(data, c.url, c.alt ? pick(c.alt, lang) : "")
     }
+    case "legend":
+      return `<ol>${(block.content as LegendBlockContent).items.map((it) => `<li>${escapeHtml(pick(it, lang))}</li>`).join("")}</ol>`
+    case "sequence":
+      return `<ol>${(block.content as SequenceBlockContent).items.map((it) => `<li>${escapeHtml(pick(it.caption, lang))}</li>`).join("")}</ol>`
+    case "materials":
+      return (block.content as MaterialsBlockContent).items.map((it) => `<h3>${escapeHtml(pick(it.name, lang))}</h3><dl>${it.rows
+        .map((r) => `<dt>${escapeHtml(pick(r.label, lang))}</dt><dd>${escapeHtml(r.value)}</dd>`).join("")}</dl>`).join("")
     default: return ""
   }
 }

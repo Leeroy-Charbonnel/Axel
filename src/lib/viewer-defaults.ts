@@ -29,6 +29,13 @@ export const VIEWER_DEFAULTS = {
   floorGlowScale:     3.2,
 } as const
 
+//THE BLUEPRINT LOOK of a detail-page viewer: matte black surfaces under white
+//edges, to sit beside a technical plan drawn the same way
+export const BLUEPRINT_LOOK = {
+  lineColor: "#ffffff",
+  material:  { color: "#000000", metalness: 0, roughness: 1, envMapIntensity: 0, specularIntensity: 0 },
+} as const
+
 export const VIEWER_PREF_KEYS = {
   modeColor:      "editor3d_wireframe_mode_color",
   lineColor:      "editor3d_wireframe_line_color",

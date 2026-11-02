@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { toRef } from "vue"
+import { ref, toRef } from "vue"
 import { Layers } from "lucide-vue-next"
 import { useProjectCard } from "../../composables/useProjectCard"
 import { IMAGE_SIZES } from "../../lib/media"
@@ -27,6 +27,14 @@ const {
   lang, t, title, viewerSettings, glbUrl,
   hasWireframe, stillUrl, openStill, openThumbnail,
 } = useProjectCard(toRef(props, "project"), showWireframe)
+
+const viewerEl = ref<InstanceType<typeof ThreeViewer> | null>(null)
+//the model full screen, or the render enlarged when there is no model
+function fullscreen() {
+  if (viewerEl.value) void viewerEl.value.toggleFullscreen()
+  else openStill()
+}
+defineExpose({ fullscreen })
 </script>
 
 <template>
@@ -34,6 +42,7 @@ const {
     <div class="media__stage" :class="{ 'media__stage--still': !glbUrl }">
       <ThreeViewer
         v-if="glbUrl"
+        ref="viewerEl"
         v-model:wireframe="showWireframe"
         :glb-url="glbUrl"
         :settings="viewerSettings"

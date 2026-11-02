@@ -18,6 +18,9 @@ import CountersEditor  from "./editors/CountersEditor.vue"
 import ButtonEditor    from "./editors/ButtonEditor.vue"
 import EmbedEditor     from "./editors/EmbedEditor.vue"
 import Viewer3dEditor  from "./editors/Viewer3dEditor.vue"
+import LegendEditor    from "./editors/LegendEditor.vue"
+import SequenceEditor  from "./editors/SequenceEditor.vue"
+import MaterialsEditor from "./editors/MaterialsEditor.vue"
 import type { DetailBlock, DetailBlockType } from "../../../types/portfolio"
 
 //THE BENTO SIDE PANEL - the block types to add (click: first free spot,
@@ -36,7 +39,8 @@ const EDITORS: Record<DetailBlockType, Component> = {
   text: TextEditor, heading: HeadingEditor, quote: QuoteEditor, image: ImageEditor,
   video: VideoEditor, carousel: CarouselEditor, marquee: MarqueeEditor, compare: CompareEditor,
   accordion: AccordionEditor, specs: SpecsEditor, counters: CountersEditor, button: ButtonEditor,
-  embed: EmbedEditor, viewer3d: Viewer3dEditor,
+  embed: EmbedEditor, viewer3d: Viewer3dEditor, legend: LegendEditor, sequence: SequenceEditor,
+  materials: MaterialsEditor,
 }
 </script>
 

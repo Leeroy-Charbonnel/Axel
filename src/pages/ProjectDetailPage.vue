@@ -8,23 +8,22 @@ import { apiJson, usePortfolio } from "../composables/usePortfolio"
 import { useSnapshotHistory } from "../composables/useSnapshotHistory"
 import { pickBilingual } from "../lib/markdown"
 import type { Lang } from "../lib/lang"
-import EditableRegion from "../components/admin/EditableRegion.vue"
 import DetailGrid from "../components/portfolio/detail/DetailGrid.vue"
 import BentoEditor from "../components/portfolio/detail/BentoEditor.vue"
 import ProjectMedia from "../components/portfolio/ProjectMedia.vue"
-import ProjectSpecStrip from "../components/portfolio/ProjectSpecStrip.vue"
+import MainProject from "../components/portfolio/MainProject.vue"
 import SoftwareChips from "../components/portfolio/SoftwareChips.vue"
 import { hasContent, storedContent } from "../components/portfolio/detail/block-types"
 import NotFoundPage from "./NotFoundPage.vue"
 import type { DetailBlock, DetailPage } from "../types/portfolio"
 
-//PROJECT DETAIL PAGE - a case study: header (title, year, role, summary, spec
-//strip, software), the content blocks (or, while there are none, the still,
-//its thumbnails and the 3D model) and the previous / next published project.
-//For the admin in edit
-//mode the header is an editable region (inspector) and the blocks become the
-//bento editor; the blocks are this page's own state, saved through the edit
-//bar.
+//PROJECT DETAIL PAGE - a technical plan of the project: its position among
+//the projects, the head (the home card in its page variant: facts, model,
+//every thumbnail), the content blocks (or, while there are none, the model and
+//its thumbnails), the credits (software, role, year) and the previous / next
+//published project. For the admin in edit mode the head is the card's
+//editable region and the blocks become the bento editor; the blocks are this
+//page's own state, saved through the edit bar.
 
 const route  = useRoute()
 const router = useRouter()
@@ -43,6 +42,7 @@ const projectId = computed(() => Number(route.params.id))
 const source  = computed(() => data.value?.mainProjects.find((p) => p.id === projectId.value) ?? null)
 const project = computed(() => source.value ? editor.display("mainProject", source.value) : null)
 const title   = computed(() => pickBilingual(project.value?.title, shownLang.value))
+const role    = computed(() => pickBilingual(project.value?.role, shownLang.value))
 
 const published = computed(() => (data.value?.mainProjects ?? []).filter((p) => p.published))
 const position  = computed(() => published.value.findIndex((p) => p.id === projectId.value))
@@ -132,47 +132,46 @@ function goBack() {
 
     <template v-else>
       <header class="site-container case__head">
-        <a class="case__back" href="/" @click.prevent="goBack">
-          <ArrowLeft :size="16" aria-hidden="true" />
-          <span>{{ t('detailBack') }}</span>
-        </a>
-
-        <EditableRegion kind="mainProject" :id="project.id" :label="t('editorKindMainProject')">
-          <div class="case__intro">
-            <p class="site-eyebrow case__eyebrow">
-              <span v-if="position >= 0">{{ indexLabel }}</span>
-              <span v-else class="case__draft">{{ t('detailUnpublished') }}</span>
-              <span v-if="project.year">{{ project.year }}</span>
-            </p>
-            <h1 class="case__title">{{ title }}</h1>
-
-            <div class="case__summary">
-              <p class="case__description">{{ pickBilingual(project.description, shownLang) }}</p>
-              <dl class="case__facts">
-                <div v-if="pickBilingual(project.role, shownLang)" class="case__fact">
-                  <dt>{{ t('detailRole') }}</dt>
-                  <dd>{{ pickBilingual(project.role, shownLang) }}</dd>
-                </div>
-                <div v-if="project.year" class="case__fact">
-                  <dt>{{ t('detailYear') }}</dt>
-                  <dd>{{ project.year }}</dd>
-                </div>
-                <div v-if="project.software.length" class="case__fact">
-                  <dt>{{ t('detailSoftware') }}</dt>
-                  <dd><SoftwareChips :software="project.software" /></dd>
-                </div>
-              </dl>
-            </div>
-
-            <ProjectSpecStrip :stats="project.stats" :lang="shownLang" />
-          </div>
-        </EditableRegion>
+        <div class="case__bar">
+          <a class="case__back" href="/" @click.prevent="goBack">
+            <ArrowLeft :size="16" aria-hidden="true" />
+            <span>{{ t('detailBack') }}</span>
+          </a>
+          <nav class="case__position" :aria-label="t('detailPager')">
+            <span v-if="position >= 0">{{ indexLabel }}</span>
+            <span v-else class="case__draft">{{ t('detailUnpublished') }}</span>
+            <RouterLink v-if="prev" :to="`/project/${prev.id}`" class="case__step" :aria-label="t('detailPrev')">
+              <ArrowLeft :size="16" aria-hidden="true" />
+            </RouterLink>
+            <RouterLink v-if="next" :to="`/project/${next.id}`" class="case__step" :aria-label="t('detailNext')">
+              <ArrowRight :size="16" aria-hidden="true" />
+            </RouterLink>
+          </nav>
+        </div>
+        <MainProject :project="project" :number="position + 1" detail />
       </header>
 
       <section class="site-container case__blocks" :aria-label="title">
         <BentoEditor v-if="editMode" v-model:blocks="blocks" :lang="shownLang" :commit="history.commit" />
         <DetailGrid v-else-if="shownBlocks.length" :blocks="shownBlocks" :lang="shownLang" />
         <ProjectMedia v-else :project="project" />
+      </section>
+
+      <section v-if="role || project.year || project.software.length" class="site-container case__credits" :aria-label="t('detailCredits')">
+        <dl class="case__facts">
+          <div v-if="project.software.length" class="case__fact">
+            <dt>{{ t('detailSoftware') }}</dt>
+            <dd><SoftwareChips :software="project.software" /></dd>
+          </div>
+          <div v-if="role" class="case__fact">
+            <dt>{{ t('detailRole') }}</dt>
+            <dd>{{ role }}</dd>
+          </div>
+          <div v-if="project.year" class="case__fact">
+            <dt>{{ t('detailYear') }}</dt>
+            <dd>{{ project.year }}</dd>
+          </div>
+        </dl>
       </section>
 
       <nav v-if="prev || next" class="site-container case__pager" :aria-label="t('detailPager')">
@@ -232,48 +231,42 @@ function goBack() {
 }
 .case__back:hover { color: var(--site-text-heading); }
 .case__back:focus-visible { outline: var(--border-width-md) solid hsl(var(--ring)); outline-offset: var(--vsui-space-2xs); }
-.case__intro {
+.case__bar {
   display: flex;
-  flex-direction: column;
-  gap: var(--spacing-lg);
-}
-.case__eyebrow {
-  display: flex;
-  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
   gap: var(--spacing-md);
-  margin: 0;
+}
+.case__position {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  font-size: var(--site-fs-label);
+  text-transform: uppercase;
+  letter-spacing: var(--site-tracking-label);
+  color: var(--site-text-caption);
 }
 .case__draft { color: var(--site-accent); }
-.case__title {
-  margin: 0;
-  font-size: var(--site-fs-h1);
-  line-height: var(--site-lh-tight);
-  font-weight: var(--site-fw-display);
-  text-transform: uppercase;
-  letter-spacing: var(--site-tracking-heading);
+.case__step {
+  display: inline-grid;
+  place-content: center;
+  min-width: var(--site-touch-target);
+  min-height: var(--site-touch-target);
   color: var(--site-text-heading);
-  overflow-wrap: break-word;
-  hyphens: auto;
+  transition: color var(--transition-fast) ease;
 }
-.case__summary {
-  display: grid;
-  grid-template-columns: repeat(var(--site-columns), minmax(0, 1fr));
-  column-gap: var(--site-col-gap);
-  row-gap: var(--spacing-xl);
-}
-.case__description {
-  grid-column: 1 / span 7;
-  max-width: var(--site-text-width);
-  margin: 0;
-  font-size: var(--site-fs-body);
-  line-height: var(--site-lh-body);
-  white-space: pre-line;
+.case__step:hover { color: var(--site-accent); }
+.case__step:focus-visible { outline: var(--border-width-md) solid hsl(var(--ring)); outline-offset: calc(-1 * var(--border-width-md)); }
+
+/*CREDITS*/
+.case__credits {
+  padding-top: var(--spacing-lg);
+  border-top: var(--border-width) solid var(--site-line);
 }
 .case__facts {
-  grid-column: 9 / span 4;
   display: flex;
-  flex-direction: column;
-  gap: var(--spacing-md);
+  flex-wrap: wrap;
+  gap: var(--spacing-lg) var(--spacing-3xl);
   margin: 0;
 }
 .case__fact {
@@ -361,11 +354,6 @@ function goBack() {
 }
 
 /*TABLET AND PHONE*/
-@media (max-width: 1024px) {
-  .case__description,
-  .case__facts { grid-column: 1 / -1; }
-  .case__facts { flex-direction: row; flex-wrap: wrap; gap: var(--spacing-lg) var(--spacing-2xl); }
-}
 @media (max-width: 640px) {
   .case { padding-top: var(--spacing-lg); }
   .case__pager { grid-template-columns: minmax(0, 1fr); }

@@ -1,7 +1,7 @@
 import type { Component } from "vue"
 import {
   Box, Columns2, Film, GalleryHorizontalEnd, Hash, Heading1, ImageIcon, Images,
-  ListCollapse, MonitorPlay, MousePointerClick, Quote, Table, Type,
+  ListCollapse, ListOrdered, MonitorPlay, MousePointerClick, Palette, Quote, Rows3, Table, Type,
 } from "lucide-vue-next"
 import { embedSrc } from "../../../lib/embed"
 import { pickBilingual } from "../../../lib/markdown"
@@ -10,8 +10,8 @@ import type { Lang } from "../../../lib/lang"
 import type {
   AccordionBlockContent, ButtonBlockContent, CarouselBlockContent, CompareBlockContent,
   CountersBlockContent, DetailBlock, DetailBlockContent, DetailBlockType, EmbedBlockContent,
-  ImageBlockContent, MarqueeBlockContent, Model3dDto, SpecsBlockContent, TextBlockContent,
-  VideoBlockContent, Viewer3dBlockContent,
+  ImageBlockContent, LegendBlockContent, MarqueeBlockContent, MaterialsBlockContent, Model3dDto,
+  SequenceBlockContent, SpecsBlockContent, TextBlockContent, VideoBlockContent, Viewer3dBlockContent,
 } from "../../../types/portfolio"
 
 //BLOCK TYPE REGISTRY - one entry per type: label key, icon, the size a new
@@ -45,7 +45,10 @@ export const BLOCK_TYPES: BlockTypeDef[] = [
   { type: "counters",  labelKey: "blockTypeCounters",  icon: Hash,  size: { w: 3, h: 1 }, inline: false, create: () => ({ items: [{ label: empty(), value: 0 }] }) },
   { type: "button",    labelKey: "blockTypeButton",    icon: MousePointerClick,    size: { w: 1, h: 1 }, inline: false, create: () => ({ label: empty(), url: "", newTab: true }) },
   { type: "embed",     labelKey: "blockTypeEmbed",     icon: MonitorPlay,     size: { w: 2, h: 2 }, inline: false, create: () => ({ url: "" }) },
-  { type: "viewer3d",  labelKey: "blockTypeViewer3d",  icon: Box,  size: { w: 3, h: 2 }, inline: false, create: () => ({ model3dId: null, desktopView: "", mobileView: "" }) },
+  { type: "viewer3d",  labelKey: "blockTypeViewer3d",  icon: Box,  size: { w: 3, h: 2 }, inline: false, create: () => ({ model3dId: null, desktopView: "", mobileView: "", look: "render" }) },
+  { type: "legend",    labelKey: "blockTypeLegend",    icon: ListOrdered, size: { w: 1, h: 2 }, inline: false, create: () => ({ marker: "number", items: [empty()] }) },
+  { type: "sequence",  labelKey: "blockTypeSequence",  icon: Rows3,  size: { w: 3, h: 1 }, inline: false, create: () => ({ numbered: true, items: [] }) },
+  { type: "materials", labelKey: "blockTypeMaterials", icon: Palette, size: { w: 1, h: 2 }, inline: false, create: () => ({ items: [] }) },
 ]
 
 export function blockType(type: DetailBlockType): BlockTypeDef {
@@ -76,6 +79,14 @@ export function storedContent(b: DetailBlock): DetailBlockContent {
     }
     case "marquee": {
       const c = b.content as MarqueeBlockContent
+      return { ...c, items: c.items.filter((i) => i.fileId).map((i) => ({ ...i, url: null })) }
+    }
+    case "sequence": {
+      const c = b.content as SequenceBlockContent
+      return { ...c, items: c.items.filter((i) => i.fileId).map((i) => ({ ...i, url: null })) }
+    }
+    case "materials": {
+      const c = b.content as MaterialsBlockContent
       return { ...c, items: c.items.filter((i) => i.fileId).map((i) => ({ ...i, url: null })) }
     }
     case "compare": {
@@ -130,5 +141,11 @@ export function hasContent(b: DetailBlock, lang: Lang, models: Model3dDto[]): bo
       const id = (b.content as Viewer3dBlockContent).model3dId
       return models.some((m) => m.id === id && m.glbUrl)
     }
+    case "legend":
+      return (b.content as LegendBlockContent).items.some(filled)
+    case "sequence":
+      return (b.content as SequenceBlockContent).items.some((i) => i.url)
+    case "materials":
+      return (b.content as MaterialsBlockContent).items.some((i) => i.url)
   }
 }

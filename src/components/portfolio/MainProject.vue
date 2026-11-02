@@ -16,7 +16,13 @@ import type { MainProjectDto } from "../../types/portfolio"
 //between them and the model, and the model floating on its floor. Cards alternate sides down
 //the list so the section does not read as one repeated block. The wireframe
 //button turns the model and the thumbnails together.
-const props = defineProps<{ project: MainProjectDto; number: number; flipped: boolean }>()
+//detail: the head of the project's own page, as the plan lays it out: facts,
+//model with its toolbar, every thumbnail on the right; "View 3D" opens the
+//model full screen.
+const props = withDefaults(defineProps<{ project: MainProjectDto; number: number; flipped?: boolean; detail?: boolean }>(), {
+  flipped: false,
+  detail:  false,
+})
 
 const wireframe = ref(false)
 const { lang, t, title, description, openThumbnail } = useProjectCard(toRef(props, "project"), wireframe)
@@ -27,7 +33,13 @@ const stats = computed(() => statRows(props.project.stats, lang.value, t)
   .sort((a, b) => STAT_ORDER.indexOf(a.key) - STAT_ORDER.indexOf(b.key))
   .map((s) => ({ ...s, initial: s.label.charAt(0).toUpperCase() })))
 
-const thumbs = computed(() => props.project.thumbnails.filter((thumb) => thumb.url))
+//the home card keeps three, the project's page shows them all
+const CARD_THUMBS = 3
+const thumbs = computed(() => {
+  const all = props.project.thumbnails.filter((thumb) => thumb.url)
+  return props.detail ? all : all.slice(0, CARD_THUMBS)
+})
+const media = ref<InstanceType<typeof ProjectMedia> | null>(null)
 
 //the clay versions are decoded before the first sweep, so it never plays over
 //images still loading; the model and the thumbnails then turn together
@@ -50,12 +62,12 @@ const titleId = `project-${props.project.id}-title`
   <EditableRegion kind="mainProject" :id="project.id" :label="t('editorKindMainProject')">
     <article
       class="case"
-      :class="{ 'case--flipped': flipped, 'case--wireframe': wireframe, 'site-unpublished': !project.published }"
+      :class="{ 'case--flipped': flipped, 'case--detail': detail, 'case--wireframe': wireframe, 'site-unpublished': !project.published }"
       :aria-labelledby="titleId"
     >
       <UnpublishedBadge :published="project.published" />
 
-      <ul v-if="thumbs.length" ref="thumbsEl" class="case__thumbs" :aria-label="t('projectThumbs')">
+      <ul v-if="thumbs.length" ref="thumbsEl" class="case__thumbs" :style="{ '--n': thumbs.length }" :aria-label="t('projectThumbs')">
         <li v-for="(thumb, i) in thumbs" :key="i" :style="{ '--i': i }">
           <button
             type="button"
@@ -71,7 +83,8 @@ const titleId = `project-${props.project.id}-title`
 
       <div class="case__info">
         <span class="case__number" aria-hidden="true">{{ String(number).padStart(2, "0") }}</span>
-        <h3 :id="titleId" class="case__title">
+        <h1 v-if="detail" :id="titleId" class="case__title case__title--page">{{ title }}</h1>
+        <h3 v-else :id="titleId" class="case__title">
           <RouterLink :to="`/project/${project.id}`">{{ title }}</RouterLink>
         </h3>
         <p v-if="description" class="case__description">{{ description }}</p>
@@ -85,7 +98,11 @@ const titleId = `project-${props.project.id}-title`
         </dl>
 
         <div class="case__actions">
-          <RouterLink :to="`/project/${project.id}`" class="site-button case__action case__action--accent">
+          <button v-if="detail" type="button" class="site-button case__action case__action--accent" @click="media?.fullscreen()">
+            <Box aria-hidden="true" />
+            {{ t("projectView3d") }}
+          </button>
+          <RouterLink v-else :to="`/project/${project.id}`" class="site-button case__action case__action--accent">
             <Box aria-hidden="true" />
             {{ t("projectView3d") }}
           </RouterLink>
@@ -96,7 +113,7 @@ const titleId = `project-${props.project.id}-title`
         </div>
       </div>
 
-      <ProjectMedia v-model:wireframe="wireframe" :project="project" :thumbs="false" :toolbar="false" class="case__media" />
+      <ProjectMedia ref="media" v-model:wireframe="wireframe" :project="project" :thumbs="false" :toolbar="detail" class="case__media" />
     </article>
   </EditableRegion>
 </template>
@@ -116,6 +133,12 @@ const titleId = `project-${props.project.id}-title`
 .case--flipped {
   grid-template-columns: minmax(0, 7fr) var(--site-thumb-col) minmax(0, 4fr);
   grid-template-areas: "media thumbs info";
+}
+
+/*the project's page: facts | model | thumbnails*/
+.case--detail {
+  grid-template-columns: minmax(0, 4fr) minmax(0, 7fr) var(--site-thumb-col);
+  grid-template-areas: "info media thumbs";
 }
 
 .case__thumbs  { grid-area: thumbs; }
@@ -177,8 +200,9 @@ the line x + y = t, t growing over the column's width plus height.*/
 
 .case--wireframe .case__thumbs { --wipe: 1; }
 
+/*the line crosses the column's width plus its height: n thumbnails and their gaps*/
 .case__wire {
-  --t: calc(var(--wipe) * (4 * var(--s) + 2 * var(--g)) - var(--i) * (var(--s) + var(--g)));
+  --t: calc(var(--wipe) * ((var(--n) + 1) * var(--s) + (var(--n) - 1) * var(--g)) - var(--i) * (var(--s) + var(--g)));
   clip-path: polygon(0 0, var(--t) 0, 0 var(--t));
 }
 
@@ -195,8 +219,11 @@ the line x + y = t, t growing over the column's width plus height.*/
   font-weight: var(--font-weight-black);
   line-height: 1;
   letter-spacing: var(--site-tracking-display);
-  color: transparent;
-  -webkit-text-stroke: var(--border-width-md) var(--site-line-strong);
+  /*the fill, painted over the inner half of the stroke, hides the lines where
+  a glyph's contours cross (the 1); only the outer half shows*/
+  color: hsl(var(--background));
+  -webkit-text-stroke: calc(2 * var(--border-width-md)) var(--site-line-strong);
+  paint-order: stroke fill;
   font-variant-numeric: tabular-nums;
 }
 
@@ -209,6 +236,8 @@ the line x + y = t, t growing over the column's width plus height.*/
   color: var(--site-text-heading);
   overflow-wrap: anywhere;
 }
+
+.case__title--page { font-size: var(--site-fs-h1); }
 
 .case__title a { transition: color var(--site-duration-fast) ease; }
 .case__title a:hover { color: var(--site-accent); }
@@ -280,16 +309,17 @@ the line x + y = t, t growing over the column's width plus height.*/
 
 @media (max-width: 1024px) {
   .case,
-  .case--flipped {
+  .case--flipped,
+  .case--detail {
     grid-template-columns: minmax(0, 1fr);
     grid-template-areas: "media" "thumbs" "info";
   }
 
   /*a row: the same line crosses it from left to right*/
   .case__thumbs {
-    --s: var(--site-thumb-row);
+    --s: calc((100vw - 2 * var(--site-gutter) - (var(--n) - 1) * var(--g)) / var(--n));
     display: grid;
-    grid-template-columns: repeat(var(--site-thumb-count), minmax(0, 1fr));
+    grid-template-columns: repeat(var(--n), minmax(0, 1fr));
   }
 }
 

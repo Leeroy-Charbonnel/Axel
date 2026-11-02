@@ -19,11 +19,14 @@ import BlockSpecs from "./BlockSpecs.vue"
 import BlockCounters from "./BlockCounters.vue"
 import BlockMarquee from "./BlockMarquee.vue"
 import BlockEmpty from "./BlockEmpty.vue"
+import BlockLegend from "./BlockLegend.vue"
+import BlockSequence from "./BlockSequence.vue"
+import BlockMaterials from "./BlockMaterials.vue"
 import type {
   AccordionBlockContent, ButtonBlockContent, CarouselBlockContent, CompareBlockContent,
   CountersBlockContent, DetailBlock, EmbedBlockContent, HeadingBlockContent, ImageBlockContent,
-  MarqueeBlockContent, QuoteBlockContent, SpecsBlockContent, TextBlockContent, VideoBlockContent,
-  Viewer3dBlockContent,
+  LegendBlockContent, MarqueeBlockContent, MaterialsBlockContent, QuoteBlockContent, SequenceBlockContent,
+  SpecsBlockContent, TextBlockContent, VideoBlockContent, Viewer3dBlockContent,
 } from "../../../types/portfolio"
 
 //ONE BLOCK, whatever its type, for the public grid, the editor canvas and the
@@ -112,6 +115,13 @@ function enlarge() {
   <BlockButton v-else-if="block.type === 'button'" :content="(c as ButtonBlockContent)" :lang="lang" />
 
   <BlockEmbed v-else-if="block.type === 'embed'" :content="(c as EmbedBlockContent)" />
+
+  <BlockLegend v-else-if="block.type === 'legend'" :content="(c as LegendBlockContent)" :lang="lang" />
+
+  <!--each image of a sequence is narrower than one column-->
+  <BlockSequence v-else-if="block.type === 'sequence'" :content="(c as SequenceBlockContent)" :lang="lang" :sizes="blockSizes(1)" />
+
+  <BlockMaterials v-else-if="block.type === 'materials'" :content="(c as MaterialsBlockContent)" :lang="lang" />
 
   <div v-else-if="block.type === 'viewer3d'" class="block-viewer">
     <Viewer3dBlock :content="(c as Viewer3dBlockContent)" :mobile="mobile" :sizes="sizes" />

@@ -98,7 +98,7 @@ async function buildPortfolio(admin: boolean): Promise<PortfolioDto> {
       const after  = (c.afterFileId  as string | null | undefined) ?? null
       return { ...b, content: { ...c, beforeFileId: before, beforeUrl: urlOf(before), afterFileId: after, afterUrl: urlOf(after) } }
     }
-    if (b.type === "carousel" || b.type === "marquee") {
+    if (b.type === "carousel" || b.type === "marquee" || b.type === "sequence" || b.type === "materials") {
       const items = Array.isArray(c.items) ? c.items as Array<Record<string, unknown>> : []
       return { ...b, content: { ...c, items: items.map((it) => ({ ...it, url: urlOf(it.fileId as string | null | undefined) })) } }
     }
