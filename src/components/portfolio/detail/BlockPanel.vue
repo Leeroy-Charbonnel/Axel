@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import type { Component } from "vue"
-import { Trash2 } from "lucide-vue-next"
+import { Copy, Trash2 } from "lucide-vue-next"
 import { useTranslations } from "../../../composables/useTranslations"
 import { BLOCK_TYPES, blockType } from "./block-types"
+import { SECTION_PRESETS } from "../../../lib/section-presets"
 import BlockStyleEditor from "./editors/BlockStyleEditor.vue"
 import TextEditor      from "./editors/TextEditor.vue"
 import HeadingEditor   from "./editors/HeadingEditor.vue"
@@ -23,15 +24,18 @@ import SequenceEditor  from "./editors/SequenceEditor.vue"
 import MaterialsEditor from "./editors/MaterialsEditor.vue"
 import type { DetailBlock, DetailBlockType } from "../../../types/portfolio"
 
-//THE BENTO SIDE PANEL - the block types to add (click: first free spot,
-//drag: where it is dropped), then the selected block's border and content.
+//THE BENTO SIDE PANEL - the sections of the sheet to add whole, the block
+//types to add (click: first free spot, drag: where it is dropped), then the
+//selected block's border and content.
 //The editors write straight into the block; the page history records it.
 
 defineProps<{ selected: DetailBlock | null }>()
 const emit = defineEmits<{
-  add:    [type: DetailBlockType]
-  create: [e: PointerEvent, type: DetailBlockType]
-  remove: []
+  add:        [type: DetailBlockType]
+  create:     [e: PointerEvent, type: DetailBlockType]
+  addSection: [key: string]
+  duplicate:  []
+  remove:     []
 }>()
 const { t } = useTranslations()
 
@@ -46,6 +50,20 @@ const EDITORS: Record<DetailBlockType, Component> = {
 
 <template>
   <aside class="block-panel" :aria-label="t('detailPanel')">
+    <section class="ed-form__section">
+      <h2 class="ed-form__title">{{ t('detailAddSection') }}</h2>
+      <p class="ed-hint">{{ t('detailAddSectionHint') }}</p>
+      <div class="block-panel__types">
+        <button
+          v-for="p in SECTION_PRESETS"
+          :key="p.key"
+          type="button"
+          class="ed-btn block-panel__type"
+          @click="emit('addSection', p.key)"
+        >{{ t(p.labelKey) }}</button>
+      </div>
+    </section>
+
     <section class="ed-form__section">
       <h2 class="ed-form__title">{{ t('detailAddBlock') }}</h2>
       <p class="ed-hint">{{ t('detailAddHint') }}</p>
@@ -68,6 +86,9 @@ const EDITORS: Record<DetailBlockType, Component> = {
     <section v-if="selected" class="ed-form__section">
       <div class="block-panel__head">
         <h2 class="ed-form__title block-panel__title">{{ t('detailBlockSettings').replace('{type}', t(blockType(selected.type).labelKey)) }}</h2>
+        <button type="button" class="ed-btn ed-btn--ghost ed-btn--icon" :aria-label="t('detailDuplicateBlock')" :title="t('detailDuplicateBlock')" @click="emit('duplicate')">
+          <Copy :size="16" aria-hidden="true" />
+        </button>
         <button type="button" class="ed-btn ed-btn--ghost ed-btn--danger ed-btn--icon" :aria-label="t('detailDeleteBlock')" :title="t('detailDeleteBlock')" @click="emit('remove')">
           <Trash2 :size="16" aria-hidden="true" />
         </button>

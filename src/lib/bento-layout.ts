@@ -154,3 +154,21 @@ export function rowTracks(blocks: DetailBlock[], rects: Rects, rows: number, min
   }
   return heading.map((h, row) => (h && !other[row] ? "auto" : `minmax(${minHeight}, auto)`)).join(" ")
 }
+
+//the first row at or below the bottom of a block that no block crosses: where
+//a section can be slid in after it without cutting another block in two
+export function rowAfter(rects: Rects, id: string): number {
+  const r = rects.get(id)
+  if (!r) throw new Error(`[bento] block ${id} has no rect`)
+  let row = r.y + r.h
+  for (let moved = true; moved;) {
+    moved = false
+    for (const o of rects.values()) {
+      if (o.y < row && o.y + o.h > row) {
+        row = o.y + o.h
+        moved = true
+      }
+    }
+  }
+  return row
+}

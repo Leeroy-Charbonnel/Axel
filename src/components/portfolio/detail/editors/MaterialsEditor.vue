@@ -4,6 +4,8 @@ import ListField from "../../../admin/fields/ListField.vue"
 import MediaField from "../../../admin/fields/MediaField.vue"
 import TextField from "../../../admin/fields/TextField.vue"
 import { useTranslations } from "../../../../composables/useTranslations"
+import type { MediaFile } from "../../../admin/media/useMediaLibrary"
+import AddImagesButton from "./AddImagesButton.vue"
 import type { MaterialItem, MaterialsBlockContent } from "../../../../types/portfolio"
 
 const props = defineProps<{ content: MaterialsBlockContent }>()
@@ -13,9 +15,14 @@ type MaterialRow = MaterialItem["rows"][number]
 //a material without a swatch is dropped on save
 const newItem = (): MaterialItem => ({ fileId: "", url: null, name: { fr: "", en: "" }, rows: [] })
 const newRow = (): MaterialRow => ({ label: { fr: "", en: "" }, value: "" })
+
+function addImages(files: MediaFile[]) {
+  props.content.items = [...props.content.items, ...files.map((f) => ({ fileId: f.id, url: f.url, name: { fr: "", en: "" }, rows: [] }))]
+}
 </script>
 
 <template>
+  <AddImagesButton @add="addImages" />
   <ListField
     :label="t('blockTypeMaterials')"
     :add-label="t('blockAddMaterial')"

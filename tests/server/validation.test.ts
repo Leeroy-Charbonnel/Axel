@@ -4,6 +4,8 @@ import { llmsFullTxt, projectPage } from "../../server/seo"
 import { BLOCK_TYPES } from "../../src/components/portfolio/detail/block-types"
 import { CASE_STUDY_VIEWS, caseStudyBlocks } from "../../src/lib/case-study"
 import { sheetBlocks, type SheetMedia } from "../../src/lib/project-sheet"
+import { SECTION_PRESETS, insertSection } from "../../src/lib/section-presets"
+import { layoutRects, rowAfter } from "../../src/lib/bento-layout"
 import type { DetailBlock, MainProjectDto, PortfolioDto } from "../../src/types/portfolio"
 
 const ID = "7004bd48-4c6b-43da-9bb3-c63a1e64e0cc"
@@ -62,6 +64,16 @@ describe("detail block content schemas", () => {
       { process: [] }, { specs: [] }, { specs: [], outro: null },
     ]
     for (const cut of cuts) pages.push(sheetBlocks({ ...full, ...cut }))
+    //every section added to an empty page, at the end, and after a block mid-page
+    let n = 0
+    const newId = () => `new${++n}`
+    const sheet = sheetBlocks(full)
+    const mid = sheet[Math.floor(sheet.length / 2)]!
+    for (const preset of SECTION_PRESETS) {
+      pages.push(insertSection([], preset, newId, { y: 0, phoneY: 0 }))
+      const at = { y: rowAfter(layoutRects(sheet, "desktop"), mid.id), phoneY: rowAfter(layoutRects(sheet, "phone"), mid.id) }
+      pages.push(insertSection(sheet, preset, newId, at))
+    }
     for (const blocks of pages) {
       expect(mainProjectPatch.safeParse({ detailPage: { blocks } }).success).toBe(true)
       //every cell of every row is covered exactly once: no hole, no overlap

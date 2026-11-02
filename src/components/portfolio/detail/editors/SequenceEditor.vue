@@ -4,6 +4,8 @@ import ListField from "../../../admin/fields/ListField.vue"
 import MediaField from "../../../admin/fields/MediaField.vue"
 import ToggleField from "../../../admin/fields/ToggleField.vue"
 import { useTranslations } from "../../../../composables/useTranslations"
+import type { MediaFile } from "../../../admin/media/useMediaLibrary"
+import AddImagesButton from "./AddImagesButton.vue"
 import type { SequenceBlockContent, SequenceItem } from "../../../../types/portfolio"
 
 const props = defineProps<{ content: SequenceBlockContent }>()
@@ -11,6 +13,10 @@ const { t } = useTranslations()
 
 //an image without a file is dropped on save
 const newItem = (): SequenceItem => ({ fileId: "", url: null, caption: { fr: "", en: "" } })
+
+function addImages(files: MediaFile[]) {
+  props.content.items = [...props.content.items, ...files.map((f) => ({ fileId: f.id, url: f.url, caption: { fr: "", en: "" } }))]
+}
 </script>
 
 <template>
@@ -20,6 +26,7 @@ const newItem = (): SequenceItem => ({ fileId: "", url: null, caption: { fr: "",
     :model-value="props.content.numbered"
     @update:model-value="(v) => (props.content.numbered = v)"
   />
+  <AddImagesButton @add="addImages" />
   <ListField
     :label="t('blockFieldSlides')"
     :add-label="t('blockAddSlide')"

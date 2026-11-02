@@ -8,6 +8,7 @@ import { useTranslations } from "../../../composables/useTranslations"
 import { phoneAuthored, rowTracks, type GridLayout } from "../../../lib/bento-layout"
 import type { Lang } from "../../../lib/lang"
 import { blockType, FILL_TYPES } from "./block-types"
+import { SECTION_PRESETS } from "../../../lib/section-presets"
 import DetailBlockRenderer from "./DetailBlockRenderer.vue"
 import BlockBorder from "./BlockBorder.vue"
 import BlockPanel from "./BlockPanel.vue"
@@ -121,6 +122,13 @@ function stopInline(refocus: boolean) {
   if (refocus && id) blockEls.get(id)?.focus({ preventScroll: true })
 }
 
+//a section goes under the selected block's band, or at the end of the page
+function addSection(key: string) {
+  const preset = SECTION_PRESETS.find((p) => p.key === key)
+  if (!preset) throw new Error(`[bento] unknown section preset: ${key}`)
+  grid.addSection(preset, selectedId.value)
+}
+
 async function removeSelected() {
   const b = selected.value
   if (!b) return
@@ -146,6 +154,9 @@ function onBlockKeydown(e: KeyboardEvent, b: DetailBlock) {
     e.preventDefault()
     if (blockType(b.type).inline) void startInline(b)
     else select(b.id)
+  } else if (e.key === "d" && (e.ctrlKey || e.metaKey)) {
+    e.preventDefault()
+    grid.duplicateBlock(b.id)
   } else if (e.key === "Delete" || e.key === "Backspace") {
     e.preventDefault()
     select(b.id)
@@ -282,6 +293,8 @@ async function resetPhone() {
       :selected="selected"
       @add="grid.addBlock"
       @create="grid.startCreate"
+      @add-section="addSection"
+      @duplicate="selected && grid.duplicateBlock(selected.id)"
       @remove="removeSelected"
     />
   </div>

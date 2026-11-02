@@ -5,6 +5,8 @@ import ListField from "../../../admin/fields/ListField.vue"
 import MediaField from "../../../admin/fields/MediaField.vue"
 import SelectField from "../../../admin/fields/SelectField.vue"
 import { useTranslations } from "../../../../composables/useTranslations"
+import type { MediaFile } from "../../../admin/media/useMediaLibrary"
+import AddImagesButton from "./AddImagesButton.vue"
 import type { CarouselBlockContent, CarouselItem } from "../../../../types/portfolio"
 
 const props = defineProps<{ content: CarouselBlockContent }>()
@@ -18,6 +20,10 @@ const intervals = computed(() => [
 
 //a slide without a file is dropped on save
 const newSlide = (): CarouselItem => ({ fileId: "", url: null, caption: { fr: "", en: "" } })
+
+function addImages(files: MediaFile[]) {
+  props.content.items = [...props.content.items, ...files.map((f) => ({ fileId: f.id, url: f.url, caption: { fr: "", en: "" } }))]
+}
 </script>
 
 <template>
@@ -28,6 +34,7 @@ const newSlide = (): CarouselItem => ({ fileId: "", url: null, caption: { fr: ""
     :options="intervals"
     @update:model-value="(v) => (props.content.intervalMs = Number(v))"
   />
+  <AddImagesButton @add="addImages" />
   <ListField
     :label="t('blockFieldSlides')"
     :add-label="t('blockAddSlide')"

@@ -1,8 +1,9 @@
 import { computed, onBeforeUnmount, shallowRef, type Ref } from "vue"
 import {
-  GRID_COLS, bottomOf, firstFree, layoutRects, phoneAuthored, reflow, restack, writeRects,
+  GRID_COLS, bottomOf, firstFree, layoutRects, phoneAuthored, reflow, restack, rowAfter, writeRects,
   type GridLayout, type Rect, type Rects,
 } from "../lib/bento-layout"
+import { insertSection, type SectionPreset } from "../lib/section-presets"
 import { blockType, newBlockId } from "../components/portfolio/detail/block-types"
 import type { DetailBlock, DetailBlockType } from "../types/portfolio"
 
@@ -127,6 +128,42 @@ export function useBentoGrid(o: BentoGridOptions) {
     o.commit()
   }
 
+  //a copy right under the block; what was below it moves down
+  function duplicateBlock(id: string) {
+    const all = o.blocks.value
+    const src = all.find((b) => b.id === id)
+    if (!src) throw new Error(`[bento] block ${id} not found`)
+    o.commit()
+    const copy: DetailBlock = { ...(JSON.parse(JSON.stringify(src)) as DetailBlock), id: newBlockId() }
+    const desktop = layoutRects(all, "desktop")
+    desktop.set(copy.id, { x: src.x, y: src.y + src.h, w: src.w, h: src.h })
+    const next = [...all, copy]
+    writeRects(next, "desktop", reflow(desktop, copy.id))
+    if (phoneAuthored(all)) {
+      const at = src.mobileY! + src.mobileH!
+      for (const b of all) if (b.mobileY! >= at) b.mobileY = b.mobileY! + src.mobileH!
+      copy.mobileY = at
+    }
+    o.blocks.value = next
+    o.select(copy.id)
+    o.commit()
+  }
+
+  //a whole section of the sheet, after the block's band, or at the end
+  function addSection(preset: SectionPreset, afterId: string | null) {
+    o.commit()
+    const all = o.blocks.value
+    const desktop = layoutRects(all, "desktop")
+    const phone = layoutRects(all, "phone")
+    const at = afterId
+      ? { y: rowAfter(desktop, afterId), phoneY: rowAfter(phone, afterId) }
+      : { y: bottomOf(desktop.values()), phoneY: bottomOf(phone.values()) }
+    const next = insertSection(all, preset, newBlockId, at)
+    o.blocks.value = next
+    o.select(next[all.length]?.id ?? null)
+    o.commit()
+  }
+
   function removeBlock(id: string) {
     o.commit()
     o.blocks.value = o.blocks.value.filter((b) => b.id !== id)
@@ -239,7 +276,7 @@ export function useBentoGrid(o: BentoGridOptions) {
   onBeforeUnmount(stop)
 
   return {
-    drag, rects, rows, cols, phantom,
+    drag, rects, rows, cols, phantom, duplicateBlock, addSection,
     startMove, startResize, startCreate,
     addBlock, removeBlock, nudge, resetPhone,
   }
