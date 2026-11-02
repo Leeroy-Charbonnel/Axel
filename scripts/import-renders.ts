@@ -7,14 +7,14 @@
 //- every other folder with a card.jpg becomes a gallery card, by name.
 //
 //IDEMPOTENT: a file already imported (same "<slug>/<name>" original name and
-//same size) is reused, a re-rendered one is stored anew, a project or card with the same French title is updated in place.
+//same bytes) is reused, a re-rendered one is stored anew, a project or card with the same French title is updated in place.
 //--retire unpublishes every other main project and gallery card.
 //DATABASE_URL only, never the production database.
 //
 //Usage: bun scripts/import-renders.ts <root> --main=a,b,c [--retire]
 
 import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, statSync } from "node:fs"
-import { randomUUID } from "node:crypto"
+import { createHash, randomUUID } from "node:crypto"
 import { basename, extname, join } from "node:path"
 import { and, eq, notInArray, sql } from "drizzle-orm"
 import { z } from "zod"
@@ -132,12 +132,20 @@ async function adminId(): Promise<string> {
   return admin.id
 }
 
+function sha256(path: string): string {
+  return createHash("sha256").update(readFileSync(path)).digest("hex")
+}
+
 //the file row for one file of a folder, created on first import
 async function storeFile(dir: string, slug: string, name: string, uploader: string): Promise<string> {
   const original = `${slug}/${name}`
   const bytes = statSync(join(dir, name)).size
-  const [known] = await db.select({ id: file.id }).from(file)
+  //same name and size is not enough: a file re-exported with parts moved can
+  //keep its size to the byte, so the content decides
+  const digest = sha256(join(dir, name))
+  const candidates = await db.select({ id: file.id, stored: file.storedFilename }).from(file)
     .where(and(eq(file.originalFilename, original), eq(file.sizeBytes, bytes)))
+  const known = candidates.find((c) => sha256(join(STORAGE_DIR, c.stored)) === digest)
   if (known) return known.id
 
   const type = MIME[extname(name).toLowerCase()]

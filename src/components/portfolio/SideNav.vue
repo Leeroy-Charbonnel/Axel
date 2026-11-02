@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue"
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue"
 import { useRoute } from "vue-router"
 import { Menu, X } from "lucide-vue-next"
 import { useLanguage } from "../../composables/useLanguage"
@@ -17,6 +17,28 @@ const { sections, activeId, ownPage, go } = useSectionNav()
 const route = useRoute()
 
 const name = computed(() => data.value?.profile?.name ?? "")
+
+//FIT - a page with many sections (a project) shrinks the labels until the
+//whole list fits the rail's height, never above their normal size
+const railEl = ref<HTMLElement | null>(null)
+const listEl = ref<HTMLElement | null>(null)
+const fit = ref(1)
+function measureFit() {
+  const rail = railEl.value, list = listEl.value
+  if (!rail || !list || !list.scrollHeight) return
+  const style = getComputedStyle(rail)
+  const room = rail.clientHeight - parseFloat(style.paddingTop) - parseFloat(style.paddingBottom)
+  //the list's height at full size, from its height at the current fit
+  const full = list.scrollHeight / fit.value
+  fit.value = Math.min(1, room / full)
+}
+let fitObserver: ResizeObserver | null = null
+onMounted(() => {
+  fitObserver = new ResizeObserver(measureFit)
+  if (railEl.value) fitObserver.observe(railEl.value)
+})
+onBeforeUnmount(() => fitObserver?.disconnect())
+watch(sections, () => void nextTick(measureFit), { deep: true })
 
 const menu = ref<HTMLDialogElement | null>(null)
 const menuOpen = ref(false)
@@ -47,8 +69,8 @@ watch(() => route.fullPath, closeMenu)
 
 <template>
   <!--DESKTOP RAIL-->
-  <nav class="rail" :aria-label="t('navSections')">
-    <ul class="rail__list">
+  <nav ref="railEl" class="rail" :aria-label="t('navSections')" :style="{ '--rail-fit': fit }">
+    <ul ref="listEl" class="rail__list">
       <li v-for="section in sections" :key="section.id">
         <a
           :href="`/#${section.id}`"
@@ -131,10 +153,10 @@ to read bottom to top*/
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: var(--spacing-sm) var(--spacing-xs);
+  padding: calc(var(--spacing-sm) * var(--rail-fit)) var(--spacing-xs);
   writing-mode: vertical-rl;
   transform: rotate(180deg);
-  font-size: var(--site-fs-rail);
+  font-size: calc(var(--site-fs-rail) * var(--rail-fit));
   font-weight: var(--font-weight-bold);
   letter-spacing: var(--site-tracking-label);
   text-transform: uppercase;
@@ -155,7 +177,7 @@ to read bottom to top*/
 /*a laptop-short window: the labels sit closer, and below that the rail scrolls
 rather than hiding its last links*/
 @media (max-height: 800px) {
-  .rail__link { padding: var(--spacing-xxs) 0; }
+  .rail__link { padding: calc(var(--spacing-xxs) * var(--rail-fit)) 0; }
 }
 
 /*TOP BAR - hidden on desktop*/
