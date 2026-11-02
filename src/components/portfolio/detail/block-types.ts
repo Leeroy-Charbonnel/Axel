@@ -57,6 +57,11 @@ export function blockType(type: DetailBlockType): BlockTypeDef {
   return def
 }
 
+//the element id of a section heading on the public page, for the rail to reach it
+export function sectionAnchor(blockId: string): string {
+  return `section-${blockId}`
+}
+
 export function newBlockId(): string {
   return crypto.randomUUID().slice(0, 8)
 }

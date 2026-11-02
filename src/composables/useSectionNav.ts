@@ -1,10 +1,13 @@
-import { ref } from "vue"
+import { computed, ref } from "vue"
 import { useRoute, useRouter } from "vue-router"
+import { useLanguage } from "./useLanguage"
 
-//THE HOME PAGE SECTIONS, in page order, and the one way to reach them. On the
-//home page a link scrolls (scroll-margin-top on .site-section clears the top
-//bar); from any other page it goes home with the hash, and HomePage scrolls
-//once the sections exist.
+//THE SECTIONS THE RAIL LISTS, and the one way to reach them. The home page's
+//own sections by default; a page with sections of its own (a project's
+//headings) puts them in place while it is shown. On the page that owns them a
+//link scrolls (scroll-margin-top clears the top bar); a home section reached
+//from another page goes home with the hash, and HomePage scrolls once the
+//sections exist.
 export const SECTIONS = [
   { id: "home",       labelKey: "navHome" },
   { id: "projects",   labelKey: "navProjects" },
@@ -14,25 +17,34 @@ export const SECTIONS = [
   { id: "contact",    labelKey: "navContact" },
 ] as const
 
-export type SectionId = typeof SECTIONS[number]["id"]
+export interface NavSection {
+  id:    string
+  label: string
+}
 
 //the section crossing this line of the viewport is the current one
 const SPY_LINE = 0.35
 
-const activeId = ref<SectionId>("home")
+const activeId = ref("")
+const pageSections = ref<NavSection[] | null>(null)
 let spying = false
 
+function shownIds(): string[] {
+  return pageSections.value ? pageSections.value.map((s) => s.id) : SECTIONS.map((s) => s.id)
+}
+
 function spy() {
+  const ids = shownIds()
   const line = window.innerHeight * SPY_LINE
-  let current: SectionId = "home"
-  for (const { id } of SECTIONS) {
+  let current = ids[0] ?? ""
+  for (const id of ids) {
     const el = document.getElementById(id)
     if (el && el.getBoundingClientRect().top <= line) current = id
   }
   //the last section is too short to reach the line: the bottom of the page is it
   const atBottom = window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 2
-  const last = SECTIONS[SECTIONS.length - 1]!.id
-  if (atBottom && document.getElementById(last)) current = last
+  const last = ids[ids.length - 1]
+  if (atBottom && last && document.getElementById(last)) current = last
   activeId.value = current
 }
 
@@ -56,15 +68,27 @@ export function scrollToSection(id: string) {
   el.scrollIntoView()
 }
 
+//a page lists its own sections while it is shown, null gives the home's back
+export function setPageSections(list: NavSection[] | null) {
+  pageSections.value = list
+  if (typeof window !== "undefined") requestAnimationFrame(spy)
+}
+
 export function useSectionNav() {
   const route  = useRoute()
   const router = useRouter()
+  const { t } = useLanguage()
   startSpy()
 
-  function go(id: SectionId) {
-    if (route.path === "/") scrollToSection(id)
+  const sections = computed<NavSection[]>(() =>
+    pageSections.value ?? SECTIONS.map((s) => ({ id: s.id, label: t(s.labelKey) })))
+  //the rail marks where the reader is on the page that owns the list
+  const ownPage = computed(() => pageSections.value !== null || route.path === "/")
+
+  function go(id: string) {
+    if (pageSections.value || route.path === "/") scrollToSection(id)
     else void router.push({ path: "/", hash: `#${id}` })
   }
 
-  return { sections: SECTIONS, activeId, go }
+  return { sections, activeId, ownPage, go }
 }

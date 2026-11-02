@@ -20,6 +20,7 @@ mock.module("../../src/three/core", () => ({
     addFrameCallback: () => () => {},
     onResize:         () => {},
     onQualityChange:  () => {},
+    onRendered:       () => {},
     quality:          { maxPixelRatio: 1, shadowMapSize: 1024, softShadows: false, ambientOcclusion: false, anisotropy: 1 },
     setModelRadius:   () => {},
     setAmbientOcclusionAllowed: () => {},

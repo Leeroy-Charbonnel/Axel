@@ -140,6 +140,8 @@ export class ModelViewer {
     this.core.scene.add(this.floorGlow)
     this.core.addFrameCallback((dt, now) => this.frame(dt, now))
     this.core.onResize((w, h) => this.sweep?.setResolution(w, h))
+    //after the frame: the marks follow the camera as drawn, not one frame late
+    this.core.onRendered(() => this.emitLabels())
     this.core.controls.addEventListener("start", () => {
       this.core.controls.autoRotate = false
     })
@@ -536,7 +538,6 @@ export class ModelViewer {
   }
 
   private frame(dt: number, now: number): boolean {
-    this.emitLabels()
     let busy = false
     if (this.flight) {
       const f = this.flight

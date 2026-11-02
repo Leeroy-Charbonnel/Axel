@@ -59,7 +59,36 @@ const visible = ref(false)
 const onScreen = ref(false)
 const pageHidden = ref(false)
 const viewer = shallowRef<ModelViewer | null>(null)
-const labelPoints = ref<LabelPoint[]>([])
+//MARKS - one numbered box per label point, pushed out from the model's middle
+//on a short leader line, written straight to the DOM on every frame drawn
+const marksEl = ref<SVGSVGElement | null>(null)
+const labelCount = ref(0)
+const LEADER_PX = 46
+function placeMarks(points: LabelPoint[]) {
+  labelCount.value = points.length
+  const svg = marksEl.value
+  if (!svg) return
+  const shown = points.filter((p) => p.visible)
+  const cx = shown.reduce((s, p) => s + p.x, 0) / Math.max(1, shown.length)
+  const cy = shown.reduce((s, p) => s + p.y, 0) / Math.max(1, shown.length)
+  points.forEach((p, i) => {
+    const group = svg.children[i] as SVGGElement | undefined
+    if (!group) return
+    group.style.display = p.visible ? "" : "none"
+    const dx = p.x - cx, dy = p.y - cy
+    const len = Math.hypot(dx, dy) || 1
+    const lx = p.x + (dx / len) * LEADER_PX, ly = p.y + (dy / len) * LEADER_PX
+    const line = group.children[0] as SVGLineElement
+    line.setAttribute("x1", String(p.x))
+    line.setAttribute("y1", String(p.y))
+    line.setAttribute("x2", String(lx))
+    line.setAttribute("y2", String(ly))
+    const dot = group.children[1] as SVGCircleElement
+    dot.setAttribute("cx", String(p.x))
+    dot.setAttribute("cy", String(p.y))
+    ;(group.children[2] as SVGForeignObjectElement).setAttribute("transform", `translate(${lx} ${ly})`)
+  })
+}
 
 let reducedMotion = false
 let touch = false
@@ -110,7 +139,7 @@ async function start() {
     if (!v || run !== generation) return
     //the starting mode is there from the first frame, never swept in
     v.setMode(mode.value, false)
-    if (props.labels) v.onLabels((points) => { labelPoints.value = points })
+    if (props.labels) v.onLabels(placeMarks)
     phase.value = "ready"
     if (onScreen.value) v.playIntro()
   } catch (err) {
@@ -234,15 +263,15 @@ watch(() => props.glbUrl, () => {
   >
     <canvas ref="canvas" class="three-viewer__canvas" :class="{ 'three-viewer__canvas--ready': phase === 'ready' }" />
 
-    <ol v-if="labels && phase === 'ready'" class="three-viewer__labels" aria-hidden="true">
-      <li
-        v-for="(p, i) in labelPoints"
-        v-show="p.visible"
-        :key="i"
-        class="three-viewer__label"
-        :style="{ transform: `translate(${p.x}px, ${p.y}px)` }"
-      >{{ String(i + 1).padStart(2, "0") }}</li>
-    </ol>
+    <svg v-if="labels && phase === 'ready'" ref="marksEl" class="three-viewer__labels" aria-hidden="true">
+      <g v-for="i in labelCount" :key="i">
+        <line class="three-viewer__leader" />
+        <circle class="three-viewer__anchor" r="2" />
+        <foreignObject class="three-viewer__mark-box">
+          <span class="three-viewer__label">{{ String(i).padStart(2, "0") }}</span>
+        </foreignObject>
+      </g>
+    </svg>
 
     <SiteImage
       v-if="poster && (phase === 'error' || phase === 'lost')"
@@ -429,15 +458,22 @@ the controls sit above them*/
 }
 
 /*a column of icons, centred on the right edge; the names stay in aria-label and title*/
-/*NUMBERED MARKS - centred on their point, the legend's boxes*/
+/*NUMBERED MARKS - a dot on the part, a hairline out, the legend's box at its end*/
 .three-viewer__labels {
   position: absolute;
   inset: 0;
   z-index: var(--vsui-z-dropdown);
-  margin: 0;
-  padding: 0;
-  list-style: none;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
   pointer-events: none;
+}
+.three-viewer__leader { stroke: var(--site-line-strong); stroke-width: var(--border-width-sm); }
+.three-viewer__anchor { fill: var(--site-text-heading); }
+.three-viewer__mark-box {
+  width: 1px;
+  height: 1px;
+  overflow: visible;
 }
 .three-viewer__label {
   position: absolute;

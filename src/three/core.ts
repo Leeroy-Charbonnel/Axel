@@ -66,6 +66,8 @@ export interface ViewerCore {
   //after a drop: the shadows and the textures follow the new level
   onQualityChange(cb: (profile: QualityProfile) => void): void
   addFrameCallback(cb: FrameCallback): () => void
+  //after each frame drawn, with the camera as it was drawn
+  onRendered(cb: () => void): void
   onResize(cb: (width: number, height: number) => void): void
   //false stops the loop entirely (offscreen, hidden tab)
   setActive(active: boolean): void
@@ -149,6 +151,7 @@ export function createViewerCore(canvas: HTMLCanvasElement, opts: ViewerCoreOpti
   applyShadows()
 
   const frameCallbacks = new Set<FrameCallback>()
+  const renderedCallbacks: Array<() => void> = []
   const resizeCallbacks: Array<(w: number, h: number) => void> = []
   let rafId: number | null = null
   let active = true
@@ -170,6 +173,7 @@ export function createViewerCore(canvas: HTMLCanvasElement, opts: ViewerCoreOpti
     if (controls.enabled && controls.update()) busy = true
     if (composer) composer.render(dt)
     else renderer.render(scene, camera)
+    for (const cb of renderedCallbacks) cb()
     if (busy) {
       measure(dt)
       schedule()
@@ -216,6 +220,9 @@ export function createViewerCore(canvas: HTMLCanvasElement, opts: ViewerCoreOpti
       frameCallbacks.add(cb)
       schedule()
       return () => frameCallbacks.delete(cb)
+    },
+    onRendered(cb) {
+      renderedCallbacks.push(cb)
     },
     onResize(cb) {
       resizeCallbacks.push(cb)

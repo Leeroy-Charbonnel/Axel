@@ -4,20 +4,19 @@ import { useRoute } from "vue-router"
 import { Menu, X } from "lucide-vue-next"
 import { useLanguage } from "../../composables/useLanguage"
 import { usePortfolio } from "../../composables/usePortfolio"
-import { useSectionNav, type SectionId } from "../../composables/useSectionNav"
+import { useSectionNav } from "../../composables/useSectionNav"
 import LangSwitch from "./LangSwitch.vue"
 
-//SITE CHROME. Above 1024px: the vertical rail of section labels on the left,
-//the language switch at its foot. At 1024px and below: a top bar with the name
+//SITE CHROME. Above 1024px: the vertical rail of the page's section labels on
+//the left (the home's, or a project's headings), the language switch top right. At 1024px and below: a top bar with the name
 //and a menu button opening a modal <dialog> (focus held inside, Escape closes,
 //focus returns to the button).
 const { t } = useLanguage()
 const { data } = usePortfolio()
-const { sections, activeId, go } = useSectionNav()
+const { sections, activeId, ownPage, go } = useSectionNav()
 const route = useRoute()
 
 const name = computed(() => data.value?.profile?.name ?? "")
-const onHome = computed(() => route.path === "/")
 
 const menu = ref<HTMLDialogElement | null>(null)
 const menuOpen = ref(false)
@@ -33,7 +32,7 @@ function closeMenu() {
   menuOpen.value = false
 }
 
-function pick(id: SectionId) {
+function pick(id: string) {
   closeMenu()
   go(id)
 }
@@ -54,9 +53,9 @@ watch(() => route.fullPath, closeMenu)
         <a
           :href="`/#${section.id}`"
           class="rail__link"
-          :aria-current="onHome && activeId === section.id ? 'true' : undefined"
+          :aria-current="ownPage && activeId === section.id ? 'true' : undefined"
           @click.prevent="go(section.id)"
-        >{{ t(section.labelKey) }}</a>
+        >{{ section.label }}</a>
       </li>
     </ul>
   </nav>
@@ -92,9 +91,9 @@ watch(() => route.fullPath, closeMenu)
           <a
             :href="`/#${section.id}`"
             class="menu__link"
-            :aria-current="onHome && activeId === section.id ? 'true' : undefined"
+            :aria-current="ownPage && activeId === section.id ? 'true' : undefined"
             @click.prevent="pick(section.id)"
-          >{{ t(section.labelKey) }}</a>
+          >{{ section.label }}</a>
         </li>
       </ul>
     </nav>

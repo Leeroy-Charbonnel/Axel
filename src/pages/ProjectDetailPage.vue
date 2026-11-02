@@ -12,9 +12,11 @@ import DetailGrid from "../components/portfolio/detail/DetailGrid.vue"
 import BentoEditor from "../components/portfolio/detail/BentoEditor.vue"
 import ProjectMedia from "../components/portfolio/ProjectMedia.vue"
 import MainProject from "../components/portfolio/MainProject.vue"
-import { hasContent, storedContent } from "../components/portfolio/detail/block-types"
+import { hasContent, sectionAnchor, storedContent } from "../components/portfolio/detail/block-types"
+import { readingOrder } from "../lib/bento-layout"
+import { setPageSections } from "../composables/useSectionNav"
 import NotFoundPage from "./NotFoundPage.vue"
-import type { DetailBlock, DetailPage } from "../types/portfolio"
+import type { DetailBlock, DetailPage, HeadingBlockContent } from "../types/portfolio"
 
 //PROJECT DETAIL PAGE - a technical plan of the project: its position among
 //the projects, the head (the home card in its page variant: facts, model,
@@ -60,6 +62,18 @@ const history   = useSnapshotHistory(blocks)
 const dirty     = computed(() => JSON.stringify(blocks.value) !== savedJson.value)
 //what a visitor sees: unfinished blocks are left out
 const shownBlocks = computed(() => blocks.value.filter((b) => hasContent(b, shownLang.value, data.value?.models ?? [])))
+
+//THE RAIL lists this page's head and its section headings while it is shown
+const HEAD_ANCHOR = "project-head"
+watch([shownBlocks, shownLang, () => project.value?.id], () => {
+  if (!project.value) return setPageSections(null)
+  setPageSections([
+    { id: HEAD_ANCHOR, label: t("navProject") },
+    ...readingOrder(shownBlocks.value).filter((b) => b.type === "heading")
+      .map((b) => ({ id: sectionAnchor(b.id), label: pickBilingual((b.content as HeadingBlockContent).text, shownLang.value) })),
+  ])
+}, { immediate: true })
+onBeforeUnmount(() => setPageSections(null))
 
 function syncBlocks() {
   blocks.value = JSON.parse(JSON.stringify(source.value?.detailPage.blocks ?? [])) as DetailBlock[]
@@ -126,7 +140,7 @@ const ALL_PROJECTS = "/#projects"
     </div>
 
     <template v-else>
-      <header class="site-container case__head">
+      <header :id="HEAD_ANCHOR" class="site-container case__head">
         <div class="case__bar">
           <RouterLink class="case__back" :to="ALL_PROJECTS">
             <ArrowLeft :size="16" aria-hidden="true" />

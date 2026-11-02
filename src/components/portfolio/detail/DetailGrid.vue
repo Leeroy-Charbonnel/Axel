@@ -5,7 +5,7 @@ import { bottomOf, closeEmptyRows, layoutRects, rowTracks } from "../../../lib/b
 import type { Lang } from "../../../lib/lang"
 import DetailBlockRenderer from "./DetailBlockRenderer.vue"
 import BlockBorder from "./BlockBorder.vue"
-import { FILL_TYPES } from "./block-types"
+import { FILL_TYPES, sectionAnchor } from "./block-types"
 import type { DetailBlock } from "../../../types/portfolio"
 
 //THE PUBLIC BLOCK GRID - three columns, or the phone stack once the grid
@@ -44,6 +44,7 @@ function cellStyle(b: DetailBlock) {
       <div
         v-for="b in blocks"
         :key="b.id"
+        :id="b.type === 'heading' ? sectionAnchor(b.id) : undefined"
         class="detail-grid__cell"
         :class="[`detail-grid__cell--${b.type}`, { 'detail-grid__cell--fill': FILL_TYPES.has(b.type) }]"
         :style="cellStyle(b)"
@@ -74,6 +75,8 @@ function cellStyle(b: DetailBlock) {
   grid-column: var(--d-col) / span var(--d-w);
   grid-row: var(--d-row) / span var(--d-h);
 }
+/*a heading the rail scrolls to clears the top bar*/
+.detail-grid__cell--heading { scroll-margin-top: var(--site-chrome-top); }
 /*sized as if empty: a large image never stretches its row*/
 .detail-grid__cell--fill { contain: size; }
 /*a phone-wide grid: 640px of window minus the two gutters*/

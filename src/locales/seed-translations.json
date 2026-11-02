@@ -2,6 +2,7 @@
   "fr": {
     "siteTitle":   "Axel Offret - Artiste 3D",
     "navHome":       "Accueil",
+    "navProject": "Projet",
     "navProjects":   "Projets",
     "navGallery":    "Galerie",
     "navExperience": "Expérience",
@@ -635,6 +636,7 @@
   "en": {
     "siteTitle":   "Axel Offret - 3D Artist",
     "navHome":       "Home",
+    "navProject": "Project",
     "navProjects":   "Projects",
     "navGallery":    "Gallery",
     "navExperience": "Experience",
