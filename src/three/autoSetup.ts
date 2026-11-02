@@ -55,8 +55,16 @@ export interface AutoSetup {
   lights: SharedLight[]
   sweep:  { axis: Vec3; start: number; end: number; durationMs: number }
   stats:  ModelStats
-  warnings: string[]
+  warnings: AutoSetupWarning[]
 }
+
+//WHAT MAY GO WRONG WITH A MODEL, as codes with their values: the model
+//editor words them in the admin's language (autoSetupWarn* labels)
+export type AutoSetupWarning =
+  | { code: "unsupportedMaterial"; material: string; type: string }
+  | { code: "transmission";        material: string }
+  | { code: "oversizedTextures";   count: number; limit: number; largest: number }
+  | { code: "texturesWithoutUV";   meshes: string[] }
 
 export interface AutoSetupOptions {
   fov?:        number
@@ -160,7 +168,7 @@ function triangleCount(geometry: BufferGeometry): number {
 
 export function computeAutoSetup(root: Object3D, opts: AutoSetupOptions = {}): AutoSetup {
   const fov = opts.fov ?? CAMERA_FOV
-  const warnings: string[] = []
+  const warnings: AutoSetupWarning[] = []
 
   //STATS
   const meshes: Mesh[] = []
@@ -206,9 +214,9 @@ export function computeAutoSetup(root: Object3D, opts: AutoSetupOptions = {}): A
       if (value && typeof value === "object" && (value as Texture).isTexture) textures.add(value as Texture)
     }
     const supported = m.type === "MeshStandardMaterial" || m.type === "MeshPhysicalMaterial" || m.type === "MeshBasicMaterial"
-    if (!supported) warnings.push(`material "${m.name}" is a ${m.type}, which the viewer cannot render`)
+    if (!supported) warnings.push({ code: "unsupportedMaterial", material: m.name, type: m.type })
     if (((m as Material & { transmission?: number }).transmission ?? 0) > 0) {
-      warnings.push(`material "${m.name}" uses transmission, an extra render pass that is slow on phones`)
+      warnings.push({ code: "transmission", material: m.name })
     }
   }
 
@@ -219,12 +227,10 @@ export function computeAutoSetup(root: Object3D, opts: AutoSetupOptions = {}): A
     maxTextureSize = Math.max(maxTextureSize, s)
     if (s > MAX_TEXTURE_SIZE) oversized++
   }
-  if (oversized > 0) warnings.push(`${oversized} texture(s) larger than ${MAX_TEXTURE_SIZE} px (largest ${maxTextureSize} px)`)
-  if (texturedWithoutUV.length > 0) {
-    const shown = texturedWithoutUV.slice(0, 5).join(", ")
-    const more = texturedWithoutUV.length > 5 ? ", ..." : ""
-    warnings.push(`${texturedWithoutUV.length} textured mesh(es) without UV coordinates: ${shown}${more}`)
+  if (oversized > 0) {
+    warnings.push({ code: "oversizedTextures", count: oversized, limit: MAX_TEXTURE_SIZE, largest: maxTextureSize })
   }
+  if (texturedWithoutUV.length > 0) warnings.push({ code: "texturesWithoutUV", meshes: texturedWithoutUV })
 
   //BOUNDS
   const box = new Box3()

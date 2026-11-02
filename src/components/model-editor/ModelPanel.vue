@@ -8,6 +8,7 @@ import { useToast } from "../../composables/useToast"
 import { useTranslations } from "../../composables/useTranslations"
 import { toastOptimizeOutcome } from "./optimizeReport"
 import { useModelEditor } from "./useModelEditor"
+import type { AutoSetupWarning } from "../../three/autoSetup"
 
 //THE MODEL - what the file contains, what may slow it down, and the file
 //itself: optimise it, replace it, copy its counts to the projects using it.
@@ -24,8 +25,28 @@ const optimizing = ref(false)
 const applying = ref(false)
 
 const stats = computed(() => ed.setup.value?.stats ?? null)
-const warnings = computed(() => ed.setup.value?.warnings ?? [])
+const warnings = computed(() => (ed.setup.value?.warnings ?? []).map(warningText))
 const num = (n: number) => n.toLocaleString(lang.value)
+
+//a model with hundreds of bare meshes names the first few
+const NAMED_MESHES_MAX = 5
+
+function warningText(w: AutoSetupWarning): string {
+  switch (w.code) {
+    case "unsupportedMaterial":
+      return t("autoSetupWarnUnsupportedMaterial").replace("{material}", w.material).replace("{type}", w.type)
+    case "transmission":
+      return t("autoSetupWarnTransmission").replace("{material}", w.material)
+    case "oversizedTextures":
+      return t("autoSetupWarnOversizedTextures")
+        .replace("{n}", num(w.count)).replace("{limit}", num(w.limit)).replace("{largest}", num(w.largest))
+    case "texturesWithoutUV": {
+      const shown = w.meshes.slice(0, NAMED_MESHES_MAX).join(", ")
+      const names = w.meshes.length > NAMED_MESHES_MAX ? `${shown}, ...` : shown
+      return t("autoSetupWarnTexturesWithoutUV").replace("{n}", num(w.meshes.length)).replace("{names}", names)
+    }
+  }
+}
 
 const rows = computed(() => {
   const s = stats.value

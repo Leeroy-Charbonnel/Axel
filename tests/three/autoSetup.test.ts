@@ -159,10 +159,10 @@ describe("computeAutoSetup", () => {
     expect(s.stats.hasUV).toBe(false)
     expect(s.stats.vertexColors).toBe(true)
     expect(s.stats.morphTargets).toBe(true)
-    expect(s.warnings).toContain('material "Old" is a MeshLambertMaterial, which the viewer cannot render')
-    expect(s.warnings).toContain('material "Glass" uses transmission, an extra render pass that is slow on phones')
-    expect(s.warnings).toContain("1 texture(s) larger than 2048 px (largest 4096 px)")
-    expect(s.warnings).toContain("1 textured mesh(es) without UV coordinates: Bare")
+    expect(s.warnings).toContainEqual({ code: "unsupportedMaterial", material: "Old", type: "MeshLambertMaterial" })
+    expect(s.warnings).toContainEqual({ code: "transmission", material: "Glass" })
+    expect(s.warnings).toContainEqual({ code: "oversizedTextures", count: 1, limit: 2048, largest: 4096 })
+    expect(s.warnings).toContainEqual({ code: "texturesWithoutUV", meshes: ["Bare"] })
   })
 
   test("leaves the scene graph untouched", () => {
