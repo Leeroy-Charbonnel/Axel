@@ -4,9 +4,8 @@ import { Box } from "lucide-vue-next"
 import { useBentoGrid } from "../../../composables/useBentoGrid"
 import { useConfirm } from "../../../composables/useConfirm"
 import { useEditor } from "../../../composables/useEditor"
-import { usePortfolio } from "../../../composables/usePortfolio"
 import { useTranslations } from "../../../composables/useTranslations"
-import { phoneAuthored, type GridLayout } from "../../../lib/bento-layout"
+import { phoneAuthored, rowTracks, type GridLayout } from "../../../lib/bento-layout"
 import type { Lang } from "../../../lib/lang"
 import { blockType, FILL_TYPES } from "./block-types"
 import DetailBlockRenderer from "./DetailBlockRenderer.vue"
@@ -16,7 +15,8 @@ import type { DetailBlock, TextBlockContent, Viewer3dBlockContent } from "../../
 
 //THE BENTO EDITOR - the canvas is drawn at the width a visitor sees (the
 //public content width, or a phone), scaled down when the space beside the
-//panel is narrower, so what is placed here is what the page will show.
+//panel is narrower, so what is placed here is what the page will show: the
+//same rows, the live viewers, the cell guides only while a block moves.
 //Two layouts: desktop (3 columns) and phone (mobileY / mobileH).
 
 const blocks = defineModel<DetailBlock[]>("blocks", { required: true })
@@ -29,7 +29,6 @@ const props = defineProps<{
 const { t } = useTranslations()
 const { confirm } = useConfirm()
 const editor = useEditor()
-const { data } = usePortfolio()
 
 const layout   = ref<GridLayout>("desktop")
 const selectedId = ref<string | null>(null)
@@ -97,10 +96,10 @@ function blockLabel(b: DetailBlock): string {
     .replace("{w}", String(r.w)).replace("{h}", String(r.h))
 }
 
-function viewerThumb(b: DetailBlock): string | null {
-  const id = (b.content as Viewer3dBlockContent).model3dId
-  return data.value?.models.find((m) => m.id === id)?.thumbnailUrl ?? null
-}
+//the rows as the public grid draws them
+const tracks = computed(() => rowTracks(
+  blocks.value, grid.rects.value, grid.rows.value, layout.value === "phone" ? "var(--detail-row-h-phone)" : "var(--detail-row-h)",
+))
 
 //INLINE TEXT - text, heading and quote are typed on the canvas, in the
 //language the edit bar is set to
@@ -204,7 +203,8 @@ async function resetPhone() {
         <div
           ref="gridEl"
           class="bento__grid"
-          :style="{ '--cols': grid.cols.value, '--rows': grid.rows.value }"
+          :class="{ 'bento__grid--moving': grid.drag.value }"
+          :style="{ '--cols': grid.cols.value, '--tracks': tracks }"
           @pointerdown.self="select(null)"
         >
           <div class="bento__ghost" aria-hidden="true">
@@ -245,11 +245,10 @@ async function resetPhone() {
               ></textarea>
             </div>
 
-            <div v-else-if="b.type === 'viewer3d'" class="bento__viewer">
-              <img v-if="viewerThumb(b)" :src="viewerThumb(b)!" alt="" class="bento__viewer-img" />
+            <div v-else-if="b.type === 'viewer3d' && !(b.content as Viewer3dBlockContent).model3dId" class="bento__viewer">
               <span class="bento__viewer-label">
                 <Box :size="20" aria-hidden="true" />
-                {{ (b.content as Viewer3dBlockContent).model3dId ? t('blockTypeViewer3d') : t('detailViewerPick') }}
+                {{ t('detailViewerPick') }}
               </span>
             </div>
 
@@ -322,32 +321,32 @@ phone it is scaled down instead of squeezed*/
 .bento__canvas {
   width: max(var(--detail-content-width), var(--detail-canvas-min));
   transform-origin: top left;
-  --row: var(--detail-row-h);
   --gap: var(--detail-gap);
 }
 .bento__canvas--phone {
   width: var(--detail-phone-width);
   margin-inline: auto;
-  --row: var(--detail-row-h-phone);
   --gap: var(--detail-gap-phone);
 }
 .bento__grid {
   position: relative;
   display: grid;
   grid-template-columns: repeat(var(--cols), minmax(0, 1fr));
-  grid-template-rows: repeat(var(--rows), minmax(var(--row), auto));
+  grid-template-rows: var(--tracks);
   gap: var(--gap);
   touch-action: none;
   user-select: none;
 }
+/*the cell guides show while a block moves, so the canvas reads as the page*/
 .bento__ghost {
-  display: grid;
+  display: none;
   grid-column: 1 / -1;
   grid-row: 1 / -1;
   grid-template-columns: subgrid;
   grid-template-rows: subgrid;
   pointer-events: none;
 }
+.bento__grid--moving .bento__ghost { display: grid; }
 .bento__ghost-cell {
   border: var(--border-width) dashed var(--editor-text-muted);
   opacity: var(--detail-ghost-opacity);
@@ -409,14 +408,6 @@ phone it is scaled down instead of squeezed*/
   height: 100%;
   background-color: var(--color-background-gray-50);
   pointer-events: none;
-}
-.bento__viewer-img {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  opacity: var(--vsui-disabled-opacity);
 }
 .bento__viewer-label {
   position: relative;

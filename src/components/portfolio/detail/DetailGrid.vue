@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from "vue"
 import { useIsMobile } from "../../../composables/useIsMobile"
-import { bottomOf, closeEmptyRows, layoutRects } from "../../../lib/bento-layout"
+import { bottomOf, closeEmptyRows, layoutRects, rowTracks } from "../../../lib/bento-layout"
 import type { Lang } from "../../../lib/lang"
 import DetailBlockRenderer from "./DetailBlockRenderer.vue"
 import BlockBorder from "./BlockBorder.vue"
@@ -16,29 +16,14 @@ import type { DetailBlock } from "../../../types/portfolio"
 //take the height of their cell and never push it. A row that holds nothing
 //but headings is only as high as its title.
 
-type Rects = ReturnType<typeof closeEmptyRows>
-
 const props = defineProps<{ blocks: DetailBlock[]; lang: Lang }>()
 const { isMobile } = useIsMobile()
 
 const desktop = computed(() => closeEmptyRows(layoutRects(props.blocks, "desktop")))
 const phone   = computed(() => closeEmptyRows(layoutRects(props.blocks, "phone")))
 
-//grid-template-rows, one track per row: auto for a heading-only row
-function rowTracks(rects: Rects, minHeight: string): string {
-  const rows = bottomOf(rects.values())
-  const headingOnly: boolean[] = Array.from({ length: rows }, () => true)
-  for (const b of props.blocks) {
-    if (b.type === "heading") continue
-    const r = rects.get(b.id)
-    if (!r) continue
-    for (let row = r.y; row < r.y + r.h; row++) headingOnly[row] = false
-  }
-  return headingOnly.map((only) => (only ? "auto" : `minmax(${minHeight}, auto)`)).join(" ")
-}
-
-const desktopTracks = computed(() => rowTracks(desktop.value, "var(--detail-row-h)"))
-const phoneTracks   = computed(() => rowTracks(phone.value, "var(--detail-row-h-phone)"))
+const desktopTracks = computed(() => rowTracks(props.blocks, desktop.value, bottomOf(desktop.value.values()), "var(--detail-row-h)"))
+const phoneTracks   = computed(() => rowTracks(props.blocks, phone.value, bottomOf(phone.value.values()), "var(--detail-row-h-phone)"))
 
 function cellStyle(b: DetailBlock) {
   const d = desktop.value.get(b.id)!

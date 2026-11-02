@@ -137,3 +137,20 @@ export function writeRects(blocks: DetailBlock[], layout: GridLayout, rects: Rec
     }
   }
 }
+
+//grid-template-rows, one track per row: a row that holds headings and nothing
+//else is only as high as its title, every other row is at least minHeight and
+//grows with its text. The public grid and the editor draw the same rows.
+export function rowTracks(blocks: DetailBlock[], rects: Rects, rows: number, minHeight: string): string {
+  const heading: boolean[] = Array.from({ length: rows }, () => false)
+  const other: boolean[] = Array.from({ length: rows }, () => false)
+  for (const b of blocks) {
+    const r = rects.get(b.id)
+    if (!r) continue
+    for (let row = r.y; row < r.y + r.h && row < rows; row++) {
+      if (b.type === "heading") heading[row] = true
+      else other[row] = true
+    }
+  }
+  return heading.map((h, row) => (h && !other[row] ? "auto" : `minmax(${minHeight}, auto)`)).join(" ")
+}
