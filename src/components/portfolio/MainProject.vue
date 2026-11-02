@@ -10,11 +10,12 @@ import UnpublishedBadge from "./UnpublishedBadge.vue"
 import type { MainProjectDto } from "../../types/portfolio"
 
 //CASE-STUDY CARD - the model first (ProjectMedia), then what a recruiter
-//scans: year, role, title, the spec strip, the software, and the project page.
+//scans: its number in outline, year, role, title, the spec strip, the
+//software, and the project page.
 //Cards alternate sides down the list so the section does not read as one
 //repeated block: a flipped card puts its facts on the left, the model and its
 //thumbnail column on the right.
-const props = defineProps<{ project: MainProjectDto; flipped: boolean }>()
+const props = defineProps<{ project: MainProjectDto; number: number; flipped: boolean }>()
 
 const { lang, t, title, role, description } = useProjectCard(toRef(props, "project"))
 
@@ -30,6 +31,7 @@ const titleId = `project-${props.project.id}-title`
 
       <div class="case__info">
         <header class="case__head">
+          <span class="case__number" aria-hidden="true">{{ String(number).padStart(2, "0") }}</span>
           <p v-if="project.year || role" class="site-eyebrow case__meta">
             <span v-if="project.year" class="case__year">{{ project.year }}</span>
             <span v-if="project.year && role" aria-hidden="true">/</span>
@@ -75,6 +77,16 @@ const titleId = `project-${props.project.id}-title`
   display: flex;
   flex-direction: column;
   gap: var(--spacing-sm);
+}
+
+.case__number {
+  font-size: var(--site-number-size);
+  font-weight: var(--font-weight-black);
+  line-height: 1;
+  letter-spacing: var(--site-tracking-display);
+  color: transparent;
+  -webkit-text-stroke: var(--border-width-md) var(--site-line-strong);
+  font-variant-numeric: tabular-nums;
 }
 
 .case__meta {

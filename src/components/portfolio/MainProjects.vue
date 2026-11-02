@@ -18,7 +18,7 @@ const { t } = useLanguage()
 
       <div class="projects__list">
         <AnimatedReveal v-for="(project, i) in projects" :key="project.id">
-          <MainProject :project="project" :flipped="i % 2 === 1" />
+          <MainProject :project="project" :number="i + 1" :flipped="i % 2 === 1" />
         </AnimatedReveal>
         <SectionAddButton kind="mainProject" />
       </div>
