@@ -134,5 +134,21 @@ export const auth = betterAuth({
     },
   },
 
+  //ON IN EVERY ENVIRONMENT, not only in production where better-auth turns
+  //it on by itself. Memory storage: one process. The client address comes
+  //from x-forwarded-for, which Traefik sets.
+  rateLimit: {
+    enabled: true,
+    window:  60,
+    max:     100,
+    customRules: {
+      "/sign-in/email":           { window: 60,  max: 5 },
+      "/sign-in/social":          { window: 60,  max: 10 },
+      "/sign-up/email":           { window: 600, max: 3 },
+      "/request-password-reset":  { window: 600, max: 3 },
+      "/reset-password":          { window: 600, max: 5 },
+    },
+  },
+
   trustedOrigins: ALLOWED_ORIGINS,
 })
