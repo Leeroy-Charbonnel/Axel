@@ -87,7 +87,7 @@ export const MAIN_PROJECT_LAYOUTS: { key: MainProjectLayout; label: string }[] =
 //- compare:   before/after pair split by a draggable divider
 //- accordion: collapsible sections, markdown body per language
 //- specs:     key/value sheet (software, polycount, role, ...)
-//- counters:  animated number counters (reuses AnimatedCounter)
+//- counters:  numbers that count up once in view
 //- button:    single CTA link
 //- embed:     iframe embed (YouTube / Sketchfab / any url)
 //- viewer3d:  embeds a reusable model_3d asset via named views

@@ -309,13 +309,17 @@ async function resetPhone() {
 }
 .bento__hint { flex-basis: 100%; }
 
+/*clip, not hidden: a hidden box can still be scrolled by focus or
+scrollIntoView, which would shift the canvas under its own toolbar*/
 .bento__stage {
   position: relative;
   width: 100%;
-  overflow: hidden;
+  overflow: clip;
 }
+/*the desktop layout is never drawn narrower than a laptop: on a tablet or a
+phone it is scaled down instead of squeezed*/
 .bento__canvas {
-  width: var(--detail-content-width);
+  width: max(var(--detail-content-width), var(--detail-canvas-min));
   transform-origin: top left;
   --row: var(--detail-row-h);
   --gap: var(--detail-gap);
@@ -419,7 +423,7 @@ async function resetPhone() {
   font-size: var(--site-fs-label);
   letter-spacing: var(--site-tracking-label);
   text-transform: uppercase;
-  color: var(--color-text-hover);
+  color: var(--site-text-heading);
 }
 
 .bento__inline {
@@ -447,7 +451,7 @@ async function resetPhone() {
   font: inherit;
   font-size: var(--site-fs-body);
   line-height: var(--site-lh-body);
-  color: var(--color-text-hover);
+  color: var(--site-text-heading);
   background-color: var(--editor-input-bg);
   border: none;
   resize: none;

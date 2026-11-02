@@ -59,7 +59,7 @@ function onKeydown(e: KeyboardEvent, i: number) {
         :id="`${uid}-p${i}`"
         role="region"
         :aria-labelledby="`${uid}-h${i}`"
-        class="baccordion__body"
+        class="baccordion__body md-content"
         v-html="renderMd(pickBilingual(item.body, lang))"
       ></div>
     </section>
@@ -74,7 +74,7 @@ function onKeydown(e: KeyboardEvent, i: number) {
   overflow-y: auto;
   padding: 0 var(--spacing-md);
 }
-.baccordion__item { border-bottom: var(--border-width) solid hsl(var(--border-color)); }
+.baccordion__item { border-bottom: var(--border-width) solid var(--site-line); }
 .baccordion__heading { margin: 0; }
 .baccordion__head {
   display: flex;
@@ -86,7 +86,7 @@ function onKeydown(e: KeyboardEvent, i: number) {
   padding: var(--spacing-sm) 0;
   background: transparent;
   border: none;
-  color: var(--color-text-hover);
+  color: var(--site-text-heading);
   font-size: var(--site-fs-small);
   font-weight: var(--font-weight-bold);
   text-transform: uppercase;
@@ -95,7 +95,7 @@ function onKeydown(e: KeyboardEvent, i: number) {
   cursor: pointer;
   transition: color var(--transition-fast) ease;
 }
-.baccordion__head:hover { color: var(--color-accent); }
+.baccordion__head:hover { color: var(--site-accent); }
 .baccordion__head:focus-visible { outline: var(--border-width-md) solid hsl(var(--ring)); outline-offset: var(--vsui-space-2xs); }
 .baccordion__icon { flex-shrink: 0; transition: transform var(--transition-fast) ease; }
 .baccordion__head[aria-expanded="true"] .baccordion__icon { transform: rotate(45deg); }
@@ -103,10 +103,8 @@ function onKeydown(e: KeyboardEvent, i: number) {
   padding: 0 0 var(--spacing-md);
   font-size: var(--site-fs-small);
   line-height: var(--site-lh-body);
-  color: var(--color-text-secondary);
+  color: var(--site-text-body);
 }
-.baccordion__body :deep(p) { margin: 0 0 var(--spacing-sm); }
-.baccordion__body :deep(ul) { padding-left: var(--spacing-lg); list-style: square; }
 @media (prefers-reduced-motion: reduce) {
   .baccordion__icon { transition: none; }
 }

@@ -31,20 +31,20 @@ defineProps<{ content: QuoteBlockContent; lang: Lang }>()
   font-size: var(--site-fs-h1);
   line-height: var(--site-lh-tight);
   height: var(--spacing-lg);
-  color: var(--color-accent);
+  color: var(--site-accent);
 }
 .bquote__text {
   margin: 0;
   font-size: var(--site-fs-h3);
   line-height: var(--site-lh-body);
   font-weight: var(--font-weight-medium);
-  color: var(--color-text-hover);
+  color: var(--site-text-heading);
   overflow-wrap: anywhere;
 }
 .bquote__author {
   font-size: var(--site-fs-label);
   text-transform: uppercase;
   letter-spacing: var(--site-tracking-label);
-  color: var(--color-text-tertiary);
+  color: var(--site-text-caption);
 }
 </style>

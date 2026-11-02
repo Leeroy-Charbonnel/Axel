@@ -123,12 +123,11 @@
   --detail-gap-phone:     12px;
   --detail-content-width: min(var(--site-max-width), 100vw - 2 * var(--site-gutter));
   --detail-phone-width:   343px;
+  --detail-canvas-min:    960px;
   --detail-panel-width:   clamp(20rem, 26vw, 24rem);
   --detail-sheet-height:  45dvh;
   --detail-ghost-opacity: 0.35;
-  --detail-chip-logo:     18px;
   --detail-dot:           8px;
-  --detail-spec-min:      8rem;
   --detail-counter-min:   9rem;
   --detail-skel-short:    20%;
   --detail-skel-long:     60%;

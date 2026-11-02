@@ -27,13 +27,13 @@ defineProps<{ content: HeadingBlockContent; lang: Lang }>()
   flex: 1;
   margin: 0;
   padding-top: var(--spacing-md);
-  border-top: var(--border-width) solid hsl(var(--border-color));
+  border-top: var(--border-width) solid var(--site-line);
   font-size: var(--site-fs-h2);
   line-height: var(--site-lh-tight);
   font-weight: var(--font-weight-bold);
   text-transform: uppercase;
   letter-spacing: var(--site-tracking-heading);
-  color: var(--color-text-hover);
+  color: var(--site-text-heading);
   overflow-wrap: anywhere;
 }
 </style>

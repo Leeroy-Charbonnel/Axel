@@ -38,20 +38,20 @@ const { t } = useTranslations()
   flex-wrap: wrap;
   gap: var(--spacing-xxs) var(--spacing-md);
   padding: var(--spacing-sm) 0;
-  border-bottom: var(--border-width) solid hsl(var(--border-color));
+  border-bottom: var(--border-width) solid var(--site-line);
 }
 .bspecs__row:last-child { border-bottom: none; }
 .bspecs__label {
   font-size: var(--site-fs-label);
   text-transform: uppercase;
   letter-spacing: var(--site-tracking-label);
-  color: var(--color-text-tertiary);
+  color: var(--site-text-caption);
 }
 .bspecs__value {
   margin: 0;
   font-size: var(--site-fs-small);
   font-weight: var(--font-weight-medium);
-  color: var(--color-text-hover);
+  color: var(--site-text-heading);
   text-align: right;
   overflow-wrap: anywhere;
 }

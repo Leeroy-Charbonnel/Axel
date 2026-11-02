@@ -31,7 +31,7 @@ const def = computed(() => blockType(props.type))
   font-size: var(--site-fs-label);
   letter-spacing: var(--site-tracking-label);
   text-transform: uppercase;
-  color: var(--color-text-tertiary);
-  border: var(--border-width) dashed hsl(var(--border-color));
+  color: var(--site-text-caption);
+  border: var(--border-width) dashed var(--site-line);
 }
 </style>

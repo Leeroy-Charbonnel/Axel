@@ -167,13 +167,13 @@ function onPointerUp(e: PointerEvent) {
   width: var(--site-touch-target);
   height: var(--site-touch-target);
   transform: translateY(-50%);
-  color: var(--color-text-hover);
+  color: var(--site-text-heading);
   background-color: var(--overlay-bg);
-  border: var(--border-width) solid hsl(var(--border-color));
+  border: var(--border-width) solid var(--site-line);
   cursor: pointer;
   transition: border-color var(--transition-fast) ease, color var(--transition-fast) ease;
 }
-.bcarousel__arrow:hover { border-color: var(--color-accent); color: var(--color-accent); }
+.bcarousel__arrow:hover { border-color: var(--site-accent); color: var(--site-accent); }
 .bcarousel__arrow:focus-visible { outline: var(--border-width-md) solid hsl(var(--ring)); }
 .bcarousel__arrow--prev { left: var(--spacing-sm); }
 .bcarousel__arrow--next { right: var(--spacing-sm); }
@@ -198,9 +198,9 @@ function onPointerUp(e: PointerEvent) {
   font-size: var(--site-fs-label);
   letter-spacing: var(--site-tracking-label);
   text-transform: uppercase;
-  color: var(--color-text-secondary);
+  color: var(--site-text-body);
 }
-.bcarousel__count { color: var(--color-text-hover); font-variant-numeric: tabular-nums; }
+.bcarousel__count { color: var(--site-text-heading); font-variant-numeric: tabular-nums; }
 .bcarousel__dots { display: flex; flex-shrink: 0; }
 .bcarousel__dot {
   display: inline-flex;
@@ -217,8 +217,8 @@ function onPointerUp(e: PointerEvent) {
 .bcarousel__dot-mark {
   width: var(--detail-dot);
   height: var(--detail-dot);
-  background-color: var(--color-text-tertiary);
+  background-color: var(--site-text-caption);
   transition: background-color var(--transition-fast) ease;
 }
-.bcarousel__dot[aria-current="true"] .bcarousel__dot-mark { background-color: var(--color-accent); }
+.bcarousel__dot[aria-current="true"] .bcarousel__dot-mark { background-color: var(--site-accent); }
 </style>

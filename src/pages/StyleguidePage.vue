@@ -49,7 +49,16 @@ onMounted(() => { void media.load() })
 //default size; a type the files cannot illustrate shows its empty state
 const samples = computed<{ type: string; label: string; blocks: DetailBlock[] }[]>(() => {
   const files = media.files.value
-  const images = files.filter((f) => mediaTypeOf(f) === "image").map((f) => ({ id: f.id, url: f.url }))
+  //renders already on the site first, like the seed: the library also holds logos
+  const site = data.value
+  const shown = new Set(site ? [
+    ...site.mainProjects.flatMap((p) => [p.mainImageUrl, ...p.thumbnails.map((th) => th.url)]),
+    ...site.galleryProjects.map((g) => g.imageUrl),
+  ] : [])
+  const images = files
+    .filter((f) => mediaTypeOf(f) === "image")
+    .sort((a, b) => Number(shown.has(b.url)) - Number(shown.has(a.url)))
+    .map((f) => ({ id: f.id, url: f.url }))
   const videos = files.filter((f) => mediaTypeOf(f) === "video").map((f) => ({ id: f.id, url: f.url }))
   const models = (data.value?.models ?? []).filter((m) => m.views.length).map((m) => ({ id: m.id, name: m.name, view: m.views[0]!.name }))
   const pool = images.length ? showcaseProjects({ images, videos, models }).flatMap((p) => p.blocks) : []
@@ -112,6 +121,10 @@ const sampleStats = { vertices: 48210, edges: 96030, faces: 0, triangles: 95640 
     <section id="sg-buttons" class="sg__section">
       <h2 class="sg__h2">{{ t('styleguideButtons') }}</h2>
       <h3 class="sg__h3">{{ t('styleguideSiteButtons') }}</h3>
+      <div class="sg__row">
+        <button type="button" class="site-button site-button--primary">{{ t('styleguideBtnPrimary') }}</button>
+        <button type="button" class="site-button">{{ t('styleguideBtnDefault') }}</button>
+      </div>
       <div class="sg__row sg__row--site">
         <BlockButton :content="sampleButton" :lang="lang" />
         <BlockButton :content="{ ...sampleButton, url: '' }" :lang="lang" />
@@ -180,13 +193,13 @@ const sampleStats = { vertices: 48210, edges: 96030, faces: 0, triangles: 95640 
 .sg {
   display: flex;
   flex-direction: column;
-  gap: var(--spacing-4xl);
+  gap: var(--spacing-3xl);
   width: 100%;
   max-width: calc(var(--site-max-width) + 2 * var(--site-gutter));
   margin-inline: auto;
   padding: var(--spacing-3xl) var(--site-gutter) var(--site-section-gap);
   font-family: var(--site-font);
-  color: var(--color-text-secondary);
+  color: var(--site-text-body);
 }
 .sg__head { display: flex; flex-direction: column; gap: var(--spacing-md); }
 .sg__title {
@@ -196,7 +209,7 @@ const sampleStats = { vertices: 48210, edges: 96030, faces: 0, triangles: 95640 
   font-weight: var(--font-weight-bold);
   text-transform: uppercase;
   letter-spacing: var(--site-tracking-heading);
-  color: var(--color-text-hover);
+  color: var(--site-text-heading);
 }
 .sg__intro {
   max-width: var(--site-text-width);
@@ -218,16 +231,16 @@ const sampleStats = { vertices: 48210, edges: 96030, faces: 0, triangles: 95640 
   font-size: var(--site-fs-label);
   text-transform: uppercase;
   letter-spacing: var(--site-tracking-label);
-  color: var(--color-text-secondary);
+  color: var(--site-text-body);
   text-decoration: underline;
   text-underline-offset: var(--spacing-xxs);
 }
-.sg__nav-link:hover { color: var(--color-accent); }
+.sg__nav-link:hover { color: var(--site-accent); }
 .sg__label {
   font-size: var(--site-fs-label);
   text-transform: uppercase;
   letter-spacing: var(--site-tracking-label);
-  color: var(--color-text-tertiary);
+  color: var(--site-text-caption);
 }
 .sg__section {
   display: flex;
@@ -243,15 +256,15 @@ const sampleStats = { vertices: 48210, edges: 96030, faces: 0, triangles: 95640 
   font-weight: var(--font-weight-bold);
   text-transform: uppercase;
   letter-spacing: var(--site-tracking-heading);
-  color: var(--color-text-hover);
-  border-top: var(--border-width) solid hsl(var(--border-color));
+  color: var(--site-text-heading);
+  border-top: var(--border-width) solid var(--site-line);
 }
 .sg__h3 {
   margin: 0;
   font-size: var(--site-fs-label);
   text-transform: uppercase;
   letter-spacing: var(--site-tracking-label);
-  color: var(--color-text-tertiary);
+  color: var(--site-text-caption);
 }
 .sg__row {
   display: flex;
@@ -260,7 +273,7 @@ const sampleStats = { vertices: 48210, edges: 96030, faces: 0, triangles: 95640 
   gap: var(--spacing-xs);
 }
 .sg__row--site > * { width: auto; height: auto; }
-.sg__answer { font-size: var(--site-fs-small); color: var(--color-text-hover); }
+.sg__answer { font-size: var(--site-fs-small); color: var(--site-text-heading); }
 .sg__frame {
   display: flex;
   flex-direction: column;
@@ -270,7 +283,7 @@ const sampleStats = { vertices: 48210, edges: 96030, faces: 0, triangles: 95640 
   padding: var(--spacing-md);
   overflow: auto;
   resize: horizontal;
-  border: var(--border-width) dashed hsl(var(--border-color));
+  border: var(--border-width) dashed var(--site-line);
 }
 .sg__block { display: flex; flex-direction: column; gap: var(--spacing-sm); }
 </style>

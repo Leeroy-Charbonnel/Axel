@@ -2,13 +2,13 @@
 import { useTranslations } from "../../composables/useTranslations"
 
 //THE DESIGN TOKENS, drawn with their own values: the type scale, the colours
-//(shadcn HSL and the text levels derived from them) and the spacing scale
+//(shadcn HSL and the site levels derived from --ink) and the spacing scale
 const { t } = useTranslations()
 
 const TYPE = ["display", "h1", "h2", "h3", "body", "small", "label"]
 const HSL = ["background", "foreground", "card", "muted", "muted-foreground", "primary", "border-color", "destructive", "success", "warning"]
-const TEXT = ["color-text-hover", "color-text-secondary", "color-text-tertiary", "color-accent"]
-const SPACING = ["spacing-xxs", "spacing-xs", "spacing-sm", "spacing-md", "spacing-lg", "spacing-xl", "spacing-2xl", "spacing-3xl", "spacing-4xl", "spacing-5xl"]
+const TEXT = ["site-text-heading", "site-text-body", "site-text-caption", "site-accent", "site-line"]
+const SPACING = ["spacing-xxs", "spacing-xs", "spacing-sm", "spacing-md", "spacing-lg", "spacing-xl", "spacing-2xl", "spacing-3xl", "spacing-5xl"]
 const LAYOUT = ["site-gutter", "site-col-gap", "detail-gap", "site-touch-target"]
 </script>
 
@@ -51,11 +51,11 @@ const LAYOUT = ["site-gutter", "site-col-gap", "detail-gap", "site-touch-target"
   font-size: var(--site-fs-label);
   text-transform: uppercase;
   letter-spacing: var(--site-tracking-label);
-  color: var(--color-text-tertiary);
+  color: var(--site-text-caption);
 }
 .sgt__code {
   font-size: var(--site-fs-label);
-  color: var(--color-text-tertiary);
+  color: var(--site-text-caption);
   white-space: nowrap;
 }
 .sgt__type,
@@ -66,16 +66,16 @@ const LAYOUT = ["site-gutter", "site-col-gap", "detail-gap", "site-touch-target"
   align-items: baseline;
   gap: var(--spacing-md);
   padding: var(--spacing-sm) 0;
-  border-bottom: var(--border-width) solid hsl(var(--border-color));
+  border-bottom: var(--border-width) solid var(--site-line);
 }
 .sgt__type-sample {
   line-height: var(--site-lh-tight);
-  color: var(--color-text-hover);
+  color: var(--site-text-heading);
   overflow-wrap: anywhere;
 }
 .sgt__swatches {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(var(--detail-spec-min), 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, var(--site-spec-min)), 1fr));
   gap: var(--spacing-md);
   margin: 0;
   padding: 0;
@@ -87,7 +87,7 @@ const LAYOUT = ["site-gutter", "site-col-gap", "detail-gap", "site-touch-target"
   align-items: center;
   justify-content: center;
   height: var(--spacing-3xl);
-  border: var(--border-width) solid hsl(var(--border-color));
+  border: var(--border-width) solid var(--site-line);
 }
 .sgt__chip--text { font-size: var(--site-fs-h3); font-weight: var(--font-weight-bold); }
 .sgt__space {
@@ -100,7 +100,7 @@ const LAYOUT = ["site-gutter", "site-col-gap", "detail-gap", "site-touch-target"
 .sgt__bar {
   display: block;
   height: var(--spacing-xs);
-  background-color: var(--color-accent);
+  background-color: var(--site-accent);
 }
 @media (max-width: 640px) {
   .sgt__type-row,

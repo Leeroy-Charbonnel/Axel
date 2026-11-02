@@ -42,17 +42,18 @@ const items = computed(() => props.software.map((sw) => ({ ...sw, href: safeUrl(
   min-height: var(--site-touch-target);
   padding: 0 var(--spacing-sm);
   font-size: var(--site-fs-label);
-  letter-spacing: var(--site-tracking-label);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: var(--letter-spacing-tight);
   text-transform: uppercase;
-  color: var(--color-text-secondary);
-  border: var(--border-width) solid hsl(var(--border-color));
+  color: var(--site-text-body);
+  border: var(--border-width-sm) solid var(--site-line);
   transition: border-color var(--transition-fast) ease, color var(--transition-fast) ease;
 }
-a.chips__chip:hover { color: var(--color-text-hover); border-color: var(--color-text-tertiary); }
+a.chips__chip:hover { color: var(--site-text-heading); border-color: var(--site-text-caption); }
 a.chips__chip:focus-visible { outline: var(--border-width-md) solid hsl(var(--ring)); outline-offset: var(--vsui-space-2xs); }
 .chips__logo {
-  width: var(--detail-chip-logo);
-  height: var(--detail-chip-logo);
+  width: var(--site-icon);
+  height: var(--site-icon);
   object-fit: contain;
 }
 </style>

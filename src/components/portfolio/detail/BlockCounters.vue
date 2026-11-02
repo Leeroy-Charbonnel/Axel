@@ -82,19 +82,19 @@ onBeforeUnmount(() => {
   flex-direction: column;
   gap: var(--spacing-xxs);
   padding-top: var(--spacing-sm);
-  border-top: var(--border-width) solid hsl(var(--border-color));
+  border-top: var(--border-width) solid var(--site-line);
 }
 .bcounters__value {
   font-size: var(--site-fs-h1);
   line-height: var(--site-lh-tight);
   font-weight: var(--font-weight-bold);
   font-variant-numeric: tabular-nums;
-  color: var(--color-text-hover);
+  color: var(--site-text-heading);
 }
 .bcounters__label {
   font-size: var(--site-fs-label);
   text-transform: uppercase;
   letter-spacing: var(--site-tracking-label);
-  color: var(--color-text-tertiary);
+  color: var(--site-text-caption);
 }
 </style>

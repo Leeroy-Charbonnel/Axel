@@ -4,8 +4,8 @@ import type { BorderSides, DetailBlockStyle } from "../../../types/portfolio"
 
 //PER-BLOCK BORDER OVERLAY - custom-renders every line type with
 //repeating gradients instead of native CSS borders, because:
-//  - CSS `dotted` draws ROUND dots; the user wants SQUARE dots
-//  - CSS has no dash-dot style at all
+//- CSS `dotted` draws ROUND dots; the user wants SQUARE dots
+//- CSS has no dash-dot style at all
 //Each active side is one absolutely-positioned strip inside the block
 //(pointer-events: none, z-index above media). Patterns scale with the
 //configured width so the rhythm stays consistent at any thickness.
@@ -35,7 +35,7 @@ const line = computed(() => props.bstyle?.borderStyle ?? "solid")
 //strip: horizontal strips pattern "to right", vertical ones "to bottom".
 //Segment lengths are multiples of the width so dots stay square.
 function background(axis: "to right" | "to bottom"): string {
-  const c = "var(--color-border-primary)"
+  const c = "var(--site-line-strong)"
   const u = w.value
   switch (line.value) {
     case "dashed":

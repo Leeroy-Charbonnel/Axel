@@ -53,7 +53,7 @@ function enlarge() {
 </script>
 
 <template>
-  <div v-if="block.type === 'text'" class="block-text" :lang="lang" v-html="renderMd(pickBilingual(asText.text, lang))"></div>
+  <div v-if="block.type === 'text'" class="block-text md-content" :lang="lang" v-html="renderMd(pickBilingual(asText.text, lang))"></div>
 
   <BlockHeading v-else-if="block.type === 'heading'" :content="(c as HeadingBlockContent)" :lang="lang" />
 
@@ -117,7 +117,7 @@ function enlarge() {
 </template>
 
 <style scoped>
-/*TEXT - the case-study prose: near-white headings, body at 70%*/
+/*TEXT - the prose styles are the shared .md-content*/
 .block-text {
   width: 100%;
   height: 100%;
@@ -125,47 +125,6 @@ function enlarge() {
   padding: var(--spacing-lg) var(--spacing-md);
   font-size: var(--site-fs-body);
   line-height: var(--site-lh-body);
-  color: var(--color-text-secondary);
-  overflow-wrap: anywhere;
-}
-.block-text :deep(> :first-child) { margin-top: 0; }
-.block-text :deep(> :last-child)  { margin-bottom: 0; }
-.block-text :deep(p),
-.block-text :deep(ul),
-.block-text :deep(ol) { margin: 0 0 var(--spacing-md); }
-.block-text :deep(ul),
-.block-text :deep(ol) { padding-left: var(--spacing-lg); }
-.block-text :deep(ul) { list-style: square; }
-.block-text :deep(ol) { list-style: decimal; }
-.block-text :deep(li + li) { margin-top: var(--spacing-xxs); }
-.block-text :deep(h1),
-.block-text :deep(h2),
-.block-text :deep(h3) {
-  margin: var(--spacing-lg) 0 var(--spacing-sm);
-  font-size: var(--site-fs-h3);
-  line-height: var(--site-lh-tight);
-  font-weight: var(--font-weight-bold);
-  text-transform: uppercase;
-  letter-spacing: var(--site-tracking-heading);
-  color: var(--color-text-hover);
-}
-.block-text :deep(h3) { font-size: var(--site-fs-small); letter-spacing: var(--site-tracking-label); }
-.block-text :deep(strong) { color: var(--color-text-hover); font-weight: var(--font-weight-bold); }
-.block-text :deep(a) {
-  color: var(--color-accent);
-  text-decoration: underline;
-  text-underline-offset: var(--vsui-space-2xs);
-}
-.block-text :deep(code) {
-  font-size: var(--site-fs-small);
-  padding: 0 var(--vsui-space-xs);
-  background-color: var(--tag-bg);
-}
-.block-text :deep(blockquote) {
-  margin: 0 0 var(--spacing-md);
-  padding-left: var(--spacing-md);
-  border-left: var(--border-width) solid var(--color-accent);
-  color: var(--color-text-hover);
 }
 
 /*IMAGE AND VIDEO fill their cell; the cell sets the box, so nothing shifts

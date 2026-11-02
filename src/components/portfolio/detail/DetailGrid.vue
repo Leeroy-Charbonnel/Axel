@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from "vue"
-import { useIsPhone } from "../../../composables/useIsPhone"
+import { useIsMobile } from "../../../composables/useIsMobile"
 import { bottomOf, layoutRects } from "../../../lib/bento-layout"
 import type { Lang } from "../../../lib/lang"
 import DetailBlockRenderer from "./DetailBlockRenderer.vue"
@@ -12,7 +12,7 @@ import type { DetailBlock } from "../../../types/portfolio"
 //styleguide frames and the editor preview render exactly what a phone shows.
 
 const props = defineProps<{ blocks: DetailBlock[]; lang: Lang }>()
-const { isPhone } = useIsPhone()
+const { isMobile } = useIsMobile()
 
 const desktop = computed(() => layoutRects(props.blocks, "desktop"))
 const phone   = computed(() => layoutRects(props.blocks, "phone"))
@@ -34,7 +34,7 @@ function cellStyle(b: DetailBlock) {
       :style="{ '--d-rows': bottomOf(desktop.values()), '--p-rows': bottomOf(phone.values()) }"
     >
       <div v-for="b in blocks" :key="b.id" class="detail-grid__cell" :class="`detail-grid__cell--${b.type}`" :style="cellStyle(b)">
-        <DetailBlockRenderer :block="b" :lang="lang" :mobile="isPhone" />
+        <DetailBlockRenderer :block="b" :lang="lang" :mobile="isMobile" />
         <BlockBorder :bstyle="b.style" />
       </div>
     </div>
