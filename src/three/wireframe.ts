@@ -2,7 +2,6 @@ import { Color, type Mesh, Vector3, type WebGLProgramParametersWithUniforms } fr
 import { LineMaterial } from "three/examples/jsm/lines/LineMaterial.js"
 import { LineSegments2 } from "three/examples/jsm/lines/LineSegments2.js"
 import { LineSegmentsGeometry } from "three/examples/jsm/lines/LineSegmentsGeometry.js"
-import { VIEWER_DEFAULTS } from "../lib/viewer-defaults"
 import { pushSweepUniforms, type SweepMaterial, WF_FRONT_GLSL } from "./materials"
 import { computeEdgesInWorker } from "./wireframeEdges"
 
@@ -61,6 +60,8 @@ export interface WireframeHooks {
   //about to sweep back: switch to the normal environment
   onLeaving(): void
   requestRender(): void
+  //the lines' colour along the sweep front
+  glowColor: string
 }
 
 export interface OverlayStyle {
@@ -87,7 +88,7 @@ export class WireframeSweep {
     uWfAxis:     { value: new Vector3(1, 0, 0) },
     uWfMin:      { value: 0 },
     uWfRange:    { value: 1 },
-    uWfGlow:     { value: new Color(VIEWER_DEFAULTS.wireframeGlowColor) },
+    uWfGlow:     { value: new Color() },
   }
   private overlays: LineSegments2[] | null = null
   //emissive picks glow instead of showing lines
@@ -98,6 +99,7 @@ export class WireframeSweep {
 
   constructor(hooks: WireframeHooks) {
     this.hooks = hooks
+    this.lineUniforms.uWfGlow.value.setStyle(hooks.glowColor)
     this.lineMaterial = new LineMaterial({
       color: new Color(this.style.color).getHex(),
       linewidth: this.style.width,

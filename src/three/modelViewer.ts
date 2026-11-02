@@ -53,6 +53,8 @@ export interface ModelViewerOptions {
   //no intro flight, no auto-rotate, no sweep animation, no looping animation
   reducedMotion: boolean
   autoRotate:    boolean
+  //CSS colour of the wireframe lines along the sweep front
+  glowColor:     string
 }
 
 interface Flight {
@@ -222,6 +224,7 @@ export class ModelViewer {
       onEntered: () => void this.env.set(this.settings.wireframeMode?.hdrUrl, this.settings.wireframeMode?.hdrIntensity ?? 1),
       onLeaving: () => void this.env.set(this.settings.normalMode?.hdrUrl, this.settings.normalMode?.hdrIntensity ?? 1),
       requestRender: this.core.requestRender,
+      glowColor: this.opts.glowColor,
     })
     const size = this.core.renderer.getSize(new Vector2())
     this.sweep.setResolution(size.x, size.y)

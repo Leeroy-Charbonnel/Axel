@@ -4,6 +4,7 @@ import { Box, Cylinder, Grid3x3, Maximize, Minimize, RotateCcw, TriangleAlert } 
 import { useLanguage } from "../../composables/useLanguage"
 import SiteImage from "../SiteImage.vue"
 import { inLoadTurn } from "../../three/loadQueue"
+import { siteAccent } from "../../lib/accent"
 import type { ModelViewer } from "../../three/modelViewer"
 import type { ViewerMode, ViewerSettings } from "../../three/types"
 
@@ -87,6 +88,7 @@ async function start() {
         maxPixelRatio: touch ? TOUCH_MAX_DPR : DESKTOP_MAX_DPR,
         reducedMotion,
         autoRotate: props.autoRotate,
+        glowColor: siteAccent(),
       })
       viewer.value = created
       syncActive()

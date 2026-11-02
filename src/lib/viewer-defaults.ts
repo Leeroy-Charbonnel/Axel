@@ -13,8 +13,6 @@ export const VIEWER_DEFAULTS = {
   wireframeModeColor: "#14b8a6",
   //the lines drawn over the model in wireframe mode
   wireframeLineColor: "#000000",
-  //the light along the sweep front while the model changes mode
-  wireframeGlowColor: "#38bdf8",
   //an unlit material with no colour of its own
   normalColor:        "#ffffff",
   wireframeOverlayOn: true,

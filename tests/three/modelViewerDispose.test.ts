@@ -40,7 +40,7 @@ const { ModelViewer } = await import("../../src/three/modelViewer")
 
 describe("ModelViewer dispose during the shader compile", () => {
   test("the renderer is released only once the compile has settled", async () => {
-    const viewer = new ModelViewer({ canvas: {} as HTMLCanvasElement, maxPixelRatio: 1, reducedMotion: true } as ConstructorParameters<typeof ModelViewer>[0])
+    const viewer = new ModelViewer({ canvas: {} as HTMLCanvasElement, maxPixelRatio: 1, reducedMotion: true, glowColor: "#00ffff" } as ConstructorParameters<typeof ModelViewer>[0])
     const loading = viewer.load("/media/models/x.glb", {} as Parameters<typeof viewer.load>[1], () => {})
     //let load() run up to the pending compile
     for (let i = 0; i < 20; i++) await Promise.resolve()

@@ -4,6 +4,7 @@ import { Color, Group, Mesh, MeshBasicMaterial, OctahedronGeometry } from "three
 import { RotateCcw, TriangleAlert } from "lucide-vue-next"
 import { useToast } from "../../composables/useToast"
 import { useTranslations } from "../../composables/useTranslations"
+import { siteAccent } from "../../lib/accent"
 import { disposeObject } from "../../three/dispose"
 import type { ModelViewer } from "../../three/modelViewer"
 import { useModelEditor } from "./useModelEditor"
@@ -64,6 +65,7 @@ async function start(url: string | null | undefined) {
       maxPixelRatio: MAX_PIXEL_RATIO,
       reducedMotion: window.matchMedia("(prefers-reduced-motion: reduce)").matches,
       autoRotate: false,
+      glowColor: siteAccent(),
     })
     current = v
     await v.load(url, ed.effective.value, (loaded, total) => {
