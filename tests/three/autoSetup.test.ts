@@ -162,7 +162,7 @@ describe("computeAutoSetup", () => {
     expect(s.warnings).toContain('material "Old" is a MeshLambertMaterial, which the viewer cannot render')
     expect(s.warnings).toContain('material "Glass" uses transmission, an extra render pass that is slow on phones')
     expect(s.warnings).toContain("1 texture(s) larger than 2048 px (largest 4096 px)")
-    expect(s.warnings).toContain("1 mesh(es) without UV coordinates: Bare")
+    expect(s.warnings).toContain("1 textured mesh(es) without UV coordinates: Bare")
   })
 
   test("leaves the scene graph untouched", () => {

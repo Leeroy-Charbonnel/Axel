@@ -34,6 +34,8 @@ const INTRO_POLAR_OFFSET = 0.2
 const INTRO_MIN_POLAR = 0.05
 const RESET_MS = 700
 const AUTO_ROTATE_SPEED = 0.6
+//the studio environment under clay, dimmer than a lit render so the grey reads as grey
+const CLAY_ENV_INTENSITY = 0.5
 
 export interface ModelViewerOptions {
   canvas:        HTMLCanvasElement
@@ -393,7 +395,7 @@ export class ModelViewer {
     const clay = this.mode === "clay"
     this.buildLights(clay)
     if (clay) {
-      void this.env.set(null, 1)
+      void this.env.set(null, CLAY_ENV_INTENSITY)
       return
     }
     const m = this.sweep?.active ? this.settings.wireframeMode : this.settings.normalMode

@@ -174,7 +174,9 @@ export function computeAutoSetup(root: Object3D, opts: AutoSetupOptions = {}): A
   let skinned = false
   let morphTargets = false
   let vertexColors = false
-  const withoutUV: string[] = []
+  let withoutUV = 0
+  //a texture needs UVs to land anywhere; an untextured mesh without them is fine
+  const texturedWithoutUV: string[] = []
   const materials = new Set<Material>()
   for (const mesh of meshes) {
     const g = mesh.geometry
@@ -186,8 +188,14 @@ export function computeAutoSetup(root: Object3D, opts: AutoSetupOptions = {}): A
     if ((mesh as Mesh & { isSkinnedMesh?: boolean }).isSkinnedMesh) skinned = true
     if ((g.morphAttributes.position?.length ?? 0) > 0) morphTargets = true
     if (g.getAttribute("color")) vertexColors = true
-    if (!g.getAttribute("uv")) withoutUV.push(mesh.name || "(unnamed)")
-    for (const m of Array.isArray(mesh.material) ? mesh.material : [mesh.material]) materials.add(m)
+    const meshMaterials = Array.isArray(mesh.material) ? mesh.material : [mesh.material]
+    for (const m of meshMaterials) materials.add(m)
+    if (!g.getAttribute("uv")) {
+      withoutUV++
+      if (meshMaterials.some((m) => Object.values(m).some((v) => (v as Texture | null)?.isTexture))) {
+        texturedWithoutUV.push(mesh.name || "(unnamed)")
+      }
+    }
   }
 
   const byType: Record<string, number> = {}
@@ -212,9 +220,10 @@ export function computeAutoSetup(root: Object3D, opts: AutoSetupOptions = {}): A
     if (s > MAX_TEXTURE_SIZE) oversized++
   }
   if (oversized > 0) warnings.push(`${oversized} texture(s) larger than ${MAX_TEXTURE_SIZE} px (largest ${maxTextureSize} px)`)
-  if (withoutUV.length > 0) {
-    const shown = withoutUV.slice(0, 5).join(", ")
-    warnings.push(`${withoutUV.length} mesh(es) without UV coordinates: ${shown}${withoutUV.length > 5 ? ", ..." : ""}`)
+  if (texturedWithoutUV.length > 0) {
+    const shown = texturedWithoutUV.slice(0, 5).join(", ")
+    const more = texturedWithoutUV.length > 5 ? ", ..." : ""
+    warnings.push(`${texturedWithoutUV.length} textured mesh(es) without UV coordinates: ${shown}${more}`)
   }
 
   //BOUNDS
@@ -237,9 +246,9 @@ export function computeAutoSetup(root: Object3D, opts: AutoSetupOptions = {}): A
 
   //LIGHTS, relative to the default camera azimuth: key to the side and above,
   //fill low on the other side, rim behind
-  const key  = threeAxisLight("auto-key",  VIEW_AZIMUTH_DEG + 50,  45, 2.5, true,  center, radius)
-  const fill = threeAxisLight("auto-fill", VIEW_AZIMUTH_DEG - 70,  20, 1.0, false, center, radius)
-  const rim  = threeAxisLight("auto-rim",  VIEW_AZIMUTH_DEG + 180, 50, 1.8, false, center, radius)
+  const key  = threeAxisLight("auto-key",  VIEW_AZIMUTH_DEG + 50,  45, 1.8, true,  center, radius)
+  const fill = threeAxisLight("auto-fill", VIEW_AZIMUTH_DEG - 70,  20, 0.6, false, center, radius)
+  const rim  = threeAxisLight("auto-rim",  VIEW_AZIMUTH_DEG + 180, 50, 1.0, false, center, radius)
 
   //SWEEP along the longest side, over the whole box
   const axisIndex = size.x >= size.y && size.x >= size.z ? 0 : size.y >= size.z ? 1 : 2
@@ -267,7 +276,7 @@ export function computeAutoSetup(root: Object3D, opts: AutoSetupOptions = {}): A
       vertices,
       meshes: meshes.length,
       materials: byType,
-      hasUV: withoutUV.length === 0,
+      hasUV: withoutUV === 0,
       textures: textures.size,
       maxTextureSize,
       vertexColors,

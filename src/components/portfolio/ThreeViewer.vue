@@ -94,11 +94,13 @@ async function start() {
     if (run !== generation) return
     console.error(`[ThreeViewer] ${props.glbUrl} could not be shown:`, err)
     errorDetail.value = err instanceof Error ? err.message : String(err)
-    teardown(true)
+    teardown(false)
     phase.value = "error"
   }
 }
 
+//loseContext only on unmount: the canvas stays and a retry, a new model or a
+//restored context creates the next renderer on the same context
 function teardown(loseContext: boolean) {
   generation++
   viewer.value?.dispose(loseContext)
@@ -106,7 +108,7 @@ function teardown(loseContext: boolean) {
 }
 
 function retry() {
-  teardown(true)
+  teardown(false)
   phase.value = "idle"
   void start()
 }
@@ -191,7 +193,7 @@ watch(() => props.settings, (s) => {
   if (phase.value === "ready" && s) viewer.value?.applySettings(s)
 }, { deep: true })
 watch(() => props.glbUrl, () => {
-  teardown(true)
+  teardown(false)
   phase.value = "idle"
   if (near.value && !tapToLoad.value) void start()
 })

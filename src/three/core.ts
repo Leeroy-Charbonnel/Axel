@@ -1,4 +1,4 @@
-import { NeutralToneMapping, PCFSoftShadowMap, PerspectiveCamera, Scene, WebGLRenderer } from "three"
+import { NeutralToneMapping, PCFShadowMap, PerspectiveCamera, Scene, WebGLRenderer } from "three"
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js"
 import { CAMERA_FOV } from "./autoSetup"
 import { disposeObject, disposeRenderer } from "./dispose"
@@ -40,7 +40,7 @@ export function createViewerCore(canvas: HTMLCanvasElement, opts: ViewerCoreOpti
   renderer.toneMapping         = NeutralToneMapping
   renderer.toneMappingExposure = 1
   renderer.shadowMap.enabled   = true
-  renderer.shadowMap.type      = PCFSoftShadowMap
+  renderer.shadowMap.type      = PCFShadowMap
   renderer.setClearColor(0x000000, 0)
 
   const scene  = new Scene()

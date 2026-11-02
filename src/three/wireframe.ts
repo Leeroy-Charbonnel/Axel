@@ -89,6 +89,15 @@ export class WireframeSweep {
     this.lineMaterial.color.set(style.color)
     this.lineMaterial.linewidth = style.width
     if (this.overlays) for (const o of this.overlays) o.visible = style.on && this.opacity > 0
+    //lines switched on while the model already sits in wireframe mode
+    if (style.on && this.on && !this.sweep && this.opacity === 0) {
+      this.ensureEdges()
+      void this.edges!.then(() => {
+        if (this.disposed || !this.on || !this.style.on) return
+        this.setOpacity(1)
+        this.hooks.requestRender()
+      })
+    }
     this.hooks.requestRender()
   }
 
