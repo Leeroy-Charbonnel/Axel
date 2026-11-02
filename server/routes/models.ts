@@ -3,6 +3,7 @@ import { asc, eq, sql } from "drizzle-orm"
 import { db } from "../../db/index"
 import { file as fileTable, mainProject, model3d } from "../../db/schema"
 import { notFound, parse, parsePatch, requireAdmin, uuidParam } from "../http"
+import { fileRow, optimizeModel, optimizeStoredGlb, saveOptimizedGlb, type ModelRow } from "../model-optimize"
 import { modelCreate, modelPatch, viewerSettingsBody } from "../validation"
 
 //MODEL_3D - reusable 3D assets, admin only. The files (.glb, thumbnail) are
@@ -54,15 +55,44 @@ modelsRouter.get("/api/models/:id", requireAdmin, async (req, res) => {
   res.json({ ...row, glbUrl: await mediaUrlFor(row.glbFileId), thumbnailUrl: await mediaUrlFor(row.thumbnailFileId) })
 })
 
+//The GLB is optimized on the way in: the model points at the optimized copy
+//and keeps the upload in source_glb_file_id. When the optimizer refuses the
+//file the model is created on the upload as it is, and the answer says why.
 modelsRouter.post("/api/models", requireAdmin, async (req, res) => {
   const body = parse(modelCreate, req.body)
-  const [row] = await db.insert(model3d).values({
+  const values = {
     name:            body.name,
-    glbFileId:       body.glbFileId,
     thumbnailFileId: body.thumbnailFileId ?? null,
     views:           body.views ?? [],
-  }).returning()
-  res.status(201).json(row)
+  }
+  const source = await fileRow(body.glbFileId)
+  let optimized: Awaited<ReturnType<typeof optimizeStoredGlb>> | null = null
+  let optimizeError: string | null = null
+  try {
+    optimized = await optimizeStoredGlb(source)
+  } catch (e) {
+    optimizeError = e instanceof Error ? e.message : String(e)
+    console.error(`[models] optimizing ${source.originalFilename} failed, the model keeps the upload:`, e)
+  }
+  let row: ModelRow
+  if (optimized) {
+    let inserted: ModelRow | undefined
+    await saveOptimizedGlb(source, optimized.output, async (tx, file) => {
+      [inserted] = await tx.insert(model3d).values({ ...values, glbFileId: file.id, sourceGlbFileId: source.id }).returning()
+    })
+    row = inserted!
+  } else {
+    [row] = await db.insert(model3d).values({ ...values, glbFileId: source.id }).returning() as [ModelRow]
+  }
+  res.status(201).json({ ...row, optimizeReport: optimized?.report ?? null, optimizeError })
+})
+
+//the editor's Optimise action, for a model created before the optimizer
+modelsRouter.post("/api/models/:id/optimize", requireAdmin, async (req, res) => {
+  const [model] = await db.select().from(model3d).where(eq(model3d.id, uuidParam(req, "id")))
+  if (!model) notFound()
+  const { report, file } = await optimizeModel(model)
+  res.json({ report, glbUrl: `/media/${file.storedFilename}`, sourceGlbFileId: model.glbFileId })
 })
 
 //patches only the fields sent: the Views tab must not clobber the GLB, etc.

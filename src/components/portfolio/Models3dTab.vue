@@ -8,10 +8,11 @@ import { usePortfolio } from "../../composables/usePortfolio"
 import { useConfirm } from "../../composables/useConfirm"
 import { useTranslations } from "../../composables/useTranslations"
 import type { MediaFile } from "../admin/media/useMediaLibrary"
+import { toastOptimizeOutcome } from "../model-editor/optimizeReport"
 
 //3D MODELS - the reusable model_3d assets. A new model is a name, a .glb and a
-//thumbnail, all picked through the media library; creating it opens the 3D
-//editor so the start view and materials are set right away.
+//thumbnail, all picked through the media library. The server optimizes the
+//GLB; creating it opens the 3D editor, which sets the model up automatically.
 
 const router = useRouter()
 const { data, createModel, deleteModel } = usePortfolio()
@@ -34,6 +35,7 @@ async function add() {
   adding.value = true
   try {
     const created = await createModel(draft.name.trim(), draft.glb.id, draft.thumbnail.id)
+    toastOptimizeOutcome(created)
     Object.assign(draft, { name: "", glb: null, thumbnail: null })
     void router.push(`/edit-3d/${created.id}`)
   } catch (e) {
@@ -81,8 +83,9 @@ async function remove(id: string, name: string) {
       />
       <button type="submit" class="ed-btn ed-btn--primary models__submit" :disabled="!canAdd">
         <Plus :size="16" />
-        <span>{{ t('modelsAdd') }}</span>
+        <span>{{ adding ? t('modelsAdding') : t('modelsAdd') }}</span>
       </button>
+      <p v-if="adding" class="ed-hint" role="status">{{ t('modelsAddingHint') }}</p>
     </form>
 
     <h2 class="ed-form__title">{{ t('modelsListTitle') }} ({{ models.length }})</h2>

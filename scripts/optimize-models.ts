@@ -8,48 +8,12 @@
 //
 //Usage: bun scripts/optimize-models.ts
 
-import { randomUUID } from "crypto"
-import { readFileSync, unlinkSync, writeFileSync } from "fs"
-import { join } from "path"
-import { eq, isNull } from "drizzle-orm"
+import { isNull } from "drizzle-orm"
 import { db } from "../db/index"
-import { file as fileTable, model3d } from "../db/schema"
-import { optimizeGlb } from "../server/glb-optimize"
-import { STORAGE_DIR } from "../server/uploads"
+import { model3d } from "../db/schema"
+import { optimizeModel } from "../server/model-optimize"
 
 const mb = (bytes: number) => (bytes / 1048576).toFixed(1)
-
-async function optimizeModel(model: typeof model3d.$inferSelect): Promise<void> {
-  const [source] = await db.select().from(fileTable).where(eq(fileTable.id, model.glbFileId))
-  if (!source) throw new Error(`glb file ${model.glbFileId} has no row`)
-  const input = new Uint8Array(readFileSync(join(STORAGE_DIR, source.storedFilename)))
-  const { output, report } = await optimizeGlb(input)
-
-  const id = randomUUID()
-  const stored = `models/${id}.glb`
-  writeFileSync(join(STORAGE_DIR, stored), output)
-  try {
-    await db.transaction(async (tx) => {
-      await tx.insert(fileTable).values({
-        id,
-        originalFilename: source.originalFilename.replace(/\.glb$/i, "") + ".optimized.glb",
-        storedFilename:   stored,
-        mimeType:         "model/gltf-binary",
-        sizeBytes:        output.byteLength,
-        kind:             source.kind,
-        uploadedBy:       source.uploadedBy,
-      })
-      await tx.update(model3d)
-        .set({ glbFileId: id, sourceGlbFileId: source.id, updatedAt: new Date() })
-        .where(eq(model3d.id, model.id))
-    })
-  } catch (e) {
-    //no row points at the bytes yet
-    unlinkSync(join(STORAGE_DIR, stored))
-    throw e
-  }
-  console.log(`${model.name}: ${mb(report.bytesBefore)} MB -> ${mb(report.bytesAfter)} MB, ${report.triangles} triangles, ${report.textures} textures -> ${stored}`)
-}
 
 async function main() {
   const all = await db.select().from(model3d)
@@ -58,7 +22,8 @@ async function main() {
   let failed = 0
   for (const model of pending) {
     try {
-      await optimizeModel(model)
+      const { report, file } = await optimizeModel(model)
+      console.log(`${model.name}: ${mb(report.bytesBefore)} MB -> ${mb(report.bytesAfter)} MB, ${report.triangles} triangles, ${report.textures} textures -> ${file.storedFilename}`)
     } catch (e) {
       failed++
       console.error(`${model.name} (${model.id}) FAILED:`, e)

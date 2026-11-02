@@ -161,20 +161,16 @@ async function updateSoftware(id: number, patch: Record<string, unknown>) { awai
 async function deleteSoftware(id: number) { await apiJson("DELETE", `/api/software/${id}`); await reload() }
 
 //3D MODEL mutations - both files are already in the file table (picked from
-//the media library). A "Default" view is seeded so the project picker has
-//something to point at on day one.
-async function createModel(name: string, glbFileId: string, thumbnailFileId: string): Promise<{ id: string }> {
-  const row = await apiJson<{ id: string }>("POST", "/api/models", {
-    name,
-    glbFileId,
-    thumbnailFileId,
-    views: [{
-      name:      "Default",
-      position:  [5, 5, 5],
-      target:    [0, 0, 0],
-      wireframe: false,
-    }],
-  })
+//the media library). The server optimizes the GLB and answers how it went;
+//the views come from the editor's auto setup on first open.
+export interface CreatedModel {
+  id:             string
+  optimizeReport: { bytesBefore: number; bytesAfter: number; triangles: number; textures: number } | null
+  optimizeError:  string | null
+}
+
+async function createModel(name: string, glbFileId: string, thumbnailFileId: string): Promise<CreatedModel> {
+  const row = await apiJson<CreatedModel>("POST", "/api/models", { name, glbFileId, thumbnailFileId })
   await reload()
   return row
 }

@@ -4,6 +4,7 @@ import { Box, Check, FileText, Film, ImageIcon, RefreshCw, Sun, Trash2, Upload }
 import { MEDIA_TYPES, acceptFor, mediaTypeOf, useMediaLibrary, type MediaFile, type MediaType } from "./useMediaLibrary"
 import { useConfirm } from "../../../composables/useConfirm"
 import { useTranslations } from "../../../composables/useTranslations"
+import { formatBytes } from "../../../lib/format"
 
 //THE FILE GRID - shared by the picker dialog ("pick") and the settings files
 //tab ("manage"). Search, type filter, upload (button or drop), previews.
@@ -11,7 +12,6 @@ import { useTranslations } from "../../../composables/useTranslations"
 const ICONS = { image: ImageIcon, video: Film, model: Box, hdr: Sun, document: FileText }
 //placeholders drawn before the very first answer; later loads keep the last list on screen
 const SKELETON_TILES = 8
-const BYTES_PER_KB = 1024
 
 const props = withDefaults(defineProps<{
   mode:      "pick" | "manage"
@@ -42,12 +42,6 @@ const firstLoad = computed(() => loading.value && files.value.length === 0)
 
 function allowed(f: MediaFile): boolean {
   return props.mode === "manage" || props.accept === null || mediaTypeOf(f) === props.accept
-}
-
-function formatBytes(n: number): string {
-  if (n < BYTES_PER_KB) return `${n} B`
-  if (n < BYTES_PER_KB ** 2) return `${(n / BYTES_PER_KB).toFixed(1)} KB`
-  return `${(n / BYTES_PER_KB ** 2).toFixed(1)} MB`
 }
 
 function onTile(f: MediaFile) {
