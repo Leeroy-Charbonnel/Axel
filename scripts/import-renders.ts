@@ -73,6 +73,9 @@ const processManifest = z.object({
 //height over the larger footprint side above which an object is tall, and the
 //reverse for wide
 const TALL_RATIO = 1.4
+//a view closer to vertical than this share of its distance is nudged forward by the second
+const VERTICAL_EPSILON = 1e-4
+const VERTICAL_NUDGE = 1e-3
 const WIDE_RATIO = 1.6
 
 function refuseProduction() {
@@ -136,6 +139,12 @@ function viewerView({ min, max }: { min: Vec3; max: Vec3 }, camera: { position: 
   const target = camera.target.map((v, i) => v - offset[i]!) as Vec3
   const scale = Math.tan((camera.fov * Math.PI) / 360) / Math.tan((CAMERA_FOV * Math.PI) / 360)
   const position = camera.position.map((v, i) => target[i]! + (v - offset[i]! - target[i]!) * scale) as Vec3
+  //a camera straight above or below the model leaves its roll undefined: a
+  //step toward the front keeps the model's x axis level on screen
+  const distance = Math.hypot(position[0] - target[0], position[1] - target[1], position[2] - target[2])
+  if (Math.hypot(position[0] - target[0], position[2] - target[2]) < distance * VERTICAL_EPSILON) {
+    position[2] = target[2] + distance * VERTICAL_NUDGE
+  }
   return { position, target }
 }
 
