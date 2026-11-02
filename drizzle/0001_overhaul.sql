@@ -44,3 +44,5 @@ UPDATE "profile" SET
     'en', coalesce((SELECT "value" FROM "translations" WHERE "id" = 'homeSubtitle' AND "lang" = 'en'), ''),
     'fr', coalesce((SELECT "value" FROM "translations" WHERE "id" = 'homeSubtitle' AND "lang" = 'fr'), '')
   );
+--> statement-breakpoint
+UPDATE "software" SET "url" = '' WHERE "url" = 'https://';
