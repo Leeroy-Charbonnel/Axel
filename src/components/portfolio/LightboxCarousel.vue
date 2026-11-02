@@ -142,7 +142,7 @@ watch(isOpen, async (open) => {
         @transitionend.self="onTrackTransitionEnd"
       >
         <div class="lightbox__slide" aria-hidden="true" @click.self="onSlideClick">
-          <SiteImage v-if="lastCloneUrl" :src="lastCloneUrl" :sizes="IMAGE_SIZES.lightbox" draggable="false" class="lightbox__image" />
+          <SiteImage v-if="lastCloneUrl" :src="lastCloneUrl" :sizes="IMAGE_SIZES.lightbox" loading="eager" draggable="false" class="lightbox__image" />
         </div>
         <div
           v-for="(it, i) in items"
@@ -151,10 +151,10 @@ watch(isOpen, async (open) => {
           :aria-hidden="i !== index"
           @click.self="onSlideClick"
         >
-          <SiteImage :src="it.url" :alt="it.alt ?? ''" :sizes="IMAGE_SIZES.lightbox" draggable="false" class="lightbox__image" />
+          <SiteImage :src="it.url" :alt="it.alt ?? ''" :sizes="IMAGE_SIZES.lightbox" loading="eager" draggable="false" class="lightbox__image" />
         </div>
         <div class="lightbox__slide" aria-hidden="true" @click.self="onSlideClick">
-          <SiteImage v-if="firstCloneUrl" :src="firstCloneUrl" :sizes="IMAGE_SIZES.lightbox" draggable="false" class="lightbox__image" />
+          <SiteImage v-if="firstCloneUrl" :src="firstCloneUrl" :sizes="IMAGE_SIZES.lightbox" loading="eager" draggable="false" class="lightbox__image" />
         </div>
       </div>
 
@@ -243,7 +243,8 @@ watch(isOpen, async (open) => {
   padding: var(--site-topbar-height) var(--site-gutter) calc(var(--site-topbar-height) + var(--spacing-xl));
 }
 
-/*the width / height attributes set the ratio, the slide sets the size*/
+/*sized by the loaded image within the slide; eager, since a lazy image of
+no size yet never comes into view*/
 .lightbox__image {
   width: auto;
   height: auto;
