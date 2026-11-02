@@ -9,11 +9,13 @@ import type {
   DetailBlock, MainProjectDto, PortfolioDto, SoftwareDto,
 } from "../src/types/portfolio"
 import type { ImageSizes } from "../src/lib/media"
-import { isAdmin, sessionUser } from "./http"
+import { describeIssues, isAdmin, sessionUser } from "./http"
+import { detailBlock } from "./validation"
 
 //PORTFOLIO - the whole site in one payload, file ids resolved to /media URLs.
-//Visitors get published rows only, from an in-memory memo every write
-//invalidates; the admin gets every row, built fresh on each request.
+//Visitors get published rows only, and the models those rows show, from an
+//in-memory memo every write invalidates; the admin gets every row, built
+//fresh on each request.
 
 const PUBLIC_MAX_AGE_S = 60
 
@@ -71,6 +73,18 @@ async function buildPortfolio(admin: boolean): Promise<PortfolioDto> {
   }))
   const softwareById = new Map(softwareDtos.map((s) => [s.id, s]))
 
+  //A stored block that does not match its schema (written by hand, or before
+  //the schema existed) is logged on every build. Visitors never get it; the
+  //admin does, so the editor shows it and its save says what is wrong.
+  function checkedBlocks(projectId: number, blocks: unknown[]): Block[] {
+    return blocks.flatMap((b) => {
+      const result = detailBlock.safeParse(b)
+      if (result.success) return [b as Block]
+      console.error(`[portfolio] project ${projectId}, block ${(b as { id?: unknown }).id}: ${describeIssues(result.error)}`)
+      return admin ? [b as Block] : []
+    })
+  }
+
   //DETAIL PAGE blocks carry file ids; the url next to each one is for rendering
   //and is stripped back to null by the editor on save
   function resolveBlock(b: Block): Block {
@@ -110,12 +124,20 @@ async function buildPortfolio(admin: boolean): Promise<PortfolioDto> {
       wireframeUrl:    urlOf(t.wireframeFileId),
       description:     t.description,
     })),
-    detailPage:          { blocks: (p.detailPage.blocks as Block[]).map(resolveBlock) as unknown as DetailBlock[] },
+    detailPage:          { blocks: checkedBlocks(p.id, p.detailPage.blocks).map(resolveBlock) as unknown as DetailBlock[] },
     stats:               p.stats,
     software: junctionRows
       .filter((j) => j.mainProjectId === p.id)
       .flatMap((j) => softwareById.get(j.softwareId) ?? []),
   }))
+
+  //a visitor gets the models a published project shows, and no other: the
+  //rest carry the files and settings of work that is not public
+  const shownModels = new Set(mainProjects.flatMap((p) => [
+    p.model3dId,
+    ...p.detailPage.blocks.flatMap((b) => b.type === "viewer3d" ? [(b.content as { model3dId: string | null }).model3dId] : []),
+  ]))
+  const visibleModels = admin ? modelRows : modelRows.filter((m) => shownModels.has(m.id))
 
   const prefs = new Map<string, string>()
   for (const r of prefRows) if (!prefs.has(r.key)) prefs.set(r.key, r.value)
@@ -124,7 +146,7 @@ async function buildPortfolio(admin: boolean): Promise<PortfolioDto> {
 
   const portfolio: Omit<PortfolioDto, "images"> = {
     software: softwareDtos,
-    models: modelRows.map((m) => ({
+    models: visibleModels.map((m) => ({
       id:              m.id,
       name:            m.name,
       glbFileId:       m.glbFileId,
@@ -182,8 +204,9 @@ async function buildPortfolio(admin: boolean): Promise<PortfolioDto> {
   return { ...portfolio, images }
 }
 
-//PUBLIC MEMO. A write bumps the generation when it starts and when it ends,
-//so a build that read the database mid-write is never kept.
+//PUBLIC MEMO. A successful admin write bumps the generation when it ends: a
+//build that started earlier, even mid-write, holds an older generation and is
+//never served again.
 let generation = 0
 let memo: { generation: number; value: Promise<PortfolioDto> } | null = null
 
@@ -202,11 +225,13 @@ export function publicPortfolio(): Promise<PortfolioDto> {
   return value
 }
 
-//mounted on /api after the auth handler: every non-GET request is a write
+//Mounted on /api after the auth handler. requireAdmin sets res.locals.user:
+//a request without it, or one that failed, wrote nothing.
 export function invalidateOnWrite(req: Request, res: Response, next: NextFunction): void {
   if (req.method !== "GET" && req.method !== "HEAD") {
-    invalidate()
-    res.on("finish", invalidate)
+    res.on("finish", () => {
+      if (res.locals.user && res.statusCode < 400) invalidate()
+    })
   }
   next()
 }

@@ -29,14 +29,55 @@ export const orderBody = z.strictObject({ ids: uniqueInts })
 
 export const projectSoftwareBody = z.strictObject({ softwareIds: uniqueInts })
 
-const DETAIL_BLOCK_TYPES = [
-  "text", "heading", "quote", "image", "video", "carousel", "marquee",
-  "compare", "accordion", "specs", "counters", "button", "embed", "viewer3d",
-] as const
+//DETAIL BLOCKS - one content shape per type, as src/types/portfolio.ts and
+//the block editors write them. The urls next to file ids are resolved on
+//read and stored as null (storedContent in block-types.ts).
+const storedUrl = z.null()
+const imageItem = z.strictObject({ fileId, url: storedUrl })
 
-const detailBlock = z.strictObject({
+const BLOCK_CONTENT = {
+  text:      z.strictObject({ text: bilingual }),
+  heading:   z.strictObject({ text: bilingual }),
+  quote:     z.strictObject({ text: bilingual, author: z.string() }),
+  image:     z.strictObject({
+               fileId: fileId.nullable(),
+               url:    storedUrl,
+               alt:    bilingual.optional(),
+               fit:    z.enum(["cover", "contain", "fill", "none"]).optional(),
+             }),
+  video:     z.strictObject({
+               fileId:   fileId.nullable(),
+               url:      storedUrl,
+               autoplay: z.boolean(),
+               loop:     z.boolean(),
+               muted:    z.boolean(),
+               controls: z.boolean(),
+             }),
+  carousel:  z.strictObject({
+               items:      z.array(imageItem.extend({ caption: bilingual.optional() })),
+               intervalMs: z.number().nonnegative(),
+             }),
+  marquee:   z.strictObject({ items: z.array(imageItem), speedPxs: z.number().positive() }),
+  compare:   z.strictObject({
+               beforeFileId: fileId.nullable(),
+               beforeUrl:    storedUrl,
+               afterFileId:  fileId.nullable(),
+               afterUrl:     storedUrl,
+               beforeLabel:  bilingual,
+               afterLabel:   bilingual,
+               followMouse:  z.boolean().optional(),
+             }),
+  accordion: z.strictObject({ items: z.array(z.strictObject({ title: bilingual, body: bilingual })) }),
+  specs:     z.strictObject({ rows: z.array(z.strictObject({ label: bilingual, value: bilingual })) }),
+  counters:  z.strictObject({ items: z.array(z.strictObject({ label: bilingual, value: z.number() })) }),
+  //the two contents that become a link or an iframe src
+  button:    z.strictObject({ label: bilingual, url: httpUrl, newTab: z.boolean() }),
+  embed:     z.strictObject({ url: httpUrl }),
+  viewer3d:  z.strictObject({ model3dId: fileId.nullable(), desktopView: z.string(), mobileView: z.string() }),
+} as const
+
+const blockFrame = {
   id:      z.string().min(1),
-  type:    z.enum(DETAIL_BLOCK_TYPES),
   x:       z.int().nonnegative(),
   y:       z.int().nonnegative(),
   w:       z.int().positive(),
@@ -48,14 +89,17 @@ const detailBlock = z.strictObject({
     borderWidth: z.number().nonnegative().optional(),
     borderStyle: z.enum(["solid", "dashed", "dotted", "dash-dot", "double"]).optional(),
   }).optional(),
-  content: z.record(z.string(), z.unknown()),
-}).superRefine((block, ctx) => {
-  //the two block types whose content becomes a link or an iframe src
-  if (block.type !== "button" && block.type !== "embed") return
-  if (!httpUrl.safeParse(block.content.url ?? "").success) {
-    ctx.addIssue({ code: "custom", path: ["content", "url"], message: `${block.type} url must be empty or an http(s) URL` })
-  }
-})
+}
+
+type BlockType = keyof typeof BLOCK_CONTENT
+const blockOf = <T extends BlockType>(type: T) =>
+  z.strictObject({ ...blockFrame, type: z.literal(type), content: BLOCK_CONTENT[type] })
+
+export const detailBlock = z.discriminatedUnion("type", [
+  blockOf("text"), blockOf("heading"), blockOf("quote"), blockOf("image"), blockOf("video"),
+  blockOf("carousel"), blockOf("marquee"), blockOf("compare"), blockOf("accordion"), blockOf("specs"),
+  blockOf("counters"), blockOf("button"), blockOf("embed"), blockOf("viewer3d"),
+])
 
 export const mainProjectPatch = z.strictObject({
   title:              bilingual,

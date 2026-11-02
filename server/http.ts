@@ -2,6 +2,7 @@ import type express from "express"
 import { z } from "zod"
 import { fromNodeHeaders } from "better-auth/node"
 import { auth, ADMIN_ROLE } from "../auth"
+import { ALLOWED_ORIGINS } from "../env"
 
 export type SessionUser = typeof auth.$Infer.Session.user
 
@@ -19,13 +20,14 @@ export function notFound(): never {
   throw new HttpError(404, "not found")
 }
 
+export function describeIssues(error: z.ZodError): string {
+  return error.issues.map((i) => (i.path.length ? `${i.path.join(".")}: ${i.message}` : i.message)).join("; ")
+}
+
 //zod allow-list: unknown keys and wrong types are a 400 with a readable message
 export function parse<S extends z.ZodType>(schema: S, value: unknown): z.infer<S> {
   const result = schema.safeParse(value)
-  if (!result.success) {
-    const issues = result.error.issues.map((i) => (i.path.length ? `${i.path.join(".")}: ${i.message}` : i.message))
-    throw new HttpError(400, issues.join("; "))
-  }
+  if (!result.success) throw new HttpError(400, describeIssues(result.error))
   return result.data
 }
 
@@ -59,7 +61,14 @@ export function isAdmin(user: SessionUser | null): boolean {
 
 //There is one account on this site and it is the admin. A session that is not
 //the admin's can do nothing, and the next boot deletes its account.
+//The cookie also rides along with a request sent from a sibling subdomain, so
+//a write must come from an allowed origin too: browsers send Origin on every
+//request that is not a GET or a HEAD, same-origin ones included.
 export async function requireAdmin(req: express.Request, res: express.Response, next: express.NextFunction) {
+  if (req.method !== "GET" && req.method !== "HEAD" && !ALLOWED_ORIGINS.includes(req.headers.origin ?? "")) {
+    res.status(403).json({ error: "origin not allowed" })
+    return
+  }
   const user = await sessionUser(req)
   if (!user) {
     res.status(401).json({ error: "unauthorized" })
