@@ -165,13 +165,15 @@ export function caseStudyBlocks(m: CaseStudyMedia): DetailBlock[] {
     const portrait = s.media.aspect < 0.95
     const square = !portrait && s.media.aspect < 1.25
     const mediaW = portrait || square ? 1 : 2
-    const h = portrait ? 3 : 2
+    //two rows for every step: a portrait image is shown whole, narrower, which
+    //keeps the page compact
+    const h = 2
     const mediaLeft = (i % 2 === 0) !== m.startRight
     const media: Tile = s.media.kind === "video"
       ? { type: "video", content: { fileId: s.media.fileId, url: null, autoplay: true, loop: true, muted: true, controls: false } }
       //shown whole: a plan, a blocking note or a node graph must not lose an edge
       : { type: "image", content: { fileId: s.media.fileId, url: null, alt: s.title, fit: "contain" } }
-    place(media, mediaLeft ? 0 : 3 - mediaW, y, mediaW, h, portrait ? 3 : 2)
+    place(media, mediaLeft ? 0 : 3 - mediaW, y, mediaW, h, 2)
     place(text(stepText(s)), mediaLeft ? mediaW : 0, y, 3 - mediaW, h, 2)
     y += h
   })
@@ -189,7 +191,8 @@ export function caseStudyBlocks(m: CaseStudyMedia): DetailBlock[] {
   }
 
   //RENDERS - the wireframe comparison beside the turntable, then the details
-  heading("Rendus", "Renders")
+  //named apart from a making-of section called "Rendu"
+  heading("Présentation", "Presentation")
   const video: Tile | null = m.videoId
     ? { type: "video", content: { fileId: m.videoId, url: null, autoplay: true, loop: true, muted: true, controls: false } }
     : null
