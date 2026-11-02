@@ -10,7 +10,8 @@ import type { Bilingual, DetailBlock, DetailBlockContent, DetailBlockType } from
 //  beside it, the sides alternating from one step to the next;
 //- without a making-of, the working views (orthographic, exploded, clay,
 //  topology, maps) stand in for it;
-//- the renders (wireframe comparison, turntable, details) and the closing words.
+//- the renders (wireframe comparison, turntable, details), the evolution
+//  carousel (the same view from blocking to final render) and the closing words.
 //A band takes what the folder has and never leaves a hole. The page header
 //already carries the description, the numbers, the role and the software.
 
@@ -51,6 +52,8 @@ export interface CaseStudyMedia {
   intro:     Bilingual | null
   steps:     CaseStudyStep[]
   outro:     Bilingual | null
+  //the same view at each stage, from blocking to final render
+  evolution: { fileId: string; label: Bilingual }[]
   //which side the first making-of image takes, so two pages do not open alike
   startRight: boolean
 }
@@ -199,6 +202,15 @@ export function caseStudyBlocks(m: CaseStudyMedia): DetailBlock[] {
     2,
   )
   row(m.detailIds.slice(0, 3).map((fileId) => ({ type: "image", content: { fileId, url: null, fit: "cover" } })))
+
+  if (m.evolution.length) {
+    heading("Évolution", "Evolution")
+    place({ type: "carousel", content: {
+      intervalMs: 0,
+      items: m.evolution.map((e) => ({ fileId: e.fileId, url: null, caption: e.label })),
+    } }, 0, y, 3, 3, 2)
+    y += 3
+  }
 
   if (m.outro) {
     place(text(m.outro), 0, y, 3, 1, 2)

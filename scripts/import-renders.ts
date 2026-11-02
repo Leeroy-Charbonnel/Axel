@@ -78,6 +78,7 @@ const processManifest = z.object({
   intro: bilingual,
   steps: z.array(processStep),
   outro: bilingual,
+  evolution: z.array(z.object({ image: z.string().min(1), label: bilingual })).optional(),
 })
 
 //height over the larger footprint side above which an object is tall, and the
@@ -193,6 +194,8 @@ async function importMain(dir: string, uploader: string, startRight: boolean): P
       : { kind: "video" as const, fileId: await put(s.video!), aspect: s.aspect! }
     steps.push({ media, title: s.title, text: s.text, section: s.section })
   }
+  const evolution: { fileId: string; label: { fr: string; en: string } }[] = []
+  for (const e of story?.evolution ?? []) evolution.push({ fileId: await put(e.image), label: e.label })
   //the viewport views and extras: vp-clay.jpg, screen.gif...
   const shots: Partial<Record<CaseStudyView, string>> = {}
   for (const name of CASE_STUDY_VIEWS) {
@@ -225,7 +228,7 @@ async function importMain(dir: string, uploader: string, startRight: boolean): P
     thumbnails,
     detailPage: { blocks: caseStudyBlocks({
       modelId: model!.id, view: VIEW, shape: shapeOf(bounds), mainId, wireId, detailIds, videoId, views: shots,
-      intro: story?.intro ?? null, steps, outro: story?.outro ?? null, startRight,
+      intro: story?.intro ?? null, steps, outro: story?.outro ?? null, startRight, evolution,
     }) },
     stats: m.stats,
   })

@@ -36,6 +36,7 @@ describe("detail block content schemas", () => {
               pages.push(caseStudyBlocks({
                 modelId: ID, view: "Default", shape, mainId: ID, wireId: ID, detailIds: [ID, ID, ID],
                 videoId: intro ? ID : null, views, intro, steps: stepList, outro: intro, startRight,
+                evolution: intro ? [{ fileId: ID, label: text }, { fileId: ID, label: text }] : [],
               }))
     for (const blocks of pages) {
       expect(mainProjectPatch.safeParse({ detailPage: { blocks } }).success).toBe(true)
