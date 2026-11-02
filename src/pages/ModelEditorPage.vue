@@ -309,7 +309,7 @@ onBeforeUnmount(() => {
 }
 
 .me__name {
-  font-size: var(--font-size-base);
+  font-size: var(--font-size-md);
   font-weight: var(--font-weight-bold);
   text-transform: uppercase;
   letter-spacing: var(--letter-spacing-tight);
