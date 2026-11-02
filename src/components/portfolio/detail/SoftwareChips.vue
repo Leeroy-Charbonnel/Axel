@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { computed } from "vue"
 import { safeUrl } from "../../../lib/safe-url"
+import { IMAGE_SIZES } from "../../../lib/media"
+import SiteImage from "../../SiteImage.vue"
 import type { SoftwareDto } from "../../../types/portfolio"
 
 //THE SOFTWARE OF A PROJECT - logo and name, linked to the official site when
@@ -19,7 +21,7 @@ const items = computed(() => props.software.map((sw) => ({ ...sw, href: safeUrl(
         :target="sw.href ? '_blank' : undefined"
         :rel="sw.href ? 'noopener noreferrer' : undefined"
       >
-        <img v-if="sw.logoUrl" :src="sw.logoUrl" alt="" class="chips__logo" loading="lazy" />
+        <SiteImage v-if="sw.logoUrl" :src="sw.logoUrl" :sizes="IMAGE_SIZES.icon" class="chips__logo" />
         <span>{{ sw.key }}</span>
       </component>
     </li>

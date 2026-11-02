@@ -5,6 +5,7 @@ import { useReducedMotion } from "../../../composables/useReducedMotion"
 import { useTranslations } from "../../../composables/useTranslations"
 import { pickBilingual } from "../../../lib/markdown"
 import type { Lang } from "../../../lib/lang"
+import SiteImage from "../../SiteImage.vue"
 import BlockEmpty from "./BlockEmpty.vue"
 import type { CarouselBlockContent } from "../../../types/portfolio"
 
@@ -12,7 +13,7 @@ import type { CarouselBlockContent } from "../../../types/portfolio"
 //focused, and a swipe on touch. Auto-advance pauses on hover and focus and is
 //off for a reader who limits motion.
 
-const props = defineProps<{ content: CarouselBlockContent; lang: Lang }>()
+const props = defineProps<{ content: CarouselBlockContent; lang: Lang; sizes: string }>()
 const { t } = useTranslations()
 const reducedMotion = useReducedMotion()
 
@@ -89,11 +90,11 @@ function onPointerUp(e: PointerEvent) {
         :aria-hidden="i !== index"
         :inert="i !== index"
       >
-        <img
-          :src="item.url ?? undefined"
+        <SiteImage
+          :src="item.url!"
           :alt="pickBilingual(item.caption, lang)"
+          :sizes="sizes"
           :loading="i === 0 ? 'eager' : 'lazy'"
-          decoding="async"
           class="bcarousel__img"
           draggable="false"
         />

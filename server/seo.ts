@@ -2,6 +2,7 @@ import type {
   Bilingual, DetailBlock, ExperienceDto, MainProjectDto, PortfolioDto, ProfileDto,
 } from "../src/types/portfolio"
 import type { Lang } from "../src/lib/lang"
+import { derivativeUrl, storedImage, type ImageFormat } from "../src/lib/media"
 
 //SEO AND AI DISCOVERABILITY. Crawlers, social scrapers and AI search tools
 //mostly do not run JavaScript, so every public page is served with its real
@@ -38,6 +39,11 @@ const LINK_NAMES = {
 
 const DESCRIPTION_MAX = 160
 
+//social cards and JSON-LD get a 1200px JPEG (scrapers handle WebP poorly), the
+//snapshot <img> a WebP the size the page draws it at
+const SHARE_WIDTH = 1200
+const SNAPSHOT_WIDTH = 960
+
 //the requested language, else the other one: a project written in one
 //language only is still described rather than left blank
 function pick(text: Bilingual, lang: Lang): string {
@@ -63,6 +69,31 @@ function truncate(text: string, max: number): string {
 function absolute(site: string, url: string | null): string | null {
   if (!url) return null
   return /^https?:\/\//i.test(url) ? url : `${site}${url}`
+}
+
+type SizedImage = { url: string; width: number | null; height: number | null }
+
+//an upload as one resized copy, with the size that copy comes out at (the
+//server never enlarges); anything else as it is
+function resized(data: PortfolioDto, url: string, width: number, format: ImageFormat): SizedImage {
+  const stored = storedImage(url)
+  if (!stored) return { url, width: null, height: null }
+  const size = data.images[url]
+  if (!size) return { url: derivativeUrl(stored, width, format), width: null, height: null }
+  const w = Math.min(width, size[0])
+  return { url: derivativeUrl(stored, width, format), width: w, height: Math.round(size[1] * w / size[0]) }
+}
+
+function shareImage(data: PortfolioDto, site: string, url: string | null): SizedImage | null {
+  if (!url) return null
+  const image = resized(data, url, SHARE_WIDTH, "jpeg")
+  return { ...image, url: absolute(site, image.url)! }
+}
+
+function snapshotImg(data: PortfolioDto, url: string, alt: string): string {
+  const image = resized(data, url, SNAPSHOT_WIDTH, "webp")
+  const size = image.width && image.height ? ` width="${image.width}" height="${image.height}"` : ""
+  return `<img src="${escapeHtml(image.url)}" alt="${escapeHtml(alt)}"${size} loading="lazy">`
 }
 
 //JSON-LD inside a <script>: "<" escaped so a value can never close the tag
@@ -95,7 +126,7 @@ function homeDescription(data: PortfolioDto, lang: Lang): string {
 }
 
 function metaTags(o: {
-  title: string; description: string; canonical: string; image: string | null
+  title: string; description: string; canonical: string; image: SizedImage | null
   lang: Lang; type: "website" | "profile" | "article"; siteName: string
 }): string {
   const tags = [
@@ -114,9 +145,15 @@ function metaTags(o: {
   ]
   if (o.image) {
     tags.push(
-      `<meta property="og:image" content="${escapeHtml(o.image)}">`,
-      `<meta name="twitter:image" content="${escapeHtml(o.image)}">`,
+      `<meta property="og:image" content="${escapeHtml(o.image.url)}">`,
+      `<meta name="twitter:image" content="${escapeHtml(o.image.url)}">`,
     )
+    if (o.image.width && o.image.height) {
+      tags.push(
+        `<meta property="og:image:width" content="${o.image.width}">`,
+        `<meta property="og:image:height" content="${o.image.height}">`,
+      )
+    }
   }
   return tags.join("\n    ")
 }
@@ -134,7 +171,7 @@ function personLd(data: PortfolioDto, site: string, lang: Lang): Record<string, 
   const description = pick(p.pitch, lang) || pick(p.about, lang)
   if (headline)    person.jobTitle = headline
   if (description) person.description = description
-  if (p.avatarUrl) person.image = absolute(site, p.avatarUrl)
+  if (p.avatarUrl) person.image = shareImage(data, site, p.avatarUrl)!.url
   if (p.contact.email) person.email = `mailto:${p.contact.email.toLowerCase()}`
   if (p.location)  person.address = { "@type": "PostalAddress", addressLocality: p.location }
   const sameAs = profileLinks(p).map((l) => l.url)
@@ -171,7 +208,7 @@ function projectFacts(p: MainProjectDto, lang: Lang): string {
   return facts.length ? `<ul>${facts.join("")}</ul>` : ""
 }
 
-function blockHtml(block: DetailBlock, lang: Lang): string {
+function blockHtml(data: PortfolioDto, block: DetailBlock, lang: Lang): string {
   const c = block.content as unknown as Record<string, unknown>
   switch (block.type) {
     case "heading": return `<h2>${escapeHtml(pick(c.text as Bilingual, lang))}</h2>`
@@ -187,7 +224,7 @@ function blockHtml(block: DetailBlock, lang: Lang): string {
       const url = c.url as string | null
       if (!url) return ""
       const alt = c.alt ? pick(c.alt as Bilingual, lang) : ""
-      return `<img src="${escapeHtml(url)}" alt="${escapeHtml(alt)}" loading="lazy">`
+      return snapshotImg(data, url, alt)
     }
     default: return ""
   }
@@ -207,7 +244,7 @@ export function homePage(data: PortfolioDto, site: string, lang: Lang): Page {
   const headline = p ? pick(p.headline, lang) : ""
   const title = headline ? `${name} - ${headline}` : name
   const description = homeDescription(data, lang)
-  const image = absolute(site, data.mainProjects.find((x) => x.mainImageUrl)?.mainImageUrl ?? p?.avatarUrl ?? null)
+  const image = shareImage(data, site, data.mainProjects.find((x) => x.mainImageUrl)?.mainImageUrl ?? p?.avatarUrl ?? null)
 
   const ld = {
     "@context": "https://schema.org",
@@ -292,7 +329,8 @@ export function projectPage(data: PortfolioDto, site: string, lang: Lang, id: nu
   const canonical = `${site}/project/${project.id}`
   const description = truncate(pick(project.description, lang), DESCRIPTION_MAX)
   const images = [project.mainImageUrl, ...project.thumbnails.map((t) => t.url)]
-    .map((u) => absolute(site, u)).filter((u): u is string => Boolean(u))
+    .filter((u): u is string => Boolean(u))
+    .map((u) => shareImage(data, site, u)!)
 
   const work: Record<string, unknown> = {
     "@context":  "https://schema.org",
@@ -305,7 +343,7 @@ export function projectPage(data: PortfolioDto, site: string, lang: Lang, id: nu
   }
   const fullDescription = pick(project.description, lang)
   if (fullDescription)          work.description = fullDescription
-  if (images.length)            work.image = images
+  if (images.length)            work.image = images.map((i) => i.url)
   if (project.year)             work.dateCreated = project.year
   if (project.software.length)  work.keywords = project.software.map((s) => s.key).join(", ")
 
@@ -325,9 +363,9 @@ export function projectPage(data: PortfolioDto, site: string, lang: Lang, id: nu
           <h1>${escapeHtml(projectTitle)}</h1>
           ${projectFacts(project, lang)}
           ${paragraphs(fullDescription)}
-          ${project.mainImageUrl ? `<img src="${escapeHtml(project.mainImageUrl)}" alt="${escapeHtml(projectTitle)}">` : ""}
+          ${project.mainImageUrl ? snapshotImg(data, project.mainImageUrl, projectTitle) : ""}
         </header>
-        ${orderedBlocks(project).map((b) => blockHtml(b, lang)).join("\n        ")}
+        ${orderedBlocks(project).map((b) => blockHtml(data, b, lang)).join("\n        ")}
       </article>
       <nav><ul>${nav}</ul></nav>
     </main>`

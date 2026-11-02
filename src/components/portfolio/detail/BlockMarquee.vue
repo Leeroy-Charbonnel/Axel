@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from "vue"
 import { useReducedMotion } from "../../../composables/useReducedMotion"
+import SiteImage from "../../SiteImage.vue"
 import BlockEmpty from "./BlockEmpty.vue"
 import type { MarqueeBlockContent } from "../../../types/portfolio"
 
@@ -9,7 +10,7 @@ import type { MarqueeBlockContent } from "../../../types/portfolio"
 //px per second over the measured strip. It stops on hover; for a reader who
 //limits motion it stands still and scrolls by hand instead.
 
-const props = defineProps<{ content: MarqueeBlockContent }>()
+const props = defineProps<{ content: MarqueeBlockContent; sizes: string }>()
 const reducedMotion = useReducedMotion()
 
 const MIN_SPEED = 10
@@ -37,25 +38,21 @@ onBeforeUnmount(() => observer?.disconnect())
   >
     <div class="bmarquee__track">
       <div ref="strip" class="bmarquee__strip">
-        <img
+        <SiteImage
           v-for="(item, i) in items"
           :key="`${item.fileId}-${i}`"
-          :src="item.url ?? undefined"
-          alt=""
-          loading="lazy"
-          decoding="async"
+          :src="item.url!"
+          :sizes="sizes"
           class="bmarquee__img"
           draggable="false"
         />
       </div>
       <div v-if="!reducedMotion" class="bmarquee__strip" aria-hidden="true">
-        <img
+        <SiteImage
           v-for="(item, i) in items"
           :key="`copy-${item.fileId}-${i}`"
-          :src="item.url ?? undefined"
-          alt=""
-          loading="lazy"
-          decoding="async"
+          :src="item.url!"
+          :sizes="sizes"
           class="bmarquee__img"
           draggable="false"
         />

@@ -4,6 +4,7 @@ import { join, extname, relative } from "path"
 import { mkdirSync, readdirSync, unlinkSync } from "fs"
 import { fileURLToPath } from "url"
 import { randomUUID } from "crypto"
+import sharp from "sharp"
 import { db } from "../db/index"
 import { file as fileTable } from "../db/schema"
 import { HttpError } from "./http"
@@ -108,6 +109,29 @@ export const receiveMedia = (field: string, req: express.Request, res: express.R
 export const receiveCv = (req: express.Request, res: express.Response) =>
   receive(cvUpload.single("file"), req, res)
 
+//the stills a browser draws, measured on the way in: width and height as
+//displayed, EXIF rotation applied. An .exr is image/* to the upload but not
+//something an <img> shows.
+const RASTER_EXTENSIONS = new Set([".jpg", ".jpeg", ".png", ".webp", ".avif", ".gif"])
+
+export function isRaster(path: string): boolean {
+  return RASTER_EXTENSIONS.has(extname(path).toLowerCase())
+}
+
+export async function measureImage(path: string): Promise<{ width: number; height: number }> {
+  const { autoOrient } = await sharp(path).metadata()
+  return { width: autoOrient.width, height: autoOrient.height }
+}
+
+async function rasterSize(path: string): Promise<{ width: number | null; height: number | null }> {
+  if (!isRaster(path)) return { width: null, height: null }
+  try {
+    return await measureImage(path)
+  } catch (e) {
+    throw new HttpError(400, `not a readable image: ${e instanceof Error ? e.message : String(e)}`)
+  }
+}
+
 function kindOf(mimeType: string): "image" | "video" | "document" | "other" {
   if (mimeType.startsWith("image/"))   return "image"
   if (mimeType.startsWith("video/"))   return "video"
@@ -128,6 +152,7 @@ export async function recordUpload(
 ): Promise<FileRow & { url: string }> {
   const stored = relative(STORAGE_DIR, join(file.destination, file.filename)).split("\\").join("/")
   try {
+    const size = await rasterSize(join(STORAGE_DIR, stored))
     return await db.transaction(async (tx) => {
       const [row] = await tx.insert(fileTable).values({
         //the uuid in the stored name is the row id
@@ -136,6 +161,7 @@ export async function recordUpload(
         storedFilename:   stored,
         mimeType:         file.mimetype,
         sizeBytes:        file.size,
+        ...size,
         kind:             kindOf(file.mimetype),
         uploadedBy,
       }).returning()

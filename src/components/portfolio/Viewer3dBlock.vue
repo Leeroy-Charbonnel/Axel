@@ -10,6 +10,8 @@ import ThreeViewer from "./ThreeViewer.vue"
 const props = defineProps<{
   content: { model3dId: string | null; desktopView: string; mobileView: string }
   mobile?: boolean
+  //how wide the block is drawn, for the poster
+  sizes:   string
 }>()
 
 const { data } = usePortfolio()
@@ -35,6 +37,7 @@ const resolved = computed(() => {
     :glb-url="resolved.glbUrl"
     :settings="resolved.settings"
     :poster="resolved.poster"
+    :poster-sizes="sizes"
     :alt="resolved.alt"
   />
 </template>

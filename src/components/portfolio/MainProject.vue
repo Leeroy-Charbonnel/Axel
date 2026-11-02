@@ -2,7 +2,9 @@
 import { ref, toRef } from "vue"
 import { ArrowRight, Box, Image as ImageIcon, Layers } from "lucide-vue-next"
 import { useProjectCard } from "../../composables/useProjectCard"
+import { IMAGE_SIZES } from "../../lib/media"
 import EditableRegion from "../admin/EditableRegion.vue"
+import SiteImage from "../SiteImage.vue"
 import ThreeViewer from "./ThreeViewer.vue"
 import UnpublishedBadge from "./UnpublishedBadge.vue"
 import type { MainProjectDto } from "../../types/portfolio"
@@ -33,6 +35,7 @@ const titleId = `project-${props.project.id}-title`
             :glb-url="glbUrl"
             :settings="viewerSettings"
             :poster="project.mainImageUrl"
+            :poster-sizes="IMAGE_SIZES.still"
             :alt="title"
             requested
             class="case__viewer"
@@ -45,24 +48,16 @@ const titleId = `project-${props.project.id}-title`
             :aria-label="`${t('projectOpenImage')} : ${title}`"
             @click="openStill"
           >
-            <img
+            <SiteImage
               v-if="project.mainImageUrl"
               :src="project.mainImageUrl"
-              alt=""
-              width="1920"
-              height="1080"
-              loading="lazy"
-              decoding="async"
+              :sizes="IMAGE_SIZES.still"
               class="case__image"
             />
-            <img
+            <SiteImage
               v-if="project.mainWireframeUrl"
               :src="project.mainWireframeUrl"
-              alt=""
-              width="1920"
-              height="1080"
-              loading="lazy"
-              decoding="async"
+              :sizes="IMAGE_SIZES.still"
               class="case__image case__image--wireframe"
             />
           </button>
@@ -79,7 +74,7 @@ const titleId = `project-${props.project.id}-title`
                   :aria-label="`${t('projectOpenImage')} : ${thumb.description[lang] || title}`"
                   @click="openThumbnail(thumb)"
                 >
-                  <img :src="thumb.url" alt="" width="160" height="160" loading="lazy" decoding="async" />
+                  <SiteImage :src="thumb.url" :sizes="IMAGE_SIZES.thumb" />
                 </button>
               </li>
             </template>

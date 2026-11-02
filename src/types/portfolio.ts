@@ -1,5 +1,6 @@
 //PORTFOLIO domain types - shape returned by GET /api/portfolio. Mirrors the
 //DB tables in db/schema.ts but with file ids resolved to /media URLs.
+import type { ImageSizes } from "../lib/media"
 
 export interface Bilingual {
   en: string
@@ -347,4 +348,6 @@ export interface PortfolioDto {
   experiences:     ExperienceDto[]
   profile:         ProfileDto | null
   editorPrefs:     EditorPrefsDto
+  //[width, height] of every image URL above that has a stored size
+  images:          ImageSizes
 }

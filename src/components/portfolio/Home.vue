@@ -3,7 +3,9 @@ import { computed } from "vue"
 import { ArrowDown } from "lucide-vue-next"
 import { useLanguage } from "../../composables/useLanguage"
 import { useSectionNav } from "../../composables/useSectionNav"
+import { IMAGE_SIZES } from "../../lib/media"
 import EditableRegion from "../admin/EditableRegion.vue"
+import SiteImage from "../SiteImage.vue"
 import Availability from "./Availability.vue"
 import SocialLinks from "./SocialLinks.vue"
 import type { MainProjectDto, ProfileDto } from "../../types/portfolio"
@@ -53,13 +55,12 @@ const pitch    = computed(() => props.profile.pitch[lang.value])
 
       <figure v-if="featured?.mainImageUrl" class="hero__visual">
         <div class="hero__frame site-frame">
-          <img
+          <SiteImage
             :src="featured.mainImageUrl"
             :alt="featured.title[lang]"
-            width="1920"
-            height="1080"
+            :sizes="IMAGE_SIZES.hero"
+            loading="eager"
             fetchpriority="high"
-            decoding="async"
             class="hero__image"
           />
         </div>

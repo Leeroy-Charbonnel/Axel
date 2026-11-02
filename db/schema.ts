@@ -40,13 +40,16 @@ export const settings = pgTable("settings", {
 
 //FILE - generic storage table. Each row points to a binary file on disk
 //under storage/files/{stored_filename}. URL served at /media/{stored_filename}.
-//Deleting a row never deletes the bytes.
+//Deleting a row never deletes the bytes. width / height are set for the
+//raster images (EXIF rotation applied), null for everything else.
 export const file = pgTable("file", {
   id:               uuid("id").primaryKey().defaultRandom(),
   originalFilename: text("original_filename").notNull(),
   storedFilename:   text("stored_filename").notNull().unique(),
   mimeType:         text("mime_type").notNull(),
   sizeBytes:        integer("size_bytes").notNull(),
+  width:            integer("width"),
+  height:           integer("height"),
   kind:             text("kind").notNull().default("other"),
   uploadedBy:       text("uploaded_by").references(() => user.id, { onDelete: "set null" }),
   createdAt:        timestamp("created_at").notNull().defaultNow(),

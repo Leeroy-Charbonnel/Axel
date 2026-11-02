@@ -8,6 +8,7 @@ import {
 import type {
   DetailBlock, MainProjectDto, MainProjectLayout, PortfolioDto, SoftwareDto,
 } from "../src/types/portfolio"
+import type { ImageSizes } from "../src/lib/media"
 import { isAdmin, sessionUser } from "./http"
 
 //PORTFOLIO - the whole site in one payload, file ids resolved to /media URLs.
@@ -30,7 +31,8 @@ async function buildPortfolio(admin: boolean): Promise<PortfolioDto> {
     fileRows, softwareRows, projectRows, junctionRows, galleryRows,
     experienceRows, profileRows, prefRows, modelRows,
   ] = await Promise.all([
-    db.select({ id: fileTable.id, storedFilename: fileTable.storedFilename }).from(fileTable),
+    db.select({ id: fileTable.id, storedFilename: fileTable.storedFilename, width: fileTable.width, height: fileTable.height })
+      .from(fileTable),
     db.select().from(software).orderBy(asc(software.sortOrder), asc(software.id)),
     db.select().from(mainProject)
       .where(admin ? undefined : eq(mainProject.published, true))
@@ -54,7 +56,15 @@ async function buildPortfolio(admin: boolean): Promise<PortfolioDto> {
   ])
 
   const urlById = new Map(fileRows.map((f) => [f.id, `/media/${f.storedFilename}`]))
-  const urlOf = (id: string | null | undefined): string | null => (id ? urlById.get(id) ?? null : null)
+  const sizeByUrl = new Map(fileRows.flatMap((f) =>
+    f.width && f.height ? [[`/media/${f.storedFilename}`, [f.width, f.height] as [number, number]]] : []))
+  //every URL the payload hands out, so `images` carries the sizes of those only
+  const used = new Set<string>()
+  const track = <T extends string | null>(url: T): T => {
+    if (url) used.add(url)
+    return url
+  }
+  const urlOf = (id: string | null | undefined): string | null => track(id ? urlById.get(id) ?? null : null)
 
   const softwareDtos: SoftwareDto[] = softwareRows.map((s) => ({
     id: s.id, key: s.key, url: s.url, logoFileId: s.logoFileId, logoUrl: urlOf(s.logoFileId),
@@ -119,7 +129,7 @@ async function buildPortfolio(admin: boolean): Promise<PortfolioDto> {
 
   const profileRow = profileRows[0]
 
-  return {
+  const portfolio: Omit<PortfolioDto, "images"> = {
     software: softwareDtos,
     models: modelRows.map((m) => ({
       id:              m.id,
@@ -161,7 +171,7 @@ async function buildPortfolio(admin: boolean): Promise<PortfolioDto> {
       contact:      profileRow.contact,
       links:        profileRow.links,
       interests:    profileRow.interests,
-      avatarUrl:    profileRow.avatarUrl,
+      avatarUrl:    track(profileRow.avatarUrl),
       cvUrl:        urlOf(profileRow.cvFileId),
     } : null,
     editorPrefs: {
@@ -171,6 +181,12 @@ async function buildPortfolio(admin: boolean): Promise<PortfolioDto> {
       wireframeLineWidth: prefs.get("editor3d_wireframe_line_width") ?? null,
     },
   }
+  const images: ImageSizes = {}
+  for (const url of used) {
+    const size = sizeByUrl.get(url)
+    if (size) images[url] = size
+  }
+  return { ...portfolio, images }
 }
 
 //PUBLIC MEMO. A write bumps the generation when it starts and when it ends,

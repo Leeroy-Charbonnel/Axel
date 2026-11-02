@@ -5,6 +5,8 @@ import { useReducedMotion } from "../../../composables/useReducedMotion"
 import { useTranslations } from "../../../composables/useTranslations"
 import { pickBilingual, renderMd } from "../../../lib/markdown"
 import type { Lang } from "../../../lib/lang"
+import { blockSizes } from "../../../lib/media"
+import SiteImage from "../../SiteImage.vue"
 import Viewer3dBlock from "../Viewer3dBlock.vue"
 import CompareSlider from "./CompareSlider.vue"
 import BlockCarousel from "./BlockCarousel.vue"
@@ -39,6 +41,7 @@ const lightbox = useLightbox()
 const reducedMotion = useReducedMotion()
 
 const c = computed(() => props.block.content)
+const sizes = computed(() => blockSizes(props.block.w))
 const asText    = computed(() => c.value as TextBlockContent)
 const asImage   = computed(() => c.value as ImageBlockContent)
 const asVideo   = computed(() => c.value as VideoBlockContent)
@@ -67,11 +70,10 @@ function enlarge() {
       :aria-label="t('blockImageEnlarge')"
       @click="enlarge"
     >
-      <img
+      <SiteImage
         :src="asImage.url"
         :alt="imageAlt"
-        loading="lazy"
-        decoding="async"
+        :sizes="sizes"
         class="block-media__el"
         :style="{ objectFit: asImage.fit ?? 'cover' }"
       />
@@ -95,11 +97,11 @@ function enlarge() {
     <BlockEmpty v-else :type="block.type" />
   </template>
 
-  <BlockCarousel v-else-if="block.type === 'carousel'" :content="(c as CarouselBlockContent)" :lang="lang" />
+  <BlockCarousel v-else-if="block.type === 'carousel'" :content="(c as CarouselBlockContent)" :lang="lang" :sizes="sizes" />
 
-  <BlockMarquee v-else-if="block.type === 'marquee'" :content="(c as MarqueeBlockContent)" />
+  <BlockMarquee v-else-if="block.type === 'marquee'" :content="(c as MarqueeBlockContent)" :sizes="blockSizes(1)" />
 
-  <CompareSlider v-else-if="block.type === 'compare'" :content="(c as CompareBlockContent)" :lang="lang" />
+  <CompareSlider v-else-if="block.type === 'compare'" :content="(c as CompareBlockContent)" :lang="lang" :sizes="sizes" />
 
   <BlockAccordion v-else-if="block.type === 'accordion'" :content="(c as AccordionBlockContent)" :lang="lang" />
 
@@ -112,7 +114,7 @@ function enlarge() {
   <BlockEmbed v-else-if="block.type === 'embed'" :content="(c as EmbedBlockContent)" />
 
   <div v-else-if="block.type === 'viewer3d'" class="block-viewer">
-    <Viewer3dBlock :content="(c as Viewer3dBlockContent)" :mobile="mobile" />
+    <Viewer3dBlock :content="(c as Viewer3dBlockContent)" :mobile="mobile" :sizes="sizes" />
   </div>
 </template>
 

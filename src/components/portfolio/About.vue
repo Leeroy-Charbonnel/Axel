@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { computed } from "vue"
 import { useLanguage } from "../../composables/useLanguage"
+import { IMAGE_SIZES } from "../../lib/media"
+import SiteImage from "../SiteImage.vue"
 import AnimatedReveal from "./AnimatedReveal.vue"
 import SectionHeader from "./SectionHeader.vue"
 import EditableRegion from "../admin/EditableRegion.vue"
@@ -26,14 +28,11 @@ const interestGroups = computed(() => [
         <EditableRegion kind="profile" :label="t('editorKindProfile')">
           <div class="about">
             <div class="about__intro">
-              <img
+              <SiteImage
                 v-if="profile.avatarUrl"
                 :src="profile.avatarUrl"
                 :alt="profile.name"
-                width="224"
-                height="224"
-                loading="lazy"
-                decoding="async"
+                :sizes="IMAGE_SIZES.avatar"
                 class="about__avatar"
               />
               <p class="about__bio">{{ profile.about[lang] }}</p>

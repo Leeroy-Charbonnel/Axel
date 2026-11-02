@@ -9,6 +9,7 @@ import { toNodeHandler } from "better-auth/node"
 import { auth, enforceSingleAccount } from "./auth"
 import { HttpError, requireAdmin } from "./server/http"
 import { STORAGE_DIR } from "./server/uploads"
+import { imagesRouter } from "./server/images"
 import { invalidateOnWrite, portfolioRouter } from "./server/portfolio"
 import { filesRouter } from "./server/routes/files"
 import { contentRouter } from "./server/routes/content"
@@ -55,8 +56,10 @@ app.use(helmet({
 //CORS - credentials required for better-auth cookies
 app.use(cors({ origin: ALLOWED_ORIGINS, credentials: true }))
 
-//MEDIA - uploads under /media/{stored_filename}, public. Mounted before
-//compression: models and videos are large binaries served as they are.
+//MEDIA - uploads under /media/{stored_filename}, public, and their resized
+//copies under /media/{format}/{width}/{stored_filename}. Mounted before
+//compression: models, videos and encoded images are served as they are.
+app.use(imagesRouter)
 app.use("/media", express.static(STORAGE_DIR, {
   immutable: true,
   maxAge:    "30d",
