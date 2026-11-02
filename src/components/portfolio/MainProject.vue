@@ -34,6 +34,7 @@ const titleId = `project-${props.project.id}-title`
             :settings="viewerSettings"
             :poster="project.mainImageUrl"
             :alt="title"
+            requested
             class="case__viewer"
           />
           <button

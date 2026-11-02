@@ -22,7 +22,9 @@ const props = withDefaults(defineProps<{
   //what the model is, for screen readers
   alt?:        string
   autoRotate?: boolean
-}>(), { wireframe: false, isInView: true, poster: null, alt: "", autoRotate: false })
+  //the visitor already asked for the model, so a touch device skips its own tap
+  requested?:  boolean
+}>(), { wireframe: false, isInView: true, poster: null, alt: "", autoRotate: false, requested: false })
 
 const { t } = useLanguage()
 
@@ -49,6 +51,7 @@ const pageHidden = ref(false)
 const viewer = shallowRef<ModelViewer | null>(null)
 
 let reducedMotion = false
+let touch = false
 //bumped on every start / teardown so a stale async step knows to stop
 let generation = 0
 const observers: IntersectionObserver[] = []
@@ -77,7 +80,7 @@ async function start() {
     if (run !== generation) return
     const v = new ModelViewer({
       canvas: canvas.value,
-      maxPixelRatio: tapToLoad.value ? TOUCH_MAX_DPR : DESKTOP_MAX_DPR,
+      maxPixelRatio: touch ? TOUCH_MAX_DPR : DESKTOP_MAX_DPR,
       reducedMotion,
       autoRotate: props.autoRotate,
     })
@@ -153,7 +156,8 @@ function resetView() {
 
 onMounted(() => {
   reducedMotion  = window.matchMedia("(prefers-reduced-motion: reduce)").matches
-  tapToLoad.value = window.matchMedia("(pointer: coarse)").matches
+  touch = window.matchMedia("(pointer: coarse)").matches
+  tapToLoad.value = touch && !props.requested
   canFullscreen.value = document.fullscreenEnabled
   pageHidden.value = document.hidden
   const el = root.value!

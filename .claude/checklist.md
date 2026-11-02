@@ -1,22 +1,21 @@
 # Checklist
-Maj 01:40 - 6/20
+Maj 03:05 - 10/20
 
 ## En cours
-- [~] W1 serveur : securite, perfs, validation, schema, SEO + lisibilite IA (agent)
-- [~] W2 coeur 3D, viewer public, reglage auto, optimiseur GLB (agent)
-- [~] W3 infrastructure d'edition : barre, inspecteur, brouillons, mediatheque (agent)
+- [~] W4a refonte de l'accueil + responsive telephone/tablette (agent)
+- [~] W4b page projet, editeur bento, styleguide, pages de test pleines de composants (agent)
+- [~] W5 editeur 3D refait avec bouton de reglage auto + optimiseur GLB branche (agent)
 
 ## A faire
-- [ ] Fusionner W1, W2, W3 et verifier
-- [ ] W4a refonte de l'accueil + responsive telephone/tablette
-- [ ] W4b page projet, editeur bento, styleguide, pages de test pleines de composants  (ajoute en cours de route)
-- [ ] W5 editeur 3D refait avec bouton de reglage auto
-- [ ] Brancher l'optimiseur GLB et optimiser les modeles de la dev
-- [ ] Retirer l'heritage (Sketchfab, champs viewer legacy, CssVarsPanel)
+- [ ] Fusionner W4a, W4b, W5 et verifier
+- [ ] Ajouter les traductions du viewer (14 cles W2)
+- [ ] Retirer l'heritage (Sketchfab, champs viewer legacy, colonnes mortes)
 - [ ] Passe navigateur desktop / tablette / telephone
 - [ ] Audit design a l'aveugle (agent sans contexte)
 - [ ] Corrections de l'audit
-- [ ] Verifier SEO / robots / llms.txt sur le build servi par Express  (ajoute en cours de route)
+- [ ] Verifier SEO / robots / llms.txt sur le build servi par Express
+- [ ] Tester une vraie sauvegarde admin (inspecteur, bento, editeur 3D)
+- [ ] Mettre a jour CLAUDE.md / SETUP.md (etat constate)
 
 ## Bloque
 
@@ -26,4 +25,8 @@ Maj 01:40 - 6/20
 - [x] Cartographier le code et auditer le site (4 audits croises + passe visuelle)
 - [x] Rechercher ce qu'offrent les portfolios 3D pro
 - [x] Phase 0 : branche overhaul, 87 Mo d'assets morts retires, deps nettoyees, routes lazy
-- [x] Contrats partages : types, plan, dependances pre-installees
+- [x] Contrats partages : types, plan, dependances pre-installees, tokens du site
+- [x] W1 serveur : modules, zod, CSP, cache, publication, ordre, SEO + robots + sitemap + llms.txt
+- [x] W3 edition : barre d'edition, inspecteur, brouillons, undo/redo, mediatheque, /settings
+- [x] W2 coeur 3D : chargement paresseux, poster, rendu a la demande, modes rendu/fil de fer/argile, reglage auto, optimiseur (22 Mo -> 0.9 Mo)
+- [x] Uploads acceptes en dev (base + fichiers locaux)
