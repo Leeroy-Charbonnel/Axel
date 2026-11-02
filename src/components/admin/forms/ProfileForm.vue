@@ -106,8 +106,9 @@ const INTERESTS: { key: keyof ProfileDto["interests"]; labelKey: string }[] = [
         :label="t('fieldCv')"
         accept="document"
         :url="p.cvUrl"
-        @pick="(f) => set({ cvUrl: f.url })"
-        @clear="set({ cvUrl: null })"
+        :hint="t('fieldCvHint')"
+        @pick="(f) => set({ cvUrl: f.url, cvFileId: f.id })"
+        @clear="set({ cvUrl: null, cvFileId: null })"
       />
     </section>
   </div>

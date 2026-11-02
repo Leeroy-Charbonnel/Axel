@@ -19,16 +19,25 @@ export interface MediaFile {
 }
 
 //REGISTRY of the file types: filter chips, upload accept attribute, detection
-export const MEDIA_TYPES: { type: MediaType; labelKey: string; accept: string; test: (f: Pick<MediaFile, "originalFilename" | "mimeType">) => boolean }[] = [
-  { type: "image",    labelKey: "mediaTypeImage",    accept: "image/*",                 test: (f) => f.mimeType.startsWith("image/") && !/\.(hdr|exr)$/i.test(f.originalFilename) },
-  { type: "video",    labelKey: "mediaTypeVideo",    accept: "video/*",                 test: (f) => f.mimeType.startsWith("video/") },
-  { type: "model",    labelKey: "mediaTypeModel",    accept: ".glb,.gltf",              test: (f) => /\.(glb|gltf)$/i.test(f.originalFilename) },
-  { type: "hdr",      labelKey: "mediaTypeHdr",      accept: ".hdr,.exr,.hdri",         test: (f) => /\.(hdr|exr|hdri)$/i.test(f.originalFilename) },
-  { type: "document", labelKey: "mediaTypeDocument", accept: ".pdf,application/pdf",    test: (f) => f.mimeType === "application/pdf" || /\.pdf$/i.test(f.originalFilename) },
+type FileFacts = Pick<MediaFile, "originalFilename" | "mimeType">
+
+//uploadPath: a PDF is only accepted as the CV, which its route attaches to the profile
+export const MEDIA_TYPES: { type: MediaType; labelKey: string; accept: string; uploadPath: string; test: (f: FileFacts) => boolean }[] = [
+  { type: "image",    labelKey: "mediaTypeImage",    accept: "image/*",              uploadPath: "/api/files",      test: (f) => f.mimeType.startsWith("image/") && !/\.(hdr|exr|hdri)$/i.test(f.originalFilename) },
+  { type: "video",    labelKey: "mediaTypeVideo",    accept: "video/*",              uploadPath: "/api/files",      test: (f) => f.mimeType.startsWith("video/") },
+  { type: "model",    labelKey: "mediaTypeModel",    accept: ".glb,.gltf",           uploadPath: "/api/files",      test: (f) => /\.(glb|gltf)$/i.test(f.originalFilename) },
+  { type: "hdr",      labelKey: "mediaTypeHdr",      accept: ".hdr,.exr,.hdri",      uploadPath: "/api/files",      test: (f) => /\.(hdr|exr|hdri)$/i.test(f.originalFilename) },
+  { type: "document", labelKey: "mediaTypeDocument", accept: ".pdf,application/pdf", uploadPath: "/api/profile/cv", test: (f) => f.mimeType === "application/pdf" || /\.pdf$/i.test(f.originalFilename) },
 ]
 
-export function mediaTypeOf(f: Pick<MediaFile, "originalFilename" | "mimeType">): MediaType | null {
+export function mediaTypeOf(f: FileFacts): MediaType | null {
   return MEDIA_TYPES.find((t) => t.test(f))?.type ?? null
+}
+
+//a file of no known type goes to the general route, which answers why it refuses it
+function uploadPathFor(f: File): string {
+  const type = mediaTypeOf({ originalFilename: f.name, mimeType: f.type })
+  return MEDIA_TYPES.find((t) => t.type === type)?.uploadPath ?? "/api/files"
 }
 
 export function acceptFor(type: MediaType | null): string | undefined {
@@ -58,7 +67,7 @@ async function upload(list: File[]): Promise<MediaFile[]> {
   uploading.value = true
   const ids: string[] = []
   try {
-    for (const f of list) ids.push((await uploadFile(f)).id)
+    for (const f of list) ids.push((await uploadFile(f, uploadPathFor(f))).id)
   } catch (e) {
     console.error("[media] upload stopped:", e)
   } finally {

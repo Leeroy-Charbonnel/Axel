@@ -68,21 +68,5 @@ export function useTranslations() {
     await loadLang(lang.value)
   }
 
-  //bulk-upsert helper for composables that seed their own descriptions
-  async function upsertMany(translations: Record<string, Record<string, string>>) {
-    const res = await fetch("/api/translations", {
-      method:      "PUT",
-      credentials: "include",
-      headers:     { "Content-Type": "application/json" },
-      body:        JSON.stringify(translations),
-    })
-    if (!res.ok) {
-      console.warn(`[useTranslations] upsert failed (${res.status})`)
-      return
-    }
-    //refresh local cache so the new keys appear immediately
-    await reload()
-  }
-
-  return { t, reload, upsertMany }
+  return { t, reload }
 }

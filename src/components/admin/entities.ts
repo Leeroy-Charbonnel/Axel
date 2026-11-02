@@ -15,7 +15,7 @@ export interface EntityOf {
 
 //file ids travel next to the url the page renders: the DTO only carries urls
 interface ExtraOf {
-  profile:     object
+  profile:     { cvFileId: string | null }
   mainProject: { mainImageFileId: string | null; mainWireframeFileId: string | null }
   galleryItem: { imageFileId: string | null }
   experience:  object
@@ -71,10 +71,11 @@ export const KINDS: { [K in EntityKind]: KindDef<K> } = {
     list:       (data) => [data.profile ?? EMPTY_PROFILE],
     idOf:       () => null,
     title:      (p) => p.name,
-    linked:     {},
+    linked:     { cvFileId: "cvUrl" },
     collection: null,
     save: async (_id, patch) => {
-      const body: Record<string, unknown> = { ...patch }
+      const { cvUrl: _cv, ...rest } = patch
+      const body: Record<string, unknown> = { ...rest }
       if (patch.interests) body.interests = { games: nonEmpty(patch.interests.games), art: nonEmpty(patch.interests.art) }
       await apiJson("PUT", "/api/profile", body)
     },

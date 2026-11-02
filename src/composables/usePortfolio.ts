@@ -127,10 +127,11 @@ export interface UploadedFile {
   mimeType:         string
 }
 
-export async function uploadFile(file: File): Promise<UploadedFile> {
+//path: the CV has a route of its own (PDF only, attached to the profile on arrival)
+export async function uploadFile(file: File, path = "/api/files"): Promise<UploadedFile> {
   const fd = new FormData()
   fd.append("file", file)
-  const res = await fetch("/api/files", { method: "POST", credentials: "include", body: fd })
+  const res = await fetch(path, { method: "POST", credentials: "include", body: fd })
   if (!res.ok) {
     const reason = await failureReason(res)
     toast.error(reason, `${file.name} (${res.status})`)
