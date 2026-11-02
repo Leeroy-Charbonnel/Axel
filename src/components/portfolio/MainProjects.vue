@@ -1,17 +1,16 @@
 <script setup lang="ts">
 import { useLanguage } from "../../composables/useLanguage"
 import { useIsPhone } from "../../composables/useIsPhone"
-import { usePortfolio } from "../../composables/usePortfolio"
 import AnimatedReveal from "./AnimatedReveal.vue"
 import MainProject from "./MainProject.vue"
 import MainProjectPhone from "./MainProjectPhone.vue"
-import AddButton from "./AddButton.vue"
+import SectionAddButton from "../admin/SectionAddButton.vue"
 import type { MainProjectDto } from "../../types/portfolio"
 
 defineProps<{ projects: MainProjectDto[] }>()
 
 const { t } = useLanguage()
-const { createMainProject } = usePortfolio()
+
 const { isPhone } = useIsPhone()
 </script>
 
@@ -49,7 +48,7 @@ const { isPhone } = useIsPhone()
       />
 
       <div class="container main-projects-section__add">
-        <AddButton label="Add main project" @click="createMainProject" />
+        <SectionAddButton kind="mainProject" />
       </div>
     </div>
   </section>

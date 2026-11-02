@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from "vue"
 import { useLanguage } from "../../composables/useLanguage"
-import { useAdmin } from "../../composables/useAdmin"
+import { useEditor } from "../../composables/useEditor"
 import { usePortfolio } from "../../composables/usePortfolio"
 import AnimatedReveal from "./AnimatedReveal.vue"
 import EditableText from "./EditableText.vue"
@@ -11,7 +11,7 @@ import type { ProfileDto } from "../../types/portfolio"
 const props = defineProps<{ profile: ProfileDto }>()
 
 const { t, lang } = useLanguage()
-const { editMode } = useAdmin()
+const { editMode } = useEditor()
 const { replaceImage, updateProfile } = usePortfolio()
 
 //arrays editing: one line per item, save splits on newlines, joins back for view

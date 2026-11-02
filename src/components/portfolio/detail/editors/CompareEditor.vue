@@ -1,16 +1,16 @@
 <script setup lang="ts">
 import { Upload } from "lucide-vue-next"
-import { useBlockUpload } from "../useBlockUpload"
+import { useMediaLibrary } from "../../../admin/media/useMediaLibrary"
 import BilingualInput from "./BilingualInput.vue"
 import type { CompareBlockContent } from "../../../../types/portfolio"
 
 const props = defineProps<{ content: CompareBlockContent }>()
 const emit = defineEmits<{ (e: "dirty"): void; (e: "structural"): void }>()
 
-const { uploading, pickAndUpload } = useBlockUpload()
+const { uploading, pickMedia } = useMediaLibrary()
 
 async function onPick(side: "before" | "after") {
-  const [row] = await pickAndUpload("image/*")
+  const [row] = await pickMedia({ accept: "image" })
   if (!row) return
   emit("structural")
   if (side === "before") { props.content.beforeFileId = row.id; props.content.beforeUrl = row.url }

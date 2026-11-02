@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { X } from "lucide-vue-next"
-import { useAdmin } from "../../composables/useAdmin"
+import { useEditor } from "../../composables/useEditor"
 
 //Small "x" button positioned top-right of an editable list item. Only rendered
 //when edit mode is on. Click triggers @click; parent decides whether to confirm
@@ -9,7 +9,7 @@ import { useAdmin } from "../../composables/useAdmin"
 defineProps<{ label?: string }>()
 defineEmits<{ click: [] }>()
 
-const { editMode } = useAdmin()
+const { editMode } = useEditor()
 </script>
 
 <template>

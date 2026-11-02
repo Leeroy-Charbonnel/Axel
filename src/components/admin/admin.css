@@ -1,0 +1,121 @@
+/*EDITOR PRIMITIVES - shared by the edit bar, the inspector, the fields, the
+media library and the settings page. Interactive controls are at least one
+touch target tall; hover, focus and errors only change colours or shadows.*/
+
+.ed-input {
+  width: 100%;
+  min-height: var(--editor-target);
+  padding: var(--spacing-xs) var(--spacing-sm);
+  font: inherit;
+  font-size: var(--font-size-sm);
+  color: var(--editor-text);
+  background-color: var(--editor-input-bg);
+  border: var(--border-width) solid var(--editor-line);
+  transition: border-color var(--transition-fast) ease, box-shadow var(--transition-fast) ease;
+}
+.ed-input:hover { border-color: var(--editor-text-muted); }
+.ed-input:focus-visible {
+  outline: none;
+  border-color: var(--editor-accent);
+  box-shadow: var(--editor-focus);
+}
+.ed-input[aria-invalid="true"] { border-color: var(--editor-danger); }
+textarea.ed-input { resize: vertical; line-height: 1.5; }
+select.ed-input { cursor: pointer; }
+
+.ed-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-xs);
+  min-height: var(--editor-target);
+  min-width: var(--editor-target);
+  padding: 0 var(--spacing-sm);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  letter-spacing: var(--letter-spacing-tight);
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: var(--editor-text);
+  background-color: transparent;
+  border: var(--border-width) solid var(--editor-line);
+  cursor: pointer;
+  transition: border-color var(--transition-fast) ease, background-color var(--transition-fast) ease, color var(--transition-fast) ease;
+}
+.ed-btn:hover:not(:disabled) { border-color: var(--editor-text); }
+.ed-btn:focus-visible { outline: none; box-shadow: var(--editor-focus); }
+.ed-btn:disabled { opacity: var(--vsui-disabled-opacity); cursor: not-allowed; }
+.ed-btn--primary {
+  color: var(--editor-on-accent);
+  background-color: var(--editor-accent);
+  border-color: var(--editor-accent);
+}
+.ed-btn--primary:hover:not(:disabled) {
+  background-color: var(--editor-accent-hover);
+  border-color: var(--editor-accent-hover);
+}
+.ed-btn--ghost { border-color: transparent; }
+.ed-btn--ghost:hover:not(:disabled) { border-color: transparent; background-color: var(--editor-surface-raised); }
+.ed-btn--danger { color: var(--editor-danger); }
+.ed-btn--danger:hover:not(:disabled) { border-color: var(--editor-danger); }
+.ed-btn--icon { padding: 0; }
+.ed-btn--active {
+  color: var(--editor-accent);
+  border-color: var(--editor-accent);
+}
+
+.ed-label {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  text-transform: uppercase;
+  letter-spacing: var(--letter-spacing-normal);
+  color: var(--editor-text-muted);
+}
+.ed-hint  { font-size: var(--font-size-xs); color: var(--editor-text-muted); }
+.ed-error { font-size: var(--font-size-xs); color: var(--editor-danger); }
+
+/*FORMS - a form is a column of titled sections*/
+.ed-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xl);
+}
+.ed-form__section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+}
+.ed-form__title {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-bold);
+  text-transform: uppercase;
+  letter-spacing: var(--letter-spacing-normal);
+  color: var(--editor-text);
+  padding-bottom: var(--spacing-xxs);
+  border-bottom: var(--border-width) solid var(--editor-line);
+}
+.ed-form__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--spacing-sm);
+}
+.ed-form__link {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  min-height: var(--editor-target);
+  font-size: var(--font-size-xs);
+  text-transform: uppercase;
+  letter-spacing: var(--letter-spacing-tight);
+  color: var(--editor-accent);
+}
+.ed-form__link:hover { text-decoration: underline; }
+.ed-form__link:focus-visible { outline: none; box-shadow: var(--editor-focus); }
+
+/*DRAG HANDLE - pointer drag on mouse, pen and touch, arrows on the keyboard*/
+.ed-handle {
+  touch-action: none;
+  cursor: grab;
+  color: var(--editor-text-muted);
+}
+.ed-handle:active { cursor: grabbing; }

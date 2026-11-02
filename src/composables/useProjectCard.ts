@@ -1,5 +1,5 @@
 import { computed, ref, watch, type Ref } from "vue"
-import { useAdmin } from "./useAdmin"
+import { useEditor } from "./useEditor"
 import { useEffectiveViewerSettings, useResolvedGlbUrl } from "./useEffectiveViewerSettings"
 import { useLanguage } from "./useLanguage"
 import { useLightbox } from "./useLightbox"
@@ -20,7 +20,7 @@ import type { MainProjectDto, ThumbnailDto } from "../types/portfolio"
 
 export function useProjectCard(project: Ref<MainProjectDto>, opts: { mobile?: boolean } = {}) {
   const { lang }     = useLanguage()
-  const { editMode } = useAdmin()
+  const { editMode } = useEditor()
   const { data: portfolioData, updateMainProject } = usePortfolio()
   const { open: openLightbox } = useLightbox()
 

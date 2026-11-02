@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import { useToast } from "../composables/useToast"
 import { X } from "lucide-vue-next"
+import { useTranslations } from "../composables/useTranslations"
 
 const { toasts, dismiss } = useToast()
+const { t } = useTranslations()
 </script>
 
 <template>
@@ -22,7 +24,7 @@ const { toasts, dismiss } = useToast()
           <button
             class="vsui-toast__close"
             type="button"
-            aria-label="Dismiss"
+            :aria-label="t('toastDismiss')"
             @click="dismiss(toast.id)"
           >
             <X :size="14" />
@@ -96,7 +98,7 @@ const { toasts, dismiss } = useToast()
 @media (max-width: 720px) {
   .vsui-toast-host {
     top: auto;
-    bottom: calc(var(--vsui-nav-height-mobile) + var(--vsui-space-lg));
+    bottom: calc(var(--vsui-nav-height-mobile) + var(--vsui-space-lg) + var(--editor-bar-offset));
     left:  var(--vsui-space-lg);
     right: var(--vsui-space-lg);
     max-width: none;

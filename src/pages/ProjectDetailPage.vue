@@ -20,8 +20,7 @@ import {
   Type,
 } from "lucide-vue-next"
 import { useLanguage } from "../composables/useLanguage"
-import { useAdmin } from "../composables/useAdmin"
-import { useAdminActions } from "../composables/useAdminActions"
+import { useEditor } from "../composables/useEditor"
 import { usePortfolio } from "../composables/usePortfolio"
 import { pickBilingual as pickBi } from "../lib/markdown"
 import DetailBlockRenderer from "../components/portfolio/detail/DetailBlockRenderer.vue"
@@ -75,7 +74,8 @@ import type {
 const route  = useRoute()
 const router = useRouter()
 const { lang }   = useLanguage()
-const { editMode } = useAdmin()
+const editor = useEditor()
+const { editMode } = editor
 //All data flows through the shared portfolio cache - this page used to
 //refetch /api/portfolio by hand, which bypassed (and desynced) the cache
 //every other section reads.
@@ -85,8 +85,6 @@ const projectId   = computed(() => parseInt(String(route.params.id ?? ""), 10))
 const project     = ref<MainProjectDto | null>(null)
 const loading     = ref(true)
 const loadError   = ref<string | null>(null)
-const saving      = ref(false)
-const status      = ref("")
 
 const projectTitle = computed(() => pickBi(project.value?.title, lang.value))
 //Zero-padded position of this project in the portfolio order - the big
@@ -512,8 +510,12 @@ function syncFromPortfolio() {
   if (!p) { loadError.value = "Project not found"; return }
   project.value = p
   blocks.value  = (p.detailPage?.blocks ?? []).map((b) => ({ ...b, content: JSON.parse(JSON.stringify(b.content)) }))
+  savedJson.value = JSON.stringify(blocks.value)
   undoStack.value = []
 }
+
+//the blocks as last loaded or saved
+const savedJson = ref("[]")
 
 async function loadProject() {
   loading.value = true
@@ -557,32 +559,19 @@ function sanitizeContent(b: DetailBlock): DetailBlockContent {
   }
 }
 
+//SAVE goes through the edit bar: the page hands it save / discard / undo and
+//says whether its blocks differ from what was last saved. A failed request
+//has already toasted; it throws so the bar keeps the page dirty.
+const dirty   = computed(() => JSON.stringify(blocks.value) !== savedJson.value)
+const canUndo = computed(() => undoStack.value.length > 0)
+
 async function onSave() {
-  if (saving.value) return
-  saving.value = true
-  status.value = "Saving..."
-  //edits made while the request is in
-  //flight re-set it (and re-schedule an autosave), so nothing is lost.
+  const sent = JSON.stringify(blocks.value)
   const payload: DetailPage = {
     blocks: blocks.value.map((b) => ({ ...b, content: sanitizeContent(b) })),
   }
-  try {
-    //updateMainProject reloads the shared cache on success, so every
-    //other section (MainProject cards etc.) sees the new blocks too.
-    //We deliberately do NOT resync the local blocks / undo stack here:
-    //with autosave, Ctrl+Z must keep working across saves (undoing past
-    //a save is fine - the next autosave persists the undone state).
-    await updateMainProject(projectId.value, { detailPage: payload })
-    status.value = "Saved"
-    setTimeout(() => { if (status.value === "Saved") status.value = "" }, 1500)
-  } catch (e) {
-    status.value = `Save failed: ${(e as Error).message}`
-  } finally {
-    saving.value = false
-    //Save is always enabled, so an edit made during a save needs no flag: the
-    //next click sends it. The dirty ref that used to be set here was written in
-    //three places and read in none.
-  }
+  await updateMainProject(projectId.value, { detailPage: payload })
+  savedJson.value = sent
 }
 
 //===========================================================================
@@ -592,7 +581,7 @@ function uniqueId(): string {
 }
 //Per-type default content. viewer3d defaults model3dId to null so the
 //placeholder ("No model") shows and the user is forced through the
-//ModelPicker before publish. Video defaults to gif-style playback.
+//ModelField before publish. Video defaults to gif-style playback.
 const DEFAULT_CONTENT: Record<DetailBlockType, () => DetailBlockContent> = {
   text:      () => ({ text: { en: "", fr: "" } }),
   heading:   () => ({ text: { en: "Section", fr: "Section" } }),
@@ -647,44 +636,28 @@ function goBack() {
 }
 
 //===========================================================================
-//KEYBOARD - Delete / Backspace removes the selected block; Ctrl/Cmd+Z
-//pops the undo stack; Ctrl/Cmd+S saves. We ignore the event when focus
-//is in an input or textarea so the user can type normally in those
-//(except Ctrl+S which should save from anywhere).
+//KEYBOARD - Delete / Backspace removes the selected block, outside text
+//fields. Ctrl+S and Ctrl+Z belong to the editor, which calls back in here.
 function onKeyDown(e: KeyboardEvent) {
   if (!editMode.value) return
-  if ((e.ctrlKey || e.metaKey) && (e.key === "s" || e.key === "S")) {
-    e.preventDefault()
-    if (!saving.value) void onSave()
-    return
-  }
   const t = e.target as HTMLElement | null
   if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)) return
-  if ((e.ctrlKey || e.metaKey) && (e.key === "z" || e.key === "Z")) {
-    e.preventDefault()
-    undo()
-    return
-  }
   if ((e.key === "Delete" || e.key === "Backspace") && selectedId.value) {
     e.preventDefault()
     removeSelected()
   }
 }
 
-//SAVE lives in the fixed admin cluster (left of the read/edit toggle) -
-//the page registers its action + state there instead of rendering its
-//own header button.
-const { registerSave, unregisterSave } = useAdminActions()
+const unregisterActions = editor.registerPageActions({ save: onSave, discard: syncFromPortfolio, dirty, undo, canUndo })
 
 onMounted(() => {
   loadProject()
   window.addEventListener("keydown", onKeyDown)
-  registerSave({ saving, run: () => { void onSave() } })
 })
 onBeforeUnmount(() => {
   detachDocumentListeners()
   window.removeEventListener("keydown", onKeyDown)
-  unregisterSave()
+  unregisterActions()
 })
 </script>
 
@@ -697,7 +670,6 @@ onBeforeUnmount(() => {
       </button>
       <span class="detail-page__index" aria-hidden="true">{{ projectIndex }}</span>
       <h1 class="detail-page__title">{{ projectTitle }}</h1>
-      <span v-if="editMode" class="detail-page__status">{{ status }}</span>
     </header>
 
     <div class="detail-page__body">
@@ -932,11 +904,6 @@ accent square next to the title is the only colored element.=====*/
   margin: 0;
   color: var(--color-text-hover);
 }
-.detail-page__status {
-  font-size: var(--font-size-xs);
-  color: var(--color-text-tertiary);
-  font-family: ui-monospace, "Cascadia Code", "Fira Code", monospace;
-}
 /*===== BODY ===============================================================*/
 /*EDIT MODE is a fullscreen app layout: the page locks to the viewport
 and the grid + panel become two INDEPENDENT scroll areas, so the editor
@@ -944,7 +911,7 @@ tools never leave the screen no matter how far the grid scrolls.
 (position:sticky was defeated by the global overflow-x:hidden on body -
 an ancestor with any overflow kills sticky, hence this layout instead.)*/
 .detail-page--edit {
-  height: 100vh;
+  height: calc(100vh - var(--editor-bar-offset));
   overflow: hidden;
 }
 .detail-page__body {

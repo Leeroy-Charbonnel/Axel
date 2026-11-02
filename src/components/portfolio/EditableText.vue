@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { onMounted, ref, watch } from "vue"
-import { useAdmin } from "../../composables/useAdmin"
+import { useEditor } from "../../composables/useEditor"
 
 //WYSIWYG text editor. Renders the same tag the parent would have rendered
 //(h1/h3/span/p/etc.) so the DOM stays identical between view and edit modes.
@@ -21,7 +21,7 @@ const props = withDefaults(defineProps<Props>(), {
 })
 
 const emit = defineEmits<{ save: [value: string] }>()
-const { editMode } = useAdmin()
+const { editMode } = useEditor()
 const root = ref<HTMLElement | null>(null)
 
 onMounted(() => {

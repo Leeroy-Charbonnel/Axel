@@ -1,12 +1,14 @@
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted, ref, watch } from "vue"
 import { useConfirm } from "../composables/useConfirm"
+import { useTranslations } from "../composables/useTranslations"
 
 //THE ONE CONFIRMATION IN THE APP. Mounted once in App.vue; every caller goes
 //through useConfirm().confirm(). Nothing else in the project should build a
 //confirmation of its own.
 
 const { open, request, accept, dismiss } = useConfirm()
+const { t } = useTranslations()
 
 const confirmButton = ref<HTMLButtonElement | null>(null)
 
@@ -46,7 +48,7 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onKeydown))
           <p v-if="request.what" class="confirm__what">{{ request.what }}</p>
 
           <div class="confirm__actions">
-            <button type="button" class="confirm__cancel" @click="dismiss">Cancel</button>
+            <button type="button" class="confirm__cancel" @click="dismiss">{{ t("confirmCancel") }}</button>
             <button
               ref="confirmButton"
               type="button"

@@ -1,15 +1,14 @@
 import { ref } from "vue"
 import { useToast } from "./useToast"
 import type { PortfolioDto } from "../types/portfolio"
-import { pickImageFile } from "../lib/portfolio-utils"
+import { useMediaLibrary } from "../components/admin/media/useMediaLibrary"
 
 //SHARED portfolio state - one fetch per page load, cached in module scope so
 //every section component reads the same ref. No silent fallback: on error we
 //set `error` and surface it via console.error (per project rule #4).
 //
-//Mutation helpers wrap the admin API. They optimistically refresh local state
-//by re-fetching the whole portfolio after a successful write - simpler than
-//maintaining patched local copies and the payload stays small.
+//Mutation helpers wrap the admin API and re-fetch the whole portfolio after a
+//successful write, so the next render reflects DB truth.
 
 const data    = ref<PortfolioDto | null>(null)
 const loading = ref(false)
@@ -88,17 +87,24 @@ async function reload() {
   await fetchPortfolio()
 }
 
-//ADMIN MUTATIONS - every call is gated by the server's requireAdmin middleware.
-//we re-fetch after success so the next render reflects DB truth (including any
-//server-side denormalization like file ids -> media URLs).
-
-//Every admin mutation funnels through apiJson / uploadFile, so surfacing
-//failures HERE (toast + throw) means no call site can silently swallow a
-//failed write (project rule #4). Callers may still catch to keep their own
-//UI state consistent; the user has already seen the toast by then.
+//ADMIN API. Every write funnels through apiJson / uploadFile, which toast the
+//server's own reason and throw, so no call site can swallow a failed write.
 const toast = useToast()
 
-async function apiJson(method: string, path: string, body?: unknown): Promise<any> {
+//the server answers { error } on a refusal; a plain text body is shown as is
+async function failureReason(res: Response): Promise<string> {
+  const text = await res.text()
+  try {
+    const body = JSON.parse(text) as { error?: unknown; message?: unknown }
+    const reason = body.error ?? body.message
+    if (typeof reason === "string" && reason) return reason
+  } catch {
+    //not JSON: the text itself is the reason
+  }
+  return text || res.statusText
+}
+
+export async function apiJson<T = unknown>(method: string, path: string, body?: unknown): Promise<T> {
   const res = await fetch(path, {
     method,
     credentials: "include",
@@ -106,58 +112,59 @@ async function apiJson(method: string, path: string, body?: unknown): Promise<an
     body:    body !== undefined ? JSON.stringify(body) : undefined,
   })
   if (!res.ok) {
-    const txt = await res.text().catch(() => "")
-    toast.error(`${method} ${path} failed (${res.status})`)
-    throw new Error(`${method} ${path} -> ${res.status} ${txt}`)
+    const reason = await failureReason(res)
+    toast.error(reason, `${method} ${path} (${res.status})`)
+    throw new Error(`${method} ${path} -> ${res.status} ${reason}`)
   }
-  return res.json()
+  if (res.status === 204) return null as T
+  return res.json() as Promise<T>
 }
 
-//FILE UPLOAD - returns { id, url, ... } on success. multipart, no JSON.
-async function uploadFile(file: File): Promise<{ id: string; url: string }> {
+export interface UploadedFile {
+  id:               string
+  url:              string
+  originalFilename: string
+  mimeType:         string
+}
+
+export async function uploadFile(file: File): Promise<UploadedFile> {
   const fd = new FormData()
   fd.append("file", file)
   const res = await fetch("/api/files", { method: "POST", credentials: "include", body: fd })
   if (!res.ok) {
-    toast.error(`Upload of "${file.name}" failed (${res.status})`)
-    throw new Error(`upload failed: ${res.status}`)
+    const reason = await failureReason(res)
+    toast.error(reason, `${file.name} (${res.status})`)
+    throw new Error(`upload of ${file.name} failed: ${res.status} ${reason}`)
   }
   return res.json()
 }
 
-//REPLACE-IMAGE flow shared by every admin "replace picture" button:
-//native picker -> upload -> apply the patch. Cancelling the picker is a
-//no-op; upload/patch failures already toast via uploadFile/apiJson.
+//REPLACE-IMAGE flow of the remaining inline home editing: media library, then
+//apply the patch. Cancelling is a no-op; failures have already toasted.
 async function replaceImage(label: string, apply: (fileId: string, url: string) => Promise<void>): Promise<void> {
-  const picked = await pickImageFile()
+  const [picked] = await useMediaLibrary().pickMedia({ accept: "image" })
   if (!picked) return
   try {
-    const uploaded = await uploadFile(picked)
-    await apply(uploaded.id, uploaded.url)
+    await apply(picked.id, picked.url)
   } catch (e) {
     console.error(`[usePortfolio] replace ${label} failed:`, e)
   }
 }
 
 //MAIN PROJECT mutations
-async function createMainProject() { await apiJson("POST", "/api/main-project"); await reload() }
 async function updateMainProject(id: number, patch: Record<string, unknown>) { await apiJson("PUT", `/api/main-project/${id}`, patch); await reload() }
 async function deleteMainProject(id: number) { await apiJson("DELETE", `/api/main-project/${id}`); await reload() }
 async function setMainProjectSoftware(id: number, softwareIds: number[]) { await apiJson("PUT", `/api/main-project/${id}/software`, { softwareIds }); await reload() }
 
 //GALLERY PROJECT mutations
-async function createGalleryProject() { await apiJson("POST", "/api/gallery-project"); await reload() }
 async function updateGalleryProject(id: number, patch: Record<string, unknown>) { await apiJson("PUT", `/api/gallery-project/${id}`, patch); await reload() }
 async function deleteGalleryProject(id: number) { await apiJson("DELETE", `/api/gallery-project/${id}`); await reload() }
 
 //EXPERIENCE mutations
-async function createExperience() { await apiJson("POST", "/api/experience"); await reload() }
 async function updateExperience(id: number, patch: Record<string, unknown>) { await apiJson("PUT", `/api/experience/${id}`, patch); await reload() }
 async function deleteExperience(id: number) { await apiJson("DELETE", `/api/experience/${id}`); await reload() }
 
-//SOFTWARE mutations - create is multipart (logo upload + key + url in one
-//round-trip). Update / delete are regular JSON. Delete on the server also
-//removes the logo file when no other software references it.
+//SOFTWARE mutations - create is multipart (logo + key + url in one request)
 async function createSoftware(logo: File, key: string, url: string) {
   const fd = new FormData()
   fd.append("logo", logo)
@@ -165,8 +172,9 @@ async function createSoftware(logo: File, key: string, url: string) {
   fd.append("url", url)
   const res = await fetch("/api/software", { method: "POST", credentials: "include", body: fd })
   if (!res.ok) {
-    const txt = await res.text().catch(() => "")
-    throw new Error(`POST /api/software -> ${res.status} ${txt}`)
+    const reason = await failureReason(res)
+    toast.error(reason, `POST /api/software (${res.status})`)
+    throw new Error(`POST /api/software -> ${res.status} ${reason}`)
   }
   await reload()
 }
@@ -174,17 +182,14 @@ async function createSoftware(logo: File, key: string, url: string) {
 async function updateSoftware(id: number, patch: Record<string, unknown>) { await apiJson("PUT", `/api/software/${id}`, patch); await reload() }
 async function deleteSoftware(id: number) { await apiJson("DELETE", `/api/software/${id}`); await reload() }
 
-//3D MODEL mutations - file upload happens first (regular /api/files),
-//then the model row gets created with the resulting file ids. The
-//thumbnail is optional; an empty default view ("Default") is seeded
-//so the project picker has something to point at on day one.
-async function createModel(name: string, glbFile: File, thumbnailFile: File | null): Promise<{ id: string }> {
-  const glb       = await uploadFile(glbFile)
-  const thumbnail = thumbnailFile ? await uploadFile(thumbnailFile) : null
-  const row = await apiJson("POST", "/api/models", {
+//3D MODEL mutations - both files are already in the file table (picked from
+//the media library). A "Default" view is seeded so the project picker has
+//something to point at on day one.
+async function createModel(name: string, glbFileId: string, thumbnailFileId: string): Promise<{ id: string }> {
+  const row = await apiJson<{ id: string }>("POST", "/api/models", {
     name,
-    glbFileId:       glb.id,
-    thumbnailFileId: thumbnail?.id ?? null,
+    glbFileId,
+    thumbnailFileId,
     views: [{
       name:      "Default",
       position:  [5, 5, 5],
@@ -195,7 +200,6 @@ async function createModel(name: string, glbFile: File, thumbnailFile: File | nu
   await reload()
   return row
 }
-async function updateModel(id: string, patch: Record<string, unknown>) { await apiJson("PUT", `/api/models/${id}`, patch); await reload() }
 async function deleteModel(id: string) { await apiJson("DELETE", `/api/models/${id}`); await reload() }
 
 //PROFILE mutation (singleton)
@@ -207,12 +211,12 @@ export function usePortfolio() {
   }
   return {
     data, loading, loaded, error, reload,
-    uploadFile, replaceImage,
-    createMainProject, updateMainProject, deleteMainProject, setMainProjectSoftware,
-    createGalleryProject, updateGalleryProject, deleteGalleryProject,
-    createExperience, updateExperience, deleteExperience,
+    replaceImage,
+    updateMainProject, deleteMainProject, setMainProjectSoftware,
+    updateGalleryProject, deleteGalleryProject,
+    updateExperience, deleteExperience,
     createSoftware, updateSoftware, deleteSoftware,
-    createModel, updateModel, deleteModel,
+    createModel, deleteModel,
     updateProfile,
   }
 }

@@ -1,15 +1,15 @@
 <script setup lang="ts">
 import { Upload } from "lucide-vue-next"
-import { useBlockUpload } from "../useBlockUpload"
+import { useMediaLibrary } from "../../../admin/media/useMediaLibrary"
 import type { VideoBlockContent } from "../../../../types/portfolio"
 
 const props = defineProps<{ content: VideoBlockContent }>()
 const emit = defineEmits<{ (e: "dirty"): void; (e: "structural"): void }>()
 
-const { uploading, pickAndUpload } = useBlockUpload()
+const { uploading, pickMedia } = useMediaLibrary()
 
 async function onPick() {
-  const [row] = await pickAndUpload("video/*")
+  const [row] = await pickMedia({ accept: "video" })
   if (!row) return
   emit("structural")
   props.content.fileId = row.id

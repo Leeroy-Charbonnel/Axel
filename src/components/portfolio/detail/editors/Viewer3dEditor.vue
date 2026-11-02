@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import ModelPicker from "../../ModelPicker.vue"
+import ModelField from "../../../admin/fields/ModelField.vue"
 import type { Viewer3dBlockContent } from "../../../../types/portfolio"
 
 const props = defineProps<{ content: Viewer3dBlockContent }>()
@@ -17,5 +17,5 @@ function apply(v: Viewer3dBlockContent) {
     mobile. Models + views are managed in Settings → 3D Models and per-model
     from the Views tab of the 3D editor.
   </p>
-  <ModelPicker :model-value="content" @update:model-value="apply" />
+  <ModelField label="3D" :model-value="content" @update:model-value="apply" />
 </template>

@@ -1,13 +1,13 @@
 <script setup lang="ts">
 import { ImagePlus } from "lucide-vue-next"
-import { useAdmin } from "../../composables/useAdmin"
+import { useEditor } from "../../composables/useEditor"
 
 //Floating "replace" overlay button shown on hover over an editable image.
 //Parent handles the actual file pick + upload via the click event.
 
 defineEmits<{ click: [] }>()
 
-const { editMode } = useAdmin()
+const { editMode } = useEditor()
 </script>
 
 <template>

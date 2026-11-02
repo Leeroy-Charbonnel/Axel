@@ -4,7 +4,10 @@ import ToastHost from "./components/ToastHost.vue"
 import ConfirmDialog from "./components/ConfirmDialog.vue"
 import { useLang } from "./composables/useLang"
 import SideNav      from "./components/portfolio/SideNav.vue"
-import AdminGear    from "./components/portfolio/AdminGear.vue"
+import EditBar      from "./components/admin/EditBar.vue"
+import Inspector    from "./components/admin/Inspector.vue"
+import MediaLibraryDialog from "./components/admin/media/MediaLibraryDialog.vue"
+import "./components/admin/admin.css"
 import CssVarsPanel from "./components/portfolio/CssVarsPanel.vue"
 import LightboxCarousel from "./components/portfolio/LightboxCarousel.vue"
 
@@ -37,8 +40,6 @@ const chromeFreeRoutes = ["/login", "/settings", "/sketchfab-howto", "/forgot-pa
       >
         {{ lang === 'en' ? 'EN / FR' : 'FR / EN' }}
       </button>
-
-      <AdminGear />
     </template>
 
     <main class="portfolio-app__main">
@@ -50,6 +51,10 @@ const chromeFreeRoutes = ["/login", "/settings", "/sketchfab-howto", "/forgot-pa
     <CssVarsPanel />
 
     <LightboxCarousel />
+
+    <EditBar />
+    <Inspector />
+    <MediaLibraryDialog />
 
     <ToastHost />
     <ConfirmDialog />

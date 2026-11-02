@@ -1,13 +1,13 @@
 <script setup lang="ts">
 import { Upload } from "lucide-vue-next"
-import { useBlockUpload } from "../useBlockUpload"
+import { useMediaLibrary } from "../../../admin/media/useMediaLibrary"
 import BilingualInput from "./BilingualInput.vue"
 import type { ImageBlockContent, ImageFit } from "../../../../types/portfolio"
 
 const props = defineProps<{ content: ImageBlockContent }>()
 const emit = defineEmits<{ (e: "dirty"): void; (e: "structural"): void }>()
 
-const { uploading, pickAndUpload } = useBlockUpload()
+const { uploading, pickMedia } = useMediaLibrary()
 
 const FITS: { value: ImageFit; label: string }[] = [
   { value: "cover",   label: "Cover - fill the block, crop overflow" },
@@ -17,7 +17,7 @@ const FITS: { value: ImageFit; label: string }[] = [
 ]
 
 async function onPick() {
-  const [row] = await pickAndUpload("image/*")
+  const [row] = await pickMedia({ accept: "image" })
   if (!row) return
   emit("structural")
   props.content.fileId = row.id

@@ -1,10 +1,9 @@
 <script setup lang="ts">
 import { useLanguage } from "../../composables/useLanguage"
-import { usePortfolio } from "../../composables/usePortfolio"
 import AnimatedReveal from "./AnimatedReveal.vue"
 import ExperienceItem from "./ExperienceItem.vue"
 import About from "./About.vue"
-import AddButton from "./AddButton.vue"
+import SectionAddButton from "../admin/SectionAddButton.vue"
 import type { ExperienceDto, ProfileDto } from "../../types/portfolio"
 
 defineProps<{
@@ -13,7 +12,6 @@ defineProps<{
 }>()
 
 const { t } = useLanguage()
-const { createExperience } = usePortfolio()
 </script>
 
 <template>
@@ -32,7 +30,7 @@ const { createExperience } = usePortfolio()
             :index="idx"
           />
 
-          <AddButton label="Add experience" @click="createExperience" />
+          <SectionAddButton kind="experience" />
         </div>
 
         <About :profile="profile" />

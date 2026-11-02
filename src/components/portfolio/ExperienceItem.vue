@@ -2,7 +2,7 @@
 import { computed } from "vue"
 import { Plus, X } from "lucide-vue-next"
 import { useLanguage } from "../../composables/useLanguage"
-import { useAdmin } from "../../composables/useAdmin"
+import { useEditor } from "../../composables/useEditor"
 import { usePortfolio } from "../../composables/usePortfolio"
 import AnimatedReveal from "./AnimatedReveal.vue"
 import EditableText from "./EditableText.vue"
@@ -13,7 +13,7 @@ import { useConfirm } from "../../composables/useConfirm"
 const props = defineProps<{ experience: ExperienceDto; index: number }>()
 
 const { lang } = useLanguage()
-const { editMode } = useAdmin()
+const { editMode } = useEditor()
 const { updateExperience, deleteExperience } = usePortfolio()
 const { confirm } = useConfirm()
 

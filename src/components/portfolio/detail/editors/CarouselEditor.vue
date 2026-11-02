@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Upload } from "lucide-vue-next"
-import { useBlockUpload } from "../useBlockUpload"
+import { useMediaLibrary } from "../../../admin/media/useMediaLibrary"
 import BilingualInput from "./BilingualInput.vue"
 import ItemCard from "./ItemCard.vue"
 import type { CarouselBlockContent } from "../../../../types/portfolio"
@@ -8,10 +8,10 @@ import type { CarouselBlockContent } from "../../../../types/portfolio"
 const props = defineProps<{ content: CarouselBlockContent }>()
 const emit = defineEmits<{ (e: "dirty"): void; (e: "structural"): void }>()
 
-const { uploading, pickAndUpload } = useBlockUpload()
+const { uploading, pickMedia } = useMediaLibrary()
 
 async function onAdd() {
-  const rows = await pickAndUpload("image/*", true)
+  const rows = await pickMedia({ accept: "image", multiple: true })
   if (!rows.length) return
   emit("structural")
   for (const row of rows) {

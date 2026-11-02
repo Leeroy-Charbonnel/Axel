@@ -2,7 +2,7 @@
 import { computed } from "vue"
 import { ExternalLink } from "lucide-vue-next"
 import { useLanguage } from "../../composables/useLanguage"
-import { useAdmin } from "../../composables/useAdmin"
+import { useEditor } from "../../composables/useEditor"
 import { useLightbox } from "../../composables/useLightbox"
 import { usePortfolio } from "../../composables/usePortfolio"
 import { formatNumber, statLetter, statName } from "../../lib/portfolio-utils"
@@ -10,15 +10,15 @@ import AnimatedReveal from "./AnimatedReveal.vue"
 import EditableText from "./EditableText.vue"
 import RemoveButton from "./RemoveButton.vue"
 import ReplaceImageButton from "./ReplaceImageButton.vue"
-import AddButton from "./AddButton.vue"
+import SectionAddButton from "../admin/SectionAddButton.vue"
 import type { GalleryProjectDto } from "../../types/portfolio"
 import { useConfirm } from "../../composables/useConfirm"
 
 const props = defineProps<{ projects: GalleryProjectDto[] }>()
 
 const { t, lang } = useLanguage()
-const { editMode } = useAdmin()
-const { replaceImage, updateGalleryProject, deleteGalleryProject, createGalleryProject } = usePortfolio()
+const { editMode } = useEditor()
+const { replaceImage, updateGalleryProject, deleteGalleryProject } = usePortfolio()
 
 //LIGHTBOX hookup - tapping any gallery card opens the carousel with the
 //FULL gallery list and starts at the clicked card's index.
@@ -211,7 +211,7 @@ function onReplaceImage(p: GalleryProjectDto) {
           </div>
         </AnimatedReveal>
 
-        <AddButton label="Add gallery item" @click="createGalleryProject" />
+        <SectionAddButton kind="galleryItem" />
       </div>
     </div>
   </section>

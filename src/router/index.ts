@@ -20,7 +20,7 @@ const router = createRouter({
     { path: "/edit-3d/:id([0-9a-fA-F-]+)", component: () => import("../pages/ModelEditorPage.vue"), meta: { requiresAdmin: true } },
 
     //Project detail page - serves BOTH the public read-only render and
-    //the bento-grid editor. Flipping useAdmin().editMode swaps the page
+    //the bento-grid editor. Flipping useEditor().editMode swaps the page
     //between view and edit modes (no separate /edit-detail route).
     { path: "/project/:id(\\d+)", component: () => import("../pages/ProjectDetailPage.vue") },
 
@@ -43,7 +43,7 @@ const router = createRouter({
 //deletes those accounts anyway.
 //
 //"/" and "/project/:id" stay public: the detail page serves the read-only render
-//to everyone and only turns into an editor when useAdmin().editMode is on, which
+//to everyone and only turns into an editor when useEditor().editMode is on, which
 //needs the session the API checks on every write.
 router.beforeEach(async (to) => {
   if (!to.meta.requiresAdmin) return true

@@ -1,5 +1,5 @@
-//PORTFOLIO utility functions - numeric formatting for the stat counters +
-//stat badge metadata + the shared native file picker.
+//PORTFOLIO utility functions - numeric formatting for the stat counters and
+//stat badge metadata.
 
 //Compact number formatter for the stat counters: 1234 -> "1k", 1500000 -> "2M".
 //No decimals - the gallery cards are narrow and we'd rather lose a bit of
@@ -34,17 +34,3 @@ export function statName(key: StatKey, lang: string): string {
   return STAT_NAMES[(lang as Lang)] ?.[key] ?? STAT_NAMES.en[key]
 }
 
-//Open the native file picker and resolve with the selected File (or null if cancelled).
-//Used by every admin "Replace image" button - no <input> element needs to live in the DOM.
-//The 'cancel' event (supported by every evergreen browser) makes the promise
-//settle on user-cancel instead of hanging forever.
-export function pickImageFile(): Promise<File | null> {
-  return new Promise((resolve) => {
-    const input = document.createElement("input")
-    input.type   = "file"
-    input.accept = "image/*"
-    input.onchange = () => resolve(input.files?.[0] ?? null)
-    input.oncancel = () => resolve(null)
-    input.click()
-  })
-}

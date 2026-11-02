@@ -2,7 +2,7 @@
 import { computed, ref, toRef, watch } from "vue"
 import { Grid, PanelLeft, PanelRight, PanelBottom, Square, Plus, ExternalLink, Box, LayoutTemplate } from "lucide-vue-next"
 import { useRouter } from "vue-router"
-import ModelPicker from "./ModelPicker.vue"
+import ModelField from "../admin/fields/ModelField.vue"
 import { useInView } from "../../composables/useInView"
 import { useConfirm } from "../../composables/useConfirm"
 import { useProjectCard } from "../../composables/useProjectCard"
@@ -35,7 +35,7 @@ const {
 } = useProjectCard(toRef(props, "project"))
 const { confirm } = useConfirm()
 
-//ModelPicker v-model - reads project.model3dId / desktop+mobile view
+//ModelField v-model - reads project.model3dId / desktop+mobile view
 //names and writes them back via updateMainProject so the change
 //persists immediately.
 const modelPickerValue = computed(() => ({
@@ -361,8 +361,9 @@ function replaceThumbnailWireframe(idx: number) {
             which model + which views (desktop / mobile) this project
             renders. Selection writes through updateMainProject so the
             viewer reloads immediately after pick.-->
-            <ModelPicker
+            <ModelField
               v-if="editMode"
+              label="3D"
               :model-value="modelPickerValue"
               @update:model-value="onModelPickerChange"
             />
@@ -378,7 +379,7 @@ function replaceThumbnailWireframe(idx: number) {
               <span>Edit 3D</span>
             </button>
             <!--PROJECT DETAIL PAGE - one button for both modes. The page
-            itself reads useAdmin().editMode and swaps to the bento-grid
+            itself reads useEditor().editMode and swaps to the bento-grid
             editor when the admin has Edit Content on.-->
             <button
               type="button"

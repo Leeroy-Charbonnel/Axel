@@ -193,6 +193,40 @@ through the whole UI.*/
   /*the one warning colour in the editor: amber, readable on the panel ground*/
   --editor-warning:  hsl(34 100% 63%);
 
+  /*EDITING CHROME - edit bar, editable regions, inspector, fields, media
+  library. Breakpoints: the inspector is a side panel above 1024px and a bottom
+  sheet below; the bar compacts at 640px.*/
+  --editor-bar-height:      56px;
+  --editor-target:          44px;
+  --editor-inspector-width: clamp(22rem, 34vw, 36rem);
+  --editor-sheet-height:    70dvh;
+  --editor-surface:         hsl(var(--card));
+  --editor-surface-raised:  hsl(var(--muted));
+  --editor-input-bg:        hsl(var(--muted) / 0.6);
+  --editor-line:            hsl(var(--border-color));
+  --editor-accent:          hsl(var(--primary));
+  --editor-accent-soft:     hsl(var(--primary) / 0.15);
+  --editor-accent-line:     hsl(var(--primary) / 0.5);
+  --editor-accent-hover:    hsl(var(--primary) / 0.85);
+  --editor-danger:          hsl(var(--destructive));
+  --editor-text:            hsl(var(--card-foreground));
+  --editor-text-muted:      hsl(var(--muted-foreground));
+  --editor-on-accent:       hsl(var(--background));
+  --editor-outline-width:   2px;
+  --editor-focus:           0 0 0 var(--editor-outline-width) hsl(var(--ring));
+  --editor-region-inset:    var(--spacing-xxs);
+  --editor-media-tile:      8.5rem;
+  --editor-media-preview:   4.5rem;
+  --editor-dialog-width:    60rem;
+  --editor-menu-width:      14rem;
+  /*regions sit above media (z 2); panels above the page, below toasts and the confirmation*/
+  --editor-z-region:        3;
+  --editor-z-inspector:     900;
+  --editor-z-bar:           910;
+  --editor-z-media:         1500;
+  /*raised by html.editor-editing so bottom-docked things clear the bar*/
+  --editor-bar-offset:      0px;
+
   /*--panel-width starts at 0 and is raised by .css-panel-open on the root
   when the CSS variables side panel is open, so body and all the fixed-right
   UI (lang switch, admin gear) reserve real space for the panel instead of
@@ -319,13 +353,17 @@ via padding-right; the fixed-right UI (lang switch + admin gear) shifts in
 sync so nothing sits underneath the panel.*/
 html.css-panel-open                         { --panel-width: 28rem; }
 html.css-panel-open body                    { padding-right: var(--panel-width); }
-/*lang switch is now position:absolute inside .portfolio-app so it
-follows the body's shrink automatically - no per-panel right offset.*/
-html.css-panel-open .admin-gear             { right: calc(var(--spacing-md) + var(--spacing-5xl) + var(--panel-width)); }
+/*EDITING - the docked edit bar reserves its height at the bottom, and the
+desktop inspector reserves its width on the right so it never covers the item
+being edited. Below 1025px the inspector is a bottom sheet over the page.*/
+html.editor-editing                         { --editor-bar-offset: var(--editor-bar-height); }
+html.editor-editing body                    { padding-bottom: var(--editor-bar-height); }
+@media (min-width: 1025px) {
+  html.editor-inspector-open body           { padding-right: var(--editor-inspector-width); }
+}
 
-body,
-.admin-gear {
-  transition: padding-right 0.2s ease, right 0.2s ease;
+body {
+  transition: padding-right var(--transition-fast) ease;
 }
 
 button {
