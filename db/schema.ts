@@ -1,16 +1,19 @@
-import { pgTable, serial, text, integer, jsonb, uuid, timestamp, boolean, unique, primaryKey } from "drizzle-orm/pg-core"
+import { pgTable, serial, text, integer, jsonb, uuid, timestamp, boolean, unique, primaryKey, index } from "drizzle-orm/pg-core"
+
+type Bilingual = { en: string; fr: string }
+const EMPTY_BILINGUAL: Bilingual = { en: "", fr: "" }
 
 //TRANSLATIONS TABLE - source of truth for every translatable string in the app.
 //id is a human-readable key (LBL_LOGOUT, SETTING_ACCENT_DESC, etc.), lang is fr/en,
-//value is the displayed text. Composite primary key (id, lang). Public read,
-//admin-only write.
+//value is the displayed text. Composite primary key (id, lang). Public read;
+//seeded by scripts/seed-i18n.ts, edited in the database.
 export const translations = pgTable("translations", {
   id:    text("id").notNull(),
   lang:  text("lang").notNull(),
   value: text("value").notNull(),
-}, (t) => ({
-  pk: primaryKey({ columns: [t.id, t.lang] }),
-}))
+}, (t) => [
+  primaryKey({ columns: [t.id, t.lang] }),
+])
 
 //SETTINGS TABLE - common shape across all projects (see SettingsPage.vue)
 //type drives the UI input: bool | string | number | color | select | list | json
@@ -29,15 +32,15 @@ export const settings = pgTable("settings", {
   options:     text("options").notNull().default(""),
   createdAt:   timestamp("created_at").notNull().defaultNow(),
   updatedAt:   timestamp("updated_at").notNull().defaultNow(),
-}, (t) => ({
-  uniqUserKey: unique().on(t.userId, t.key),
-}))
+}, (t) => [
+  unique().on(t.userId, t.key),
+])
 
-//PORTFOLIO TABLES ------------------------------------------------------------
+//PORTFOLIO TABLES
 
 //FILE - generic storage table. Each row points to a binary file on disk
 //under storage/files/{stored_filename}. URL served at /media/{stored_filename}.
-//Images and videos both live here; the 'kind' column lets the admin filter.
+//Deleting a row never deletes the bytes.
 export const file = pgTable("file", {
   id:               uuid("id").primaryKey().defaultRandom(),
   originalFilename: text("original_filename").notNull(),
@@ -47,7 +50,9 @@ export const file = pgTable("file", {
   kind:             text("kind").notNull().default("other"),
   uploadedBy:       text("uploaded_by").references(() => user.id, { onDelete: "set null" }),
   createdAt:        timestamp("created_at").notNull().defaultNow(),
-})
+}, (t) => [
+  index("file_uploaded_by_idx").on(t.uploadedBy),
+])
 
 //SOFTWARE - logos shown next to a main project (Blender, Substance, etc.)
 export const software = pgTable("software", {
@@ -56,7 +61,9 @@ export const software = pgTable("software", {
   logoFileId: uuid("logo_file_id").notNull().references(() => file.id, { onDelete: "restrict" }),
   url:        text("url").notNull(),
   sortOrder:  integer("sort_order").notNull().default(0),
-})
+}, (t) => [
+  index("software_logo_file_id_idx").on(t.logoFileId),
+])
 
 //MODEL_3D - reusable 3D asset. One row per uploaded .glb + its thumbnail
 //and a list of named camera views. MainProject + DetailBlock(viewer3d)
@@ -72,9 +79,11 @@ export const model3d = pgTable("model_3d", {
   name:            text("name").notNull(),
   glbFileId:       uuid("glb_file_id").notNull().references(() => file.id, { onDelete: "restrict" }),
   thumbnailFileId: uuid("thumbnail_file_id").references(() => file.id, { onDelete: "set null" }),
+  //the original upload, kept when glbFileId is replaced by its optimized version
+  sourceGlbFileId: uuid("source_glb_file_id").references(() => file.id, { onDelete: "set null" }),
   //viewerSettings is the editor snapshot (materials / lights / HDR /
-  //wireframe picks) the viewer applies at load. Moved over from
-  //main_project so all consumers of the same asset render identically.
+  //wireframe picks) the viewer applies at load. normalMode.hdrId and
+  //wireframeMode.hdrId are file ids, counted as references to the file.
   viewerSettings:  jsonb("viewer_settings"),
   views:           jsonb("views").$type<Array<{
                      name:      string
@@ -85,43 +94,45 @@ export const model3d = pgTable("model_3d", {
                    }>>().notNull().default([]),
   createdAt:       timestamp("created_at").notNull().defaultNow(),
   updatedAt:       timestamp("updated_at").notNull().defaultNow(),
-})
+}, (t) => [
+  index("model_3d_glb_file_id_idx").on(t.glbFileId),
+  index("model_3d_thumbnail_file_id_idx").on(t.thumbnailFileId),
+  index("model_3d_source_glb_file_id_idx").on(t.sourceGlbFileId),
+])
 
-//MAIN_PROJECT - the 3 featured projects with Sketchfab embeds + wireframe toggle.
-//Bilingual fields (title, description) stored as jsonb { en, fr } for easy
-//editing from a future admin UI. wireframe_parameters keeps its nested shape
-//rather than expanding into 4 columns - admin form will edit the JSON directly.
+//MAIN_PROJECT - the featured projects (case studies). Bilingual fields are
+//jsonb { en, fr }. published = false hides the row from visitors only.
 export const mainProject = pgTable("main_project", {
   id:                   serial("id").primaryKey(),
   modelId:              text("model_id").notNull().default(""),
-  title:                jsonb("title").$type<{ en: string; fr: string }>().notNull(),
-  description:          jsonb("description").$type<{ en: string; fr: string }>().notNull(),
+  title:                jsonb("title").$type<Bilingual>().notNull(),
+  description:          jsonb("description").$type<Bilingual>().notNull(),
+  published:            boolean("published").notNull().default(true),
+  role:                 jsonb("role").$type<Bilingual>().notNull().default(EMPTY_BILINGUAL),
+  year:                 text("year").notNull().default(""),
   //LAYOUT controls how the viewer + thumbnails are arranged.
   //thumbs-left   : 3 vertical thumbnails on the left, viewer on the right
   //thumbs-right  : 3 vertical thumbnails on the right, viewer on the left
   //thumbs-bottom : viewer full-width, 3 thumbnails in a row below
   //viewer-only   : just the viewer, no thumbnail strip
-  //existing rows default to thumbs-left; admins can pick another via the UI.
   layout:               text("layout").notNull().default("thumbs-left"),
   mainImageFileId:      uuid("main_image_file_id").references(() => file.id, { onDelete: "set null" }),
   mainWireframeFileId:  uuid("main_wireframe_file_id").references(() => file.id, { onDelete: "set null" }),
-  //3D MODEL - the project's viewer now references a model_3d row
-  //(reusable asset shared with detail-page viewer3d blocks). The two
-  //view names pick which saved camera view to apply at load on the
-  //matching breakpoint; resolved against model_3d.views by name.
+  //3D MODEL - the project's viewer references a model_3d row (reusable
+  //asset shared with detail-page viewer3d blocks). The two view names pick
+  //which saved camera view to apply at load on the matching breakpoint.
   //
-  //glbFileId / viewerSettings stay around as the MIGRATION SOURCE
-  //and are dropped in a follow-up once every project has been moved
-  //to a model_3d row.
+  //glbFileId / viewerSettings are the legacy per-project viewer, still
+  //read as a fallback by useEffectiveViewerSettings.
   model3dId:            uuid("model_3d_id").references(() => model3d.id, { onDelete: "set null" }),
   model3dDesktopView:   text("model_3d_desktop_view").notNull().default(""),
   model3dMobileView:    text("model_3d_mobile_view").notNull().default(""),
   glbFileId:            uuid("glb_file_id").references(() => file.id, { onDelete: "set null" }),
   viewerSettings:       jsonb("viewer_settings"),
   thumbnails:           jsonb("thumbnails").$type<{
-                          fileId:          string
+                          fileId:          string | null
                           wireframeFileId: string | null
-                          description:     { en: string; fr: string }
+                          description:     Bilingual
                         }[]>().notNull().default([]),
   videoFileId:          uuid("video_file_id").references(() => file.id, { onDelete: "set null" }),
   wireframeParameters:  jsonb("wireframe_parameters").$type<{
@@ -131,23 +142,20 @@ export const mainProject = pgTable("main_project", {
                           emissiveMaterialsOverwrite:  string[]
                         }>().notNull(),
   //DETAIL PAGE - bento-style grid of content blocks for the per-project
-  //detail page (text, image, video, carousel, etc.). 3-col grid on
-  //desktop, 1-col stack on mobile (forced). Authored via the page
-  //editor; the public detail page route renders the same data.
-  //Mobile layout is independent: mobileY orders blocks vertically and
-  //mobileH sets the row span. No mobileX/mobileW because mobile is
-  //single column - every block fills the width. Both are optional;
-  //when absent, view rendering falls back to desktop y / h.
+  //detail page. 3-col grid on desktop, 1-col stack on mobile. mobileY
+  //orders blocks vertically and mobileH sets the row span; when absent,
+  //rendering falls back to desktop y / h.
   detailPage:           jsonb("detail_page").$type<{
                           blocks: Array<{
                             id:       string
-                            type:     "text" | "image" | "viewer3d"
+                            type:     string
                             x:        number   //grid col start (0..2)
                             y:        number   //grid row start
                             w:        number   //col span (1..3)
                             h:        number   //row span (>=1)
                             mobileY?: number   //mobile row start (single col)
                             mobileH?: number   //mobile row span
+                            style?:   Record<string, unknown>
                             content:  Record<string, unknown>
                           }>
                         }>().notNull().default({ blocks: [] }),
@@ -155,7 +163,13 @@ export const mainProject = pgTable("main_project", {
   sortOrder:            integer("sort_order").notNull().default(0),
   createdAt:            timestamp("created_at").notNull().defaultNow(),
   updatedAt:            timestamp("updated_at").notNull().defaultNow(),
-})
+}, (t) => [
+  index("main_project_model_3d_id_idx").on(t.model3dId),
+  index("main_project_main_image_file_id_idx").on(t.mainImageFileId),
+  index("main_project_main_wireframe_file_id_idx").on(t.mainWireframeFileId),
+  index("main_project_glb_file_id_idx").on(t.glbFileId),
+  index("main_project_video_file_id_idx").on(t.videoFileId),
+])
 
 //MAIN_PROJECT_SOFTWARE - junction. sort_order controls the order in which the
 //logos render under a given project.
@@ -163,45 +177,69 @@ export const mainProjectSoftware = pgTable("main_project_software", {
   mainProjectId: integer("main_project_id").notNull().references(() => mainProject.id, { onDelete: "cascade" }),
   softwareId:    integer("software_id").notNull().references(() => software.id, { onDelete: "cascade" }),
   sortOrder:     integer("sort_order").notNull().default(0),
-}, (t) => ({
-  pk: primaryKey({ columns: [t.mainProjectId, t.softwareId] }),
-}))
+}, (t) => [
+  primaryKey({ columns: [t.mainProjectId, t.softwareId] }),
+  index("main_project_software_software_id_idx").on(t.softwareId),
+])
 
-//GALLERY_PROJECT - the 8 smaller cards under "Project Gallery"
+//GALLERY_PROJECT - the smaller cards under "Project Gallery"
 export const galleryProject = pgTable("gallery_project", {
   id:          serial("id").primaryKey(),
-  title:       jsonb("title").$type<{ en: string; fr: string }>().notNull(),
+  title:       jsonb("title").$type<Bilingual>().notNull(),
   link:        text("link").notNull(),
   imageFileId: uuid("image_file_id").references(() => file.id, { onDelete: "set null" }),
   stats:       jsonb("stats").$type<{ vertices: number; edges: number; faces?: number; triangles?: number }>().notNull(),
+  published:   boolean("published").notNull().default(true),
   sortOrder:   integer("sort_order").notNull().default(0),
-})
+}, (t) => [
+  index("gallery_project_image_file_id_idx").on(t.imageFileId),
+])
 
 //EXPERIENCE - work timeline.
 //- summary: optional paragraph description per language (intro to the role)
 //- description: bullet-list of highlights per language (edited entry by entry)
 export const experience = pgTable("experience", {
   id:          serial("id").primaryKey(),
-  period:      jsonb("period").$type<{ en: string; fr: string }>().notNull(),
-  title:       jsonb("title").$type<{ en: string; fr: string }>().notNull(),
+  period:      jsonb("period").$type<Bilingual>().notNull(),
+  title:       jsonb("title").$type<Bilingual>().notNull(),
   company:     text("company").notNull(),
   location:    text("location").notNull(),
-  summary:     jsonb("summary").$type<{ en: string; fr: string }>().notNull().default({ en: "", fr: "" }),
+  summary:     jsonb("summary").$type<Bilingual>().notNull().default(EMPTY_BILINGUAL),
   description: jsonb("description").$type<{ en: string[]; fr: string[] }>().notNull(),
+  published:   boolean("published").notNull().default(true),
   sortOrder:   integer("sort_order").notNull().default(0),
 })
 
-//PROFILE - single-row table that holds the "About me" copy + contact + interests.
-//A new row is created on seed; the admin updates id=1 going forward.
-export const profile = pgTable("profile", {
-  id:        serial("id").primaryKey(),
-  about:     jsonb("about").$type<{ en: string; fr: string }>().notNull(),
-  contact:   jsonb("contact").$type<{ phone: string; email: string; instagram: string }>().notNull(),
-  interests: jsonb("interests").$type<{ games: string[]; art: string[] }>().notNull(),
-  avatarUrl: text("avatar_url").notNull().default(""),
-})
+export type ProfileLinks = {
+  instagram:  string
+  artstation: string
+  sketchfab:  string
+  linkedin:   string
+  website:    string
+}
 
-//AUTH TABLES (required by better-auth) ---------------------------------------
+//PROFILE - single row: hero, about, contact, links, CV. PUT /api/profile
+//creates it when missing. Every link is "" or an http(s) URL.
+export const profile = pgTable("profile", {
+  id:           serial("id").primaryKey(),
+  name:         text("name").notNull().default(""),
+  headline:     jsonb("headline").$type<Bilingual>().notNull().default(EMPTY_BILINGUAL),
+  pitch:        jsonb("pitch").$type<Bilingual>().notNull().default(EMPTY_BILINGUAL),
+  location:     text("location").notNull().default(""),
+  available:    boolean("available").notNull().default(false),
+  availability: jsonb("availability").$type<Bilingual>().notNull().default(EMPTY_BILINGUAL),
+  about:        jsonb("about").$type<Bilingual>().notNull(),
+  contact:      jsonb("contact").$type<{ phone: string; email: string }>().notNull(),
+  links:        jsonb("links").$type<ProfileLinks>().notNull()
+                  .default({ instagram: "", artstation: "", sketchfab: "", linkedin: "", website: "" }),
+  interests:    jsonb("interests").$type<{ games: string[]; art: string[] }>().notNull(),
+  avatarUrl:    text("avatar_url").notNull().default(""),
+  cvFileId:     uuid("cv_file_id").references(() => file.id, { onDelete: "set null" }),
+}, (t) => [
+  index("profile_cv_file_id_idx").on(t.cvFileId),
+])
+
+//AUTH TABLES (required by better-auth)
 export const user = pgTable("user", {
   id:            text("id").primaryKey(),
   name:          text("name").notNull(),
@@ -222,7 +260,9 @@ export const session = pgTable("session", {
   ipAddress: text("ip_address"),
   userAgent: text("user_agent"),
   userId:    text("user_id").notNull().references(() => user.id, { onDelete: "cascade" }),
-})
+}, (t) => [
+  index("session_user_id_idx").on(t.userId),
+])
 
 export const account = pgTable("account", {
   id:                    text("id").primaryKey(),
@@ -238,7 +278,9 @@ export const account = pgTable("account", {
   password:              text("password"),
   createdAt:             timestamp("created_at").notNull().defaultNow(),
   updatedAt:             timestamp("updated_at").notNull().defaultNow(),
-})
+}, (t) => [
+  index("account_user_id_idx").on(t.userId),
+])
 
 export const verification = pgTable("verification", {
   id:         text("id").primaryKey(),
