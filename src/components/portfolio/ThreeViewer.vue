@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, shallowRef, watch } from "vue"
-import { Box, Cylinder, Grid3x3, Maximize, Minimize, RotateCcw, TriangleAlert } from "lucide-vue-next"
+import { Box, Cylinder, Grid3x3, Maximize, Minimize, TriangleAlert } from "lucide-vue-next"
 import { useLanguage } from "../../composables/useLanguage"
 import SiteImage from "../SiteImage.vue"
 import { inLoadTurn } from "../../three/loadQueue"
@@ -24,7 +24,7 @@ const props = withDefaults(defineProps<{
   //what the model is, for screen readers
   alt?:         string
   autoRotate?:  boolean
-  //the mode buttons, reset and fullscreen; a card with its own controls hides them
+  //the mode buttons and fullscreen; a card with its own controls hides them
   toolbar?:     boolean
   //under the model, or a column of icons at its right
   toolbarSide?: "bottom" | "right"
@@ -165,10 +165,6 @@ async function toggleFullscreen() {
   }
 }
 
-function resetView() {
-  viewer.value?.resetView()
-}
-
 onMounted(() => {
   reducedMotion  = window.matchMedia("(prefers-reduced-motion: reduce)").matches
   touch = window.matchMedia("(pointer: coarse)").matches
@@ -288,9 +284,6 @@ watch(() => props.glbUrl, () => {
           <span class="three-viewer__button-label">{{ t(m.label) }}</span>
         </button>
       </div>
-      <button type="button" class="three-viewer__button" :aria-label="t('viewerReset')" :title="t('viewerReset')" @click="resetView">
-        <RotateCcw class="three-viewer__icon" aria-hidden="true" />
-      </button>
       <button
         v-if="canFullscreen"
         type="button"

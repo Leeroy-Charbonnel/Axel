@@ -166,6 +166,11 @@ function triangleCount(geometry: BufferGeometry): number {
   return Math.floor(count / 3)
 }
 
+//the wireframe pass, kept brisk
+const SWEEP_MIN_MS  = 300
+const SWEEP_STEP_MS = 40
+const SWEEP_MAX_MS  = 500
+
 export function computeAutoSetup(root: Object3D, opts: AutoSetupOptions = {}): AutoSetup {
   const fov = opts.fov ?? CAMERA_FOV
   const warnings: AutoSetupWarning[] = []
@@ -259,8 +264,9 @@ export function computeAutoSetup(root: Object3D, opts: AutoSetupOptions = {}): A
   //SWEEP along the longest side, over the whole box
   const axisIndex = size.x >= size.y && size.x >= size.z ? 0 : size.y >= size.z ? 1 : 2
   const axis: Vec3 = [axisIndex === 0 ? 1 : 0, axisIndex === 1 ? 1 : 0, axisIndex === 2 ? 1 : 0]
-  //a denser mesh gets a slightly slower pass: 0.6 s at 10k triangles, +0.1 s per doubling, 1 s at most
-  const durationMs = Math.round(Math.min(1000, Math.max(600, 600 + 100 * Math.log2(Math.max(1, triangles / 10000)))))
+  //a denser mesh gets a slightly slower pass: SWEEP_MIN_MS at 10k triangles,
+  //SWEEP_STEP_MS more per doubling, SWEEP_MAX_MS at most
+  const durationMs = Math.round(Math.min(SWEEP_MAX_MS, SWEEP_MIN_MS + SWEEP_STEP_MS * Math.log2(Math.max(1, triangles / 10000))))
 
   return {
     bounds: {

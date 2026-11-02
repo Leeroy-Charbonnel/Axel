@@ -617,7 +617,6 @@
     "viewerModeRender": "Rendu",
     "viewerModeWireframe": "Fil de fer",
     "viewerModeClay": "Argile",
-    "viewerReset": "Réinitialiser la vue",
     "viewerFullscreen": "Plein écran",
     "viewerExitFullscreen": "Quitter le plein écran"
   },
@@ -1239,7 +1238,6 @@
     "viewerModeRender": "Render",
     "viewerModeWireframe": "Wireframe",
     "viewerModeClay": "Clay",
-    "viewerReset": "Reset view",
     "viewerFullscreen": "Fullscreen",
     "viewerExitFullscreen": "Exit fullscreen"
   }

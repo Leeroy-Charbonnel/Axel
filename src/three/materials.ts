@@ -85,9 +85,10 @@ const FRAGMENT_COMMON =
   "uniform float uWfEnvScale;\nuniform float uWfSpecScale;\nuniform float uWfClear;\n" +
   "uniform vec3 uWfEmissive;\nuniform float uWfEmissiveBoost;\n"
 
-//step() keeps the front a hard line
+//step() keeps the front a hard line; after the vertex colours, so none of the
+//model's own colour survives the sweep
 const FRAGMENT_MASK =
-  "#include <map_fragment>\n" +
+  "#include <color_fragment>\n" +
   "float wfD = wfFront(vWfWorldPos);\n" +
   "float wfMask = step(0.0, wfD);\n" +
   "diffuseColor.rgb = mix(diffuseColor.rgb, uWfTint, wfMask);\n"
@@ -117,6 +118,10 @@ const FRAGMENT_ENV =
   "radiance      *= wfEnvK;\n" +
   "#endif\n"
 
+//a material's own glow (the arch tubes) goes out where swept
+const FRAGMENT_EMISSION =
+  "#include <emissivemap_fragment>\ntotalEmissiveRadiance *= 1.0 - wfMask;\n"
+
 //a clear surface: the swept part writes a transparent pixel, so the page shows
 //through, yet still fills the depth buffer and hides the edges behind it
 const FRAGMENT_CLEAR =
@@ -142,7 +147,7 @@ function patchShader(shader: WebGLProgramParametersWithUniforms, uniforms: Sweep
       .replace("#include <common>", VERTEX_COMMON)
       .replace("#include <project_vertex>", VERTEX_POS)
     frag = frag
-      .replace("#include <map_fragment>", FRAGMENT_MASK)
+      .replace("#include <color_fragment>", FRAGMENT_MASK)
       .replace("#include <dithering_fragment>", FRAGMENT_CLEAR)
     if (lit) {
       frag = frag
@@ -150,6 +155,7 @@ function patchShader(shader: WebGLProgramParametersWithUniforms, uniforms: Sweep
         .replace("#include <metalnessmap_fragment>", FRAGMENT_METALNESS)
         .replace("#include <lights_physical_fragment>", FRAGMENT_SPECULAR)
         .replace("#include <lights_fragment_maps>", FRAGMENT_ENV)
+        .replace("#include <emissivemap_fragment>", FRAGMENT_EMISSION)
 
     }
   }
