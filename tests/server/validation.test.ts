@@ -48,7 +48,7 @@ describe("detail block content schemas", () => {
       exploded: { fileId: ID, legend: [text], text },
       shaders: [{ title: text, steps: [img, img] }],
       materials: [{ fileId: ID, name: text, rows: [{ label: text, value: "0.35" }] }],
-      maps: [img], uvId: ID, process: [img, img], specs: [{ label: text, value: text }], outro: text,
+      maps: [img], uvId: ID, uvTexturedId: ID, process: [img, img], specs: [{ label: text, value: text }], outro: text,
     }
     const cuts: Partial<SheetMedia>[] = [
       {}, { intro: null, outro: null },
@@ -57,7 +57,8 @@ describe("detail block content schemas", () => {
       { blocking: { levels: [], videoId: ID, text } },
       { exploded: null }, { exploded: { fileId: ID, legend: [], text: null } },
       { shaders: [] },
-      { materials: [] }, { maps: [] }, { uvId: null }, { materials: [], maps: [], uvId: null },
+      { materials: [] }, { maps: [] }, { uvId: null }, { uvId: null, uvTexturedId: null },
+      { materials: [], maps: [], uvId: null, uvTexturedId: null }, { materials: [], uvTexturedId: null },
       { process: [] }, { specs: [] }, { specs: [], outro: null },
     ]
     for (const cut of cuts) pages.push(sheetBlocks({ ...full, ...cut }))

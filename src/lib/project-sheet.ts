@@ -23,7 +23,9 @@ export interface SheetMedia {
   shaders:   { title: Bilingual; steps: SheetImage[] }[]
   materials: Omit<MaterialItem, "url">[]
   maps:      SheetImage[]
+  //the UV layout as lines, and the same layout over the colour texture
   uvId:      string | null
+  uvTexturedId: string | null
   process:   SheetImage[]
   specs:     { label: Bilingual; value: Bilingual }[]
   outro:     Bilingual | null
@@ -124,16 +126,21 @@ export function sheetBlocks(m: SheetMedia): DetailBlock[] {
     ? { type: "materials", content: { items: m.materials.map((i) => ({ ...i, url: null })) } }
     : null
   const maps = m.maps.length ? sequence(m.maps, false) : null
-  const uv = m.uvId ? image(m.uvId, bi("Dépliage UV", "UV layout")) : null
-  if (swatches || maps || uv) {
+  const uvs = present([
+    m.uvId ? image(m.uvId, bi("Dépliage UV", "UV layout")) : null,
+    m.uvTexturedId ? image(m.uvTexturedId, bi("Dépliage UV texturé", "Textured UV layout")) : null,
+  ])
+  if (swatches || maps || uvs.length) {
     heading("Matériaux et textures", "Materials and textures")
-    if (swatches && maps && uv) {
+    if (swatches && maps && uvs.length) {
       place(swatches, 0, y, 1, 3, 2)
       place(maps, 1, y, 2, 1, 1)
-      place(uv, 1, y + 1, 2, 2, 2)
+      //one layout on both columns, or the two side by side
+      uvs.forEach((t, i) => place(t, 1 + i, y + 1, uvs.length === 1 ? 2 : 1, 2, 2))
       y += 3
     } else {
-      row(present([swatches, maps, uv]), 2)
+      row(present([swatches, maps]), 2)
+      row(uvs, 2)
     }
   }
 
