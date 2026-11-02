@@ -12,6 +12,8 @@ const REQUIRED: Record<string, string> = {
   ALLOWED_ORIGINS:    "cors and trustedOrigins default to http://localhost:5173, so the real front end would be refused",
   APP_NAME:           "every letter is signed with it, and server/email.ts refuses to load without it",
   EMAIL_FROM:         "the sender every letter goes out under; server/email.ts refuses to load without it, and refuses the Resend sandbox sender, which delivers to nobody but the account owner",
+  GOOGLE_CLIENT_ID:     "auth.ts declares the google provider with it; missing, the button on /login sends the admin to a Google error page",
+  GOOGLE_CLIENT_SECRET: "auth.ts exchanges the google code with it; missing, every google sign-in fails at the callback",
 }
 
 //OPTIONAL ON PURPOSE, and each already says so where it is read: RESEND_API_KEY
@@ -36,3 +38,5 @@ export const BETTER_AUTH_SECRET = process.env.BETTER_AUTH_SECRET!
 export const BETTER_AUTH_URL    = process.env.BETTER_AUTH_URL!
 export const PUBLIC_APP_URL     = process.env.PUBLIC_APP_URL!
 export const ALLOWED_ORIGINS    = process.env.ALLOWED_ORIGINS!.split(",").map(o => o.trim())
+export const GOOGLE_CLIENT_ID     = process.env.GOOGLE_CLIENT_ID!
+export const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET!

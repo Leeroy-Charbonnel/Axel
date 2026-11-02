@@ -2,7 +2,10 @@ import { betterAuth } from "better-auth"
 import { createAuthMiddleware, APIError } from "better-auth/api"
 import { drizzleAdapter } from "better-auth/adapters/drizzle"
 import { count, eq, ne } from "drizzle-orm"
-import { ALLOWED_ORIGINS, BETTER_AUTH_SECRET, BETTER_AUTH_URL, PUBLIC_APP_URL } from "./env"
+import {
+  ALLOWED_ORIGINS, BETTER_AUTH_SECRET, BETTER_AUTH_URL,
+  GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, PUBLIC_APP_URL,
+} from "./env"
 import { db } from "./db/index"
 import * as schema from "./db/schema"
 import { mailLang, resetPasswordMessage, sendMail } from "./server/email"
@@ -83,8 +86,16 @@ export const auth = betterAuth({
     },
   },
 
-  //no verification mail, no google, no magic link: one account, created once, by
-  //the person who owns the database
+  //GOOGLE SIGNS IN, IT NEVER SIGNS UP. disableSignUp makes the callback refuse
+  //any Google address that has no account here, so the only one it opens is the
+  //admin's, linked by email on first use. No verification mail, no magic link.
+  socialProviders: {
+    google: {
+      clientId:      GOOGLE_CLIENT_ID,
+      clientSecret:  GOOGLE_CLIENT_SECRET,
+      disableSignUp: true,
+    },
+  },
 
   user: {
     additionalFields: {

@@ -11,11 +11,21 @@ export function useAuth() {
   const role            = computed(() => (session.value.data?.user as SessionUser | undefined)?.role ?? null)
   const isAdmin         = computed(() => role.value === "admin")
 
-  //Google, the sign-in link and the verification mail used to live here. auth.ts
-  //declares no social provider, no magic-link plugin and no verification mail:
-  //one account, one address, one password.
   async function signIn(email: string, password: string) {
     const { error } = await authClient.signIn.email({ email, password })
+    if (error) throw new Error(error.message)
+  }
+
+  //Both URLs absolute: a relative one resolves against BETTER_AUTH_URL, the API
+  //server, which answers "Cannot GET /". A refused Google account comes back to
+  //the login page with ?error=<code>.
+  async function signInWithGoogle() {
+    const origin = window.location.origin
+    const { error } = await authClient.signIn.social({
+      provider:         "google",
+      callbackURL:      `${origin}/`,
+      errorCallbackURL: `${origin}/login`,
+    })
     if (error) throw new Error(error.message)
   }
 
@@ -44,7 +54,7 @@ export function useAuth() {
 
   return {
     session, user, isAuthenticated, role, isAdmin,
-    signIn, signUp, signOut,
+    signIn, signInWithGoogle, signUp, signOut,
     requestPasswordReset, resetPassword,
   }
 }

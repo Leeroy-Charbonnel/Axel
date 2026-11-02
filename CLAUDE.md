@@ -45,7 +45,7 @@ These rules apply to this project and every project that descends from this temp
 - Vue 3 + TypeScript (strict mode, no `any` unless explicitly justified)
 - Bun as runtime + package manager
 - Express + Drizzle ORM + Postgres
-- Better Auth (email + password only), configured in `auth.ts`
+- Better Auth (email + password, and Google sign-in for the existing account), configured in `auth.ts`
 - Resend for transactional email
 - Tailwind + shadcn-vue (HSL color tokens)
 - Shipped in-repo: useToast, useAuth, useTheme, useLang, useSettings, useTranslations, ToastHost, Login/Forgot/Reset/Settings pages, structural CSS variables in `src/tokens.css`
@@ -112,6 +112,9 @@ that closes behind the person who walks through it.
 
 - `emailAndPassword` is on, but a `before` hook on `/sign-up/email` refuses the
   request as soon as one account exists. The first registration is the only one.
+- Google is a `socialProviders` entry with `disableSignUp: true`. It signs in
+  the account whose email matches, linking Google on first use, and sends every
+  other Google address back to `/login?error=signup_disabled`.
 - `role` is declared `input: false`. Without that line better-auth accepts the
   field from the client on sign-up and on `/update-user`, which is exactly how
   the shared package let anyone make themselves an admin.
