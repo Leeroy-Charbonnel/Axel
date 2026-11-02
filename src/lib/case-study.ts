@@ -166,7 +166,8 @@ export function caseStudyBlocks(m: CaseStudyMedia): DetailBlock[] {
     const mediaLeft = (i % 2 === 0) !== m.startRight
     const media: Tile = s.media.kind === "video"
       ? { type: "video", content: { fileId: s.media.fileId, url: null, autoplay: true, loop: true, muted: true, controls: false } }
-      : { type: "image", content: { fileId: s.media.fileId, url: null, alt: s.title, fit: portrait ? "contain" : "cover" } }
+      //shown whole: a plan, a blocking note or a node graph must not lose an edge
+      : { type: "image", content: { fileId: s.media.fileId, url: null, alt: s.title, fit: "contain" } }
     place(media, mediaLeft ? 0 : 3 - mediaW, y, mediaW, h, portrait ? 3 : 2)
     place(text(stepText(s)), mediaLeft ? mediaW : 0, y, 3 - mediaW, h, 2)
     y += h
