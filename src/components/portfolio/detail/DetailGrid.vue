@@ -13,13 +13,32 @@ import type { DetailBlock } from "../../../types/portfolio"
 //styleguide frames and the editor preview render exactly what a phone shows.
 //The page leaves out the blocks with nothing to show; the rows they held close up.
 //A row is at least --detail-row-h high and grows with the text in it; media
-//take the height of their cell and never push it.
+//take the height of their cell and never push it. A row that holds nothing
+//but headings is only as high as its title.
+
+type Rects = ReturnType<typeof closeEmptyRows>
 
 const props = defineProps<{ blocks: DetailBlock[]; lang: Lang }>()
 const { isMobile } = useIsMobile()
 
 const desktop = computed(() => closeEmptyRows(layoutRects(props.blocks, "desktop")))
 const phone   = computed(() => closeEmptyRows(layoutRects(props.blocks, "phone")))
+
+//grid-template-rows, one track per row: auto for a heading-only row
+function rowTracks(rects: Rects, minHeight: string): string {
+  const rows = bottomOf(rects.values())
+  const headingOnly: boolean[] = Array.from({ length: rows }, () => true)
+  for (const b of props.blocks) {
+    if (b.type === "heading") continue
+    const r = rects.get(b.id)
+    if (!r) continue
+    for (let row = r.y; row < r.y + r.h; row++) headingOnly[row] = false
+  }
+  return headingOnly.map((only) => (only ? "auto" : `minmax(${minHeight}, auto)`)).join(" ")
+}
+
+const desktopTracks = computed(() => rowTracks(desktop.value, "var(--detail-row-h)"))
+const phoneTracks   = computed(() => rowTracks(phone.value, "var(--detail-row-h-phone)"))
 
 function cellStyle(b: DetailBlock) {
   const d = desktop.value.get(b.id)!
@@ -35,7 +54,7 @@ function cellStyle(b: DetailBlock) {
   <div class="detail-grid">
     <div
       class="detail-grid__inner"
-      :style="{ '--d-rows': bottomOf(desktop.values()), '--p-rows': bottomOf(phone.values()) }"
+      :style="{ '--d-tracks': desktopTracks, '--p-tracks': phoneTracks }"
     >
       <div
         v-for="b in blocks"
@@ -59,7 +78,7 @@ function cellStyle(b: DetailBlock) {
 .detail-grid__inner {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  grid-template-rows: repeat(var(--d-rows), minmax(var(--detail-row-h), auto));
+  grid-template-rows: var(--d-tracks);
   gap: var(--detail-gap);
 }
 .detail-grid__cell {
@@ -76,7 +95,7 @@ function cellStyle(b: DetailBlock) {
 @container detail-grid (max-width: 590px) {
   .detail-grid__inner {
     grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: repeat(var(--p-rows), minmax(var(--detail-row-h-phone), auto));
+    grid-template-rows: var(--p-tracks);
     gap: var(--detail-gap-phone);
   }
   .detail-grid__cell {

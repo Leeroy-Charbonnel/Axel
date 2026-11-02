@@ -29,6 +29,20 @@ const stats = computed(() => statRows(props.project.stats, lang.value, t)
 
 const thumbs = computed(() => props.project.thumbnails.filter((thumb) => thumb.url))
 
+//the clay versions are decoded before the first sweep, so it never plays over
+//images still loading; the model and the thumbnails then turn together
+const thumbsEl = ref<HTMLElement | null>(null)
+async function toggleWireframe() {
+  if (!wireframe.value) {
+    const images = [...(thumbsEl.value?.querySelectorAll<HTMLImageElement>(".case__wire img, img.case__wire") ?? [])]
+    const results = await Promise.allSettled(images.map((img) => img.decode()))
+    for (const r of results) {
+      if (r.status === "rejected") console.warn("[project] a wireframe thumbnail could not be decoded:", r.reason)
+    }
+  }
+  wireframe.value = !wireframe.value
+}
+
 const titleId = `project-${props.project.id}-title`
 </script>
 
@@ -41,8 +55,8 @@ const titleId = `project-${props.project.id}-title`
     >
       <UnpublishedBadge :published="project.published" />
 
-      <ul v-if="thumbs.length" class="case__thumbs" :aria-label="t('projectThumbs')">
-        <li v-for="(thumb, i) in thumbs" :key="i">
+      <ul v-if="thumbs.length" ref="thumbsEl" class="case__thumbs" :aria-label="t('projectThumbs')">
+        <li v-for="(thumb, i) in thumbs" :key="i" :style="{ '--i': i }">
           <button
             type="button"
             class="case__thumb"
@@ -50,7 +64,7 @@ const titleId = `project-${props.project.id}-title`
             @click="openThumbnail(thumb)"
           >
             <SiteImage :src="thumb.url!" :sizes="IMAGE_SIZES.thumb" />
-            <SiteImage v-if="thumb.wireframeUrl" :src="thumb.wireframeUrl" :sizes="IMAGE_SIZES.thumb" class="case__wire" />
+            <SiteImage v-if="thumb.wireframeUrl" :src="thumb.wireframeUrl" :sizes="IMAGE_SIZES.thumb" loading="eager" class="case__wire" />
           </button>
         </li>
       </ul>
@@ -75,7 +89,7 @@ const titleId = `project-${props.project.id}-title`
             <Box aria-hidden="true" />
             {{ t("projectView3d") }}
           </RouterLink>
-          <button type="button" class="site-button case__action" :aria-pressed="wireframe" @click="wireframe = !wireframe">
+          <button type="button" class="site-button case__action" :aria-pressed="wireframe" @click="toggleWireframe">
             <Grid3x3 aria-hidden="true" />
             {{ t("projectWireframe") }}
           </button>
@@ -114,7 +128,7 @@ const titleId = `project-${props.project.id}-title`
 .case__thumbs {
   display: flex;
   flex-direction: column;
-  gap: var(--spacing-sm);
+  gap: var(--g);
   list-style: none;
 }
 
@@ -143,17 +157,30 @@ const titleId = `project-${props.project.id}-title`
   object-fit: cover;
 }
 
-/*WIREFRAME LAYER - a diagonal wipe from the top left corner, run one
-thumbnail after the other so the three read as one sweep*/
-.case__wire {
-  clip-path: polygon(0 0, 0 0, 0 0);
-  transition: clip-path var(--site-wire-wipe) var(--site-ease);
+/*WIREFRAME LAYER - one diagonal line sweeps the whole column: it enters the
+first thumbnail at its top left corner and crosses the others in step. The
+column animates one number, --wipe, from 0 to 1; each thumbnail places the
+line in its own corner from its index (--i), its size (--s) and the gap (--g):
+the line x + y = t, t growing over the column's width plus height.*/
+@property --wipe {
+  syntax: "<number>";
+  inherits: true;
+  initial-value: 0;
 }
 
-.case--wireframe .case__wire { clip-path: polygon(0 0, 200% 0, 0 200%); }
+.case__thumbs {
+  --s: var(--site-thumb-col);
+  --g: var(--spacing-sm);
+  --wipe: 0;
+  transition: --wipe var(--site-wire-wipe) var(--site-ease);
+}
 
-.case__thumbs li:nth-child(2) .case__wire { transition-delay: calc(var(--site-wire-wipe) / 4); }
-.case__thumbs li:nth-child(3) .case__wire { transition-delay: calc(var(--site-wire-wipe) / 2); }
+.case--wireframe .case__thumbs { --wipe: 1; }
+
+.case__wire {
+  --t: calc(var(--wipe) * (4 * var(--s) + 2 * var(--g)) - var(--i) * (var(--s) + var(--g)));
+  clip-path: polygon(0 0, var(--t) 0, 0 var(--t));
+}
 
 /*FACTS*/
 .case__info {
@@ -258,7 +285,9 @@ thumbnail after the other so the three read as one sweep*/
     grid-template-areas: "media" "thumbs" "info";
   }
 
+  /*a row: the same line crosses it from left to right*/
   .case__thumbs {
+    --s: var(--site-thumb-row);
     display: grid;
     grid-template-columns: repeat(var(--site-thumb-count), minmax(0, 1fr));
   }
