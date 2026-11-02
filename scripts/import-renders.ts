@@ -17,12 +17,16 @@ import { randomUUID } from "node:crypto"
 import { basename, extname, join } from "node:path"
 import { and, eq, notInArray, sql } from "drizzle-orm"
 import { z } from "zod"
+import { getBounds, NodeIO } from "@gltf-transform/core"
+import { ALL_EXTENSIONS } from "@gltf-transform/extensions"
+import { MeshoptDecoder } from "meshoptimizer"
 import { db } from "../db/index"
 import { file, galleryProject, mainProject, mainProjectSoftware, model3d, software, user } from "../db/schema"
 import { galleryProjectPatch, mainProjectPatch } from "../server/validation"
 import { measureImage, STORAGE_DIR } from "../server/uploads"
 import { optimizeModel } from "../server/model-optimize"
 import { caseStudyBlocks } from "../src/lib/case-study"
+import { CAMERA_FOV } from "../src/three/autoSetup"
 
 const VIEW = "Default"
 
@@ -44,6 +48,7 @@ const stats = z.object({
   triangles: z.int().nonnegative().optional(),
 })
 const vec3 = z.tuple([z.number(), z.number(), z.number()])
+type Vec3 = [number, number, number]
 
 const mainManifest = z.object({
   slug:        z.string().min(1),
@@ -53,7 +58,8 @@ const mainManifest = z.object({
   year:        z.string(),
   software:    z.array(z.string()),
   stats,
-  camera:      z.object({ position: vec3, target: vec3 }),
+  //the camera of main.jpg, in the GLB frame, fov vertical in degrees
+  camera:      z.object({ position: vec3, target: vec3, fov: z.number().positive() }),
 })
 const galleryManifest = z.object({ title: bilingual, stats })
 
@@ -91,6 +97,21 @@ async function storeFile(dir: string, slug: string, name: string, uploader: stri
   return id
 }
 
+//THE RENDER CAMERA AS THE MODEL'S VIEW. The viewer stands the model on the
+//ground, centred on the vertical axis (modelViewer.ts), so the camera moves by
+//the same offset. Its distance is scaled to the viewer's field of view, so the
+//model fills the frame as it fills main.jpg.
+async function viewerView(glbPath: string, camera: { position: Vec3; target: Vec3; fov: number }): Promise<{ position: Vec3; target: Vec3 }> {
+  await MeshoptDecoder.ready
+  const io = new NodeIO().registerExtensions(ALL_EXTENSIONS).registerDependencies({ "meshopt.decoder": MeshoptDecoder })
+  const { min, max } = getBounds((await io.read(glbPath)).getRoot().getDefaultScene()!)
+  const offset: Vec3 = [(min[0] + max[0]) / 2, min[1], (min[2] + max[2]) / 2]
+  const target = camera.target.map((v, i) => v - offset[i]!) as Vec3
+  const scale = Math.tan((camera.fov * Math.PI) / 360) / Math.tan((CAMERA_FOV * Math.PI) / 360)
+  const position = camera.position.map((v, i) => target[i]! + (v - offset[i]! - target[i]!) * scale) as Vec3
+  return { position, target }
+}
+
 //the folder's details, sorted by name
 function detailNames(dir: string): string[] {
   return readdirSync(dir).filter((n) => /^detail-\d+\.(jpe?g|png|webp)$/i.test(n)).sort()
@@ -109,7 +130,8 @@ async function importMain(dir: string, uploader: string): Promise<number> {
   const gifId = has("turntable.gif") ? await put("turntable.gif") : null
 
   //MODEL - one per GLB, optimized once
-  const views = [{ name: VIEW, position: m.camera.position, target: m.camera.target, wireframe: false }]
+  const view = await viewerView(join(dir, "model.glb"), m.camera)
+  const views = [{ name: VIEW, position: view.position, target: view.target, wireframe: false }]
   let [model] = await db.select().from(model3d).where(eq(model3d.sourceGlbFileId, glbId))
   if (!model) [model] = await db.select().from(model3d).where(eq(model3d.glbFileId, glbId))
   if (model) {
