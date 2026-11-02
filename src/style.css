@@ -71,18 +71,36 @@ named token below derives from these, so the accent_color setting (written to
   --site-hover-zoom:    1.03;
   --site-underline-offset: 0.18em;
   /*loading placeholders, sized like what they stand in for*/
-  --site-skeleton-long:   80%;
   --site-skeleton-mid:    60%;
   --site-skeleton-short:  50%;
-  --site-skeleton-button: 12rem;
   --site-skeleton-title:  14rem;
   --site-still-aspect:  16 / 9;
   --site-gallery-aspect: 4 / 3;
   --site-fw-display:    800;
-  --site-name-fit:      19cqi;
   --site-email-fit:     7cqi;
   --site-tracking-display: 0.01em;
   --site-duration-fast: 0.18s;
+
+  /*HERO - the title screen: a framed viewport, a drifting grid, two glows*/
+  --site-hero-inset:       clamp(20px, 11vw - 20px, 170px);
+  --site-hero-title:       clamp(2.25rem, 0.9rem + 5.6vw, 5rem);
+  --site-hero-name:        clamp(1.2rem, 0.85rem + 1.5vw, 2rem);
+  --site-hero-role:        clamp(0.9rem, 0.8rem + 0.4vw, 1.2rem);
+  --site-hero-grid:        clamp(30px, 2vw + 22px, 50px);
+  --site-hero-grid-line:   hsl(var(--ink) / 0.1);
+  --site-hero-grid-drift:  20s;
+  --site-hero-glow:        hsl(var(--ink) / 0.2);
+  --site-hero-glow-top:    300vw;
+  --site-hero-glow-bottom: 250vw;
+  --site-hero-hint-delay:  1.5s;
+  --site-hero-hint-bounce: 1.6s;
+  --site-hero-hint-shift:  6px;
+  --site-hero-rise:        50px;
+
+  /*EXPERIENCE - the timeline rows*/
+  --site-exp-period:       8rem;
+  --site-exp-title:        var(--font-size-lg);
+  --site-exp-company:      1.2rem;
 
   /*Generic mapping*/
   --color-primary:       hsl(var(--primary));

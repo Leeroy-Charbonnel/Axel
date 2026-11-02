@@ -7,10 +7,10 @@ import SiteImage from "../SiteImage.vue"
 import ThreeViewer from "./ThreeViewer.vue"
 import type { MainProjectDto } from "../../types/portfolio"
 
-//A PROJECT'S STILL AND THE WAYS AROUND IT: the render in its viewfinder frame
-//(the wireframe on hover or on request), the thumbnails, both opening the
-//lightbox, and the 3D model, mounted only on request. The home card and the
-//page of a project without blocks show the same.
+//A PROJECT'S MEDIA: the 3D model first when the project has one, the render in
+//its viewfinder frame otherwise or on request (the wireframe on hover or on
+//request), and the thumbnails opening the lightbox. The home card and the page
+//of a project without blocks show the same.
 const props = defineProps<{ project: MainProjectDto }>()
 
 const {
@@ -18,7 +18,7 @@ const {
   showWireframe, hasWireframe, stillUrl, openStill, openThumbnail,
 } = useProjectCard(toRef(props, "project"))
 
-const viewerOpen = ref(false)
+const viewerOpen = ref(true)
 </script>
 
 <template>
@@ -31,7 +31,6 @@ const viewerOpen = ref(false)
         :poster="project.mainImageUrl"
         :poster-sizes="IMAGE_SIZES.still"
         :alt="title"
-        requested
         class="media__viewer"
       />
       <button

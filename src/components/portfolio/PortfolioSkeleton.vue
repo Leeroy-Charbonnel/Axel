@@ -2,22 +2,17 @@
 import { lastSectionCounts } from "../../composables/usePortfolio"
 
 //THE PAGE WHILE /api/portfolio IS IN FLIGHT, in the shapes of what is coming:
-//the hero's name and frame, a project still, the gallery cells. The counts are
+//the title screen, a project still, the gallery cells. The counts are
 //the ones this browser drew last time (see usePortfolio).
 const counts = lastSectionCounts()
 </script>
 
 <template>
   <div class="skeleton" aria-hidden="true">
-    <section class="site-section skeleton__hero">
-      <div class="site-container skeleton__hero-grid">
-        <div class="skeleton__stack">
-          <div class="skeleton__block skeleton__name"></div>
-          <div class="skeleton__block skeleton__name skeleton__name--short"></div>
-          <div class="skeleton__block skeleton__line"></div>
-          <div class="skeleton__block skeleton__button"></div>
-        </div>
-        <div class="skeleton__block skeleton__frame"></div>
+    <section class="skeleton__hero">
+      <div class="skeleton__hero-frame">
+        <div class="skeleton__block skeleton__hero-title"></div>
+        <div class="skeleton__block skeleton__line"></div>
       </div>
     </section>
 
@@ -45,14 +40,24 @@ const counts = lastSectionCounts()
 .skeleton__hero {
   display: flex;
   align-items: center;
-  padding-top: var(--site-section-gap);
+  justify-content: center;
+  height: calc(100svh - var(--site-chrome-top));
 }
 
-.skeleton__hero-grid {
-  display: grid;
-  grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+.skeleton__hero-frame {
+  display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: var(--site-col-gap);
+  justify-content: center;
+  gap: var(--spacing-md);
+  width: calc(100% - var(--site-hero-inset));
+  height: calc(100% - var(--site-hero-inset));
+  border: var(--border-width-sm) solid var(--site-line);
+}
+
+.skeleton__hero-title {
+  width: var(--site-skeleton-mid);
+  height: var(--site-hero-title);
 }
 
 .skeleton__stack {
@@ -61,21 +66,9 @@ const counts = lastSectionCounts()
   gap: var(--spacing-lg);
 }
 
-.skeleton__name {
-  width: var(--site-skeleton-long);
-  height: var(--site-fs-display);
-}
-
-.skeleton__name--short { width: var(--site-skeleton-mid); }
-
 .skeleton__line {
   width: var(--site-skeleton-short);
   height: var(--site-fs-h3);
-}
-
-.skeleton__button {
-  width: var(--site-skeleton-button);
-  height: var(--site-touch-target);
 }
 
 .skeleton__frame {
@@ -95,11 +88,6 @@ const counts = lastSectionCounts()
 }
 
 .skeleton__card { aspect-ratio: var(--site-gallery-aspect); }
-
-@media (max-width: 1024px) {
-  .skeleton__hero { min-height: 0; }
-  .skeleton__hero-grid { grid-template-columns: minmax(0, 1fr); }
-}
 
 /*the placeholders breathe, so a slow network reads as loading, not broken*/
 @media (prefers-reduced-motion: no-preference) {

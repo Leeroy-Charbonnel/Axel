@@ -2,36 +2,72 @@
 import { useLanguage } from "../../composables/useLanguage"
 import AnimatedReveal from "./AnimatedReveal.vue"
 import ExperienceItem from "./ExperienceItem.vue"
-import SectionHeader from "./SectionHeader.vue"
 import SectionAddButton from "../admin/SectionAddButton.vue"
 import type { ExperienceDto } from "../../types/portfolio"
 
+//THE TIMELINE under a centered, underlined title, on a darkening background
 defineProps<{ experiences: ExperienceDto[] }>()
 
 const { t } = useLanguage()
 </script>
 
 <template>
-  <section id="experience" class="site-section" aria-labelledby="experience-title">
+  <section id="experience" class="experience site-section" aria-labelledby="experience-title">
     <div class="site-container">
-      <SectionHeader id="experience-title" :title="t('experienceTitle')" />
+      <h2 id="experience-title" class="experience__title">{{ t("experienceTitle") }}</h2>
 
-      <ol class="timeline">
-        <AnimatedReveal v-for="exp in experiences" :key="exp.id" tag="li">
+      <ol class="experience__timeline">
+        <AnimatedReveal v-for="(exp, i) in experiences" :key="exp.id" tag="li" :delay="i * 0.2">
           <ExperienceItem :experience="exp" />
         </AnimatedReveal>
       </ol>
 
-      <SectionAddButton kind="experience" class="timeline__add" />
+      <SectionAddButton kind="experience" class="experience__add" />
     </div>
   </section>
 </template>
 
 <style scoped>
-.timeline {
-  list-style: none;
-  border-bottom: var(--border-width-sm) solid var(--site-line);
+.experience {
+  background-image: linear-gradient(to bottom, var(--color-background), var(--color-background-secondary));
 }
 
-.timeline__add { margin-top: var(--site-col-gap); }
+.experience__title {
+  position: relative;
+  width: fit-content;
+  margin: 0 auto var(--spacing-3xl);
+  font-size: var(--font-size-2xl);
+  font-weight: var(--font-weight-bold);
+  letter-spacing: var(--letter-spacing-wide);
+  text-transform: uppercase;
+  text-align: center;
+  color: var(--site-text-heading);
+}
+
+/*the short rule under the title*/
+.experience__title::after {
+  content: "";
+  position: absolute;
+  bottom: calc(-1 * var(--spacing-xs));
+  left: 25%;
+  width: 50%;
+  height: var(--border-width-sm);
+  background-color: var(--site-text-body);
+}
+
+.experience__timeline {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-2xl);
+  list-style: none;
+}
+
+.experience__add { margin-top: var(--site-col-gap); }
+
+@media (max-width: 768px) {
+  .experience__title {
+    margin-bottom: var(--spacing-xl);
+    font-size: var(--font-size-lg);
+  }
+}
 </style>

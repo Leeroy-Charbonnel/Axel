@@ -12,7 +12,6 @@ export type ImageSizes = Record<string, [number, number]>
 //column up to 1024px, and the image tokens of style.css.
 const CONTAINER = 1280
 export const IMAGE_SIZES = {
-  hero:     `(max-width: 1024px) 100vw, ${Math.round(CONTAINER * 7 / 12)}px`,
   still:    `(max-width: 1024px) 100vw, ${Math.round(CONTAINER * 8 / 12)}px`,
   gallery:  "(max-width: 640px) 100vw, 360px",
   lightbox: "100vw",

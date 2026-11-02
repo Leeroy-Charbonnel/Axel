@@ -29,7 +29,6 @@ const profile      = computed(() => data.value && editor.display("profile", KIND
 const mainProjects = computed(() => (data.value ? visible(data.value.mainProjects, (p) => editor.display("mainProject", p)) : []))
 const gallery      = computed(() => (data.value ? visible(data.value.galleryProjects, (g) => editor.display("galleryItem", g)) : []))
 const experiences  = computed(() => (data.value ? visible(data.value.experiences, (e) => editor.display("experience", e)) : []))
-const featured     = computed(() => mainProjects.value.find((p) => p.published && p.mainImageUrl) ?? null)
 
 //arriving from another page with #section: scroll once the sections exist
 watch(data, async (loaded) => {
@@ -42,7 +41,7 @@ watch(data, async (loaded) => {
 <template>
   <div class="portfolio">
     <template v-if="data && profile">
-      <Home :profile="profile" :featured="featured" />
+      <Home :profile="profile" />
       <MainProjects :projects="mainProjects" />
       <ProjectGallery :projects="gallery" />
       <Experience :experiences="experiences" />

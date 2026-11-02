@@ -1,183 +1,232 @@
 <script setup lang="ts">
-import { computed } from "vue"
-import { ArrowDown } from "lucide-vue-next"
+import { computed, onBeforeUnmount, onMounted, ref } from "vue"
+import { ChevronDown } from "lucide-vue-next"
 import { useLanguage } from "../../composables/useLanguage"
 import { useSectionNav } from "../../composables/useSectionNav"
-import { IMAGE_SIZES } from "../../lib/media"
-import { pickBilingual } from "../../lib/markdown"
 import EditableRegion from "../admin/EditableRegion.vue"
-import SiteImage from "../SiteImage.vue"
-import Availability from "./Availability.vue"
-import SocialLinks from "./SocialLinks.vue"
-import type { MainProjectDto, ProfileDto } from "../../types/portfolio"
+import type { ProfileDto } from "../../types/portfolio"
 
-//HERO - the person is the title: name, headline, availability, pitch, the two
-//ways forward, the links, and the featured render in its viewfinder frame.
-const props = defineProps<{ profile: ProfileDto; featured: MainProjectDto | null }>()
+//TITLE SCREEN - the framed viewport with its drifting grid: PORTFOLIO, the name
+//with its last word in the accent, the headline, and a hint to scroll on.
+const props = defineProps<{ profile: ProfileDto }>()
 
 const { t, lang } = useLanguage()
 const { go } = useSectionNav()
 
-//the last word carries the accent, as the original title did
 const nameParts = computed(() => {
   const words = props.profile.name.trim().split(/\s+/)
   return { first: words.slice(0, -1).join(" "), last: words[words.length - 1] ?? "" }
 })
 const headline = computed(() => props.profile.headline[lang.value])
-const pitch    = computed(() => props.profile.pitch[lang.value])
-const featuredTitle = computed(() => pickBilingual(props.featured?.title, lang.value))
+
+//Hide the hint once the visitor scrolled a quarter of the screen
+const scrolled = ref(false)
+function onScroll() {
+  scrolled.value = window.scrollY > window.innerHeight / 4
+}
+onMounted(() => {
+  onScroll()
+  window.addEventListener("scroll", onScroll, { passive: true })
+})
+onBeforeUnmount(() => window.removeEventListener("scroll", onScroll))
 </script>
 
 <template>
-  <section id="home" class="hero site-section" aria-labelledby="hero-name">
-    <div class="site-container hero__grid">
+  <section id="home" class="hero" aria-labelledby="hero-title">
+    <span class="hero__glow hero__glow--top" aria-hidden="true"></span>
+    <span class="hero__glow hero__glow--bottom" aria-hidden="true"></span>
+
+    <div class="hero__frame">
+      <span class="hero__grid" aria-hidden="true"></span>
+
       <EditableRegion kind="profile" :label="t('editorKindProfile')">
-        <div class="hero__text">
-        <Availability :profile="profile" class="hero__availability" />
-
-        <h1 id="hero-name" class="hero__name">
-          <span v-if="nameParts.first" class="hero__name-first">{{ nameParts.first }}</span>
-          <span class="hero__name-last">{{ nameParts.last }}</span>
-        </h1>
-
-        <p v-if="headline" class="hero__headline">{{ headline }}</p>
-        <p v-if="pitch" class="hero__pitch">{{ pitch }}</p>
-
-        <div class="hero__ctas">
-          <a href="#projects" class="site-button site-button--primary" @click.prevent="go('projects')">
-            {{ t("heroCtaProjects") }}
-            <ArrowDown aria-hidden="true" />
-          </a>
-          <a href="#contact" class="site-button" @click.prevent="go('contact')">{{ t("heroCtaContact") }}</a>
-        </div>
-
-        <SocialLinks :links="profile.links" />
+        <div class="hero__content">
+          <h1 id="hero-title" class="hero__heading">
+            <span class="hero__title">{{ t("heroTitle") }}</span>{{ " " }}
+            <span class="hero__name">
+              <span v-if="nameParts.first">{{ nameParts.first }}</span>{{ " " }}
+              <span class="hero__name-last">{{ nameParts.last }}</span>
+            </span>
+          </h1>
+          <p v-if="headline" class="hero__role">{{ headline }}</p>
         </div>
       </EditableRegion>
-
-      <figure v-if="featured?.mainImageUrl" class="hero__visual">
-        <div class="hero__frame site-frame">
-          <SiteImage
-            :src="featured.mainImageUrl"
-            :alt="featuredTitle"
-            :sizes="IMAGE_SIZES.hero"
-            loading="eager"
-            fetchpriority="high"
-            class="hero__image"
-          />
-        </div>
-        <figcaption class="hero__caption">
-          <span class="site-eyebrow">{{ t("heroFeatured") }}</span>
-          <RouterLink :to="`/project/${featured.id}`" class="hero__caption-link">{{ featuredTitle }}</RouterLink>
-          <span v-if="featured.year" class="hero__caption-year">{{ featured.year }}</span>
-        </figcaption>
-      </figure>
     </div>
+
+    <button
+      type="button"
+      class="hero__hint"
+      :class="{ 'hero__hint--gone': scrolled }"
+      :aria-label="t('heroScrollHint')"
+      @click="go('projects')"
+    >
+      <ChevronDown aria-hidden="true" />
+    </button>
   </section>
 </template>
 
 <style scoped>
-/*a full gap above, the same gap below as between every other section*/
 .hero {
+  position: relative;
   display: flex;
   align-items: center;
-  padding-top: var(--site-section-gap);
+  justify-content: center;
+  height: calc(100svh - var(--site-chrome-top));
+  overflow-x: clip;
+}
+
+/*the divider under the title screen*/
+.hero::after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: 10%;
+  width: 80%;
+  height: var(--border-width-md);
+  background-color: var(--site-line);
+}
+
+.hero__glow {
+  position: absolute;
+  width: var(--glow-size);
+  height: var(--glow-size);
+  background-image: radial-gradient(circle, var(--site-hero-glow) 0%, transparent 25%);
+  pointer-events: none;
+}
+
+.hero__glow--top {
+  --glow-size: var(--site-hero-glow-top);
+  top: calc(var(--glow-size) / -2);
+  right: calc(var(--glow-size) / -2);
+}
+
+.hero__glow--bottom {
+  --glow-size: var(--site-hero-glow-bottom);
+  bottom: calc(var(--glow-size) / -2);
+  left: calc(var(--glow-size) / -2);
+}
+
+.hero__frame {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: calc(100% - var(--site-hero-inset));
+  height: calc(100% - var(--site-hero-inset));
+  border: var(--border-width-sm) solid var(--site-line-strong);
 }
 
 .hero__grid {
-  display: grid;
-  grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
-  align-items: center;
-  gap: var(--site-col-gap);
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(var(--site-hero-grid-line) var(--border-width-sm), transparent var(--border-width-sm)),
+    linear-gradient(90deg, var(--site-hero-grid-line) var(--border-width-sm), transparent var(--border-width-sm));
+  background-size: var(--site-hero-grid) var(--site-hero-grid);
+  pointer-events: none;
 }
 
-.hero__text {
-  container-type: inline-size;
+.hero__content {
+  position: relative;
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
-  gap: var(--spacing-lg);
+  align-items: center;
+  gap: var(--spacing-md);
+  padding: var(--spacing-lg);
+  text-align: center;
+}
+
+.hero__heading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--spacing-md);
+}
+
+.hero__title {
+  font-size: var(--site-hero-title);
+  font-weight: var(--font-weight-black);
+  line-height: var(--site-lh-tight);
+  letter-spacing: var(--letter-spacing-wide);
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: var(--site-text-heading);
 }
 
 .hero__name {
   display: flex;
-  flex-direction: column;
-  /*never wider than its column: a six-letter word fits in --site-name-fit*/
-  font-size: min(var(--site-fs-display), var(--site-name-fit));
-  font-weight: var(--site-fw-display);
-  line-height: var(--site-lh-tight);
-  letter-spacing: var(--site-tracking-display);
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--spacing-sm);
+  font-size: var(--site-hero-name);
+  font-weight: var(--font-weight-bold);
+  letter-spacing: var(--letter-spacing-normal);
   text-transform: uppercase;
-  color: var(--site-text-heading);
-  overflow-wrap: break-word;
+  color: var(--site-text-body);
 }
 
 .hero__name-last { color: var(--site-accent); }
 
-.hero__headline {
-  font-size: var(--site-fs-h3);
-  font-weight: var(--font-weight-semibold);
-  letter-spacing: var(--site-tracking-heading);
+.hero__role {
+  font-size: var(--site-hero-role);
+  letter-spacing: var(--letter-spacing-normal);
   text-transform: uppercase;
-  color: var(--site-text-heading);
-}
-
-.hero__pitch {
-  max-width: var(--site-text-width);
-  color: var(--site-text-body);
-}
-
-.hero__ctas {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--spacing-sm);
-  margin-top: var(--spacing-xs);
-}
-
-.hero__visual {
-  display: flex;
-  flex-direction: column;
-  gap: var(--spacing-xs);
-}
-
-.hero__frame {
-  aspect-ratio: var(--site-still-aspect);
-  background-color: var(--site-surface);
-}
-
-.hero__image {
-  display: block;
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-}
-
-.hero__caption {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  column-gap: var(--spacing-sm);
-  font-size: var(--site-fs-small);
   color: var(--site-text-caption);
 }
 
-.hero__caption-link {
+.hero__hint {
+  position: absolute;
+  bottom: var(--spacing-xl);
+  left: 50%;
   display: inline-flex;
   align-items: center;
-  min-height: var(--site-touch-target);
+  justify-content: center;
+  width: var(--site-touch-target);
+  height: var(--site-touch-target);
+  background-color: transparent;
+  border: none;
   color: var(--site-text-body);
-  text-decoration: underline;
-  text-decoration-color: var(--site-line-strong);
-  text-underline-offset: var(--border-width-lg);
-  transition: color var(--site-duration-fast) ease;
+  cursor: pointer;
+  transform: translateX(-50%);
+  transition: opacity var(--site-reveal-duration) var(--site-ease), color var(--site-duration-fast) ease;
 }
 
-.hero__caption-link:hover { color: var(--site-accent); }
+.hero__hint:hover { color: var(--site-accent); }
 
-.hero__caption-year { font-variant-numeric: tabular-nums; }
+.hero__hint--gone {
+  opacity: 0;
+  pointer-events: none;
+}
 
-@media (max-width: 1024px) {
-  .hero { padding-top: calc(var(--site-section-gap) / 2); }
-  .hero__grid { grid-template-columns: minmax(0, 1fr); }
+@media (prefers-reduced-motion: no-preference) {
+  .hero__grid { animation: hero-grid-drift var(--site-hero-grid-drift) linear infinite; }
+  .hero__title { animation: hero-rise var(--site-reveal-duration) var(--site-ease) both; }
+  .hero__name,
+  .hero__role { animation: hero-fade calc(var(--site-reveal-duration) * 1.5) var(--site-ease) var(--site-reveal-duration) both; }
+  .hero__hint > * {
+    animation:
+      hero-fade var(--site-reveal-duration) var(--site-ease) var(--site-hero-hint-delay) both,
+      hero-bounce var(--site-hero-hint-bounce) ease-in-out var(--site-hero-hint-delay) infinite;
+  }
+}
+
+@keyframes hero-grid-drift {
+  from { background-position: 0 0; }
+  to   { background-position: var(--site-hero-grid) var(--site-hero-grid); }
+}
+
+@keyframes hero-rise {
+  from { opacity: 0; transform: translateY(var(--site-hero-rise)); }
+  to   { opacity: 1; transform: none; }
+}
+
+@keyframes hero-fade {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes hero-bounce {
+  0%, 100% { transform: none; }
+  50%      { transform: translateY(var(--site-hero-hint-shift)); }
 }
 </style>

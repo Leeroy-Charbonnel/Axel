@@ -1,15 +1,14 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, shallowRef, watch } from "vue"
-import { Box, Cylinder, Grid3x3, Maximize, Minimize, Rotate3d, RotateCcw, TriangleAlert } from "lucide-vue-next"
+import { Box, Cylinder, Grid3x3, Maximize, Minimize, RotateCcw, TriangleAlert } from "lucide-vue-next"
 import { useLanguage } from "../../composables/useLanguage"
 import SiteImage from "../SiteImage.vue"
 import type { ModelViewer } from "../../three/modelViewer"
 import type { ViewerMode, ViewerSettings } from "../../three/types"
 
 //PUBLIC 3D VIEWER. Shows the poster until the model is ready, and only fetches
-//three.js and the GLB when the viewer comes near the viewport; on touch devices
-//it waits for a tap, to spare mobile data. Rendering pauses offscreen and in a
-//hidden tab. The scene itself lives in src/three/modelViewer.ts.
+//three.js and the GLB when the viewer comes near the viewport, on every device.
+//Rendering pauses offscreen and in a hidden tab. The scene itself lives in src/three/modelViewer.ts.
 
 const props = withDefaults(defineProps<{
   glbUrl:      string
@@ -24,9 +23,7 @@ const props = withDefaults(defineProps<{
   //what the model is, for screen readers
   alt?:         string
   autoRotate?:  boolean
-  //the visitor already asked for the model, so a touch device skips its own tap
-  requested?:   boolean
-}>(), { wireframe: false, isInView: true, poster: null, posterSizes: "100vw", alt: "", autoRotate: false, requested: false })
+}>(), { wireframe: false, isInView: true, poster: null, posterSizes: "100vw", alt: "", autoRotate: false })
 
 const { t } = useLanguage()
 
@@ -46,7 +43,6 @@ const errorDetail = ref("")
 const mode = ref<ViewerMode>(props.wireframe ? "wireframe" : "render")
 const isFullscreen = ref(false)
 const canFullscreen = ref(false)
-const tapToLoad = ref(false)
 const near    = ref(false)
 const visible = ref(false)
 const pageHidden = ref(false)
@@ -159,7 +155,6 @@ function resetView() {
 onMounted(() => {
   reducedMotion  = window.matchMedia("(prefers-reduced-motion: reduce)").matches
   touch = window.matchMedia("(pointer: coarse)").matches
-  tapToLoad.value = touch && !props.requested
   canFullscreen.value = document.fullscreenEnabled
   pageHidden.value = document.hidden
   const el = root.value!
@@ -184,7 +179,7 @@ onBeforeUnmount(() => {
 })
 
 watch(near, (isNear) => {
-  if (isNear && !tapToLoad.value && phase.value === "idle") void start()
+  if (isNear && phase.value === "idle") void start()
 })
 watch([visible, pageHidden], syncActive)
 watch(() => props.isInView, (inView) => {
@@ -201,7 +196,7 @@ watch(() => props.settings, (s) => {
 watch(() => props.glbUrl, () => {
   teardown(false)
   phase.value = "idle"
-  if (near.value && !tapToLoad.value) void start()
+  if (near.value) void start()
 })
 </script>
 
@@ -222,16 +217,6 @@ watch(() => props.glbUrl, () => {
       :sizes="posterSizes"
       class="three-viewer__poster"
     />
-
-    <button
-      v-if="phase === 'idle' && tapToLoad"
-      type="button"
-      class="three-viewer__load"
-      @click="start"
-    >
-      <Rotate3d class="three-viewer__icon" aria-hidden="true" />
-      <span>{{ t("viewerLoad") }}</span>
-    </button>
 
     <div
       v-if="phase === 'loading'"
@@ -330,7 +315,6 @@ watch(() => props.glbUrl, () => {
 
 /*the global media rule lifts every canvas and img to z-index 2 over the grain;
 the controls sit above them*/
-.three-viewer__load,
 .three-viewer__progress,
 .three-viewer__message,
 .three-viewer__toolbar {
@@ -341,28 +325,6 @@ the controls sit above them*/
   width: var(--vsui-space-lg);
   height: var(--vsui-space-lg);
   flex-shrink: 0;
-}
-
-.three-viewer__load {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: var(--vsui-space-xl);
-  width: fit-content;
-  margin: 0 auto;
-  display: flex;
-  align-items: center;
-  gap: var(--vsui-space-sm);
-  min-height: var(--vsui-space-3xl);
-  padding: 0 var(--vsui-space-xl);
-  border: var(--border-width) solid var(--color-border-accent);
-  background-color: var(--semi-transparent-dark);
-  color: var(--color-text-hover);
-  font-size: var(--vsui-text-xs);
-  font-weight: var(--font-weight-bold);
-  letter-spacing: var(--letter-spacing-normal);
-  text-transform: uppercase;
-  cursor: pointer;
 }
 
 .three-viewer__progress {
@@ -467,8 +429,7 @@ the controls sit above them*/
   border-color: var(--color-border-muted);
 }
 
-.three-viewer__button:focus-visible,
-.three-viewer__load:focus-visible {
+.three-viewer__button:focus-visible {
   outline: var(--border-width-md) solid var(--color-accent);
   outline-offset: var(--vsui-space-2xs);
 }
