@@ -16,7 +16,7 @@ import type { DetailBlock, TextBlockContent, Viewer3dBlockContent } from "../../
 //THE BENTO EDITOR - the canvas is drawn at the width a visitor sees (the
 //public content width, or a phone), scaled down when the space beside the
 //panel is narrower, so what is placed here is what the page will show: the
-//same rows, the live viewers, the cell guides only while a block moves.
+//same rows and the live viewers, over the cells the blocks are placed on.
 //Two layouts: desktop (3 columns) and phone (mobileY / mobileH).
 
 const blocks = defineModel<DetailBlock[]>("blocks", { required: true })
@@ -203,7 +203,6 @@ async function resetPhone() {
         <div
           ref="gridEl"
           class="bento__grid"
-          :class="{ 'bento__grid--moving': grid.drag.value }"
           :style="{ '--cols': grid.cols.value, '--tracks': tracks }"
           @pointerdown.self="select(null)"
         >
@@ -337,16 +336,14 @@ phone it is scaled down instead of squeezed*/
   touch-action: none;
   user-select: none;
 }
-/*the cell guides show while a block moves, so the canvas reads as the page*/
 .bento__ghost {
-  display: none;
+  display: grid;
   grid-column: 1 / -1;
   grid-row: 1 / -1;
   grid-template-columns: subgrid;
   grid-template-rows: subgrid;
   pointer-events: none;
 }
-.bento__grid--moving .bento__ghost { display: grid; }
 .bento__ghost-cell {
   border: var(--border-width) dashed var(--editor-text-muted);
   opacity: var(--detail-ghost-opacity);
