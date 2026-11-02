@@ -67,8 +67,8 @@ When you (or Claude) extend this template, drop new code in the right place. The
 |---|---|
 | A new route / page | New file in `src/pages/`, wire it in `src/router/index.ts`, link from `src/App.vue` nav |
 | A translatable string | `src/locales/seed-translations.json` (fr + en) then `bun run seed:i18n` |
-| A new DB table | `db/schema.ts`, then `bun run db:push` |
-| An API route | `server.ts`, always behind `requireAuth` unless deliberately public, scope by `req.user.id` |
+| A new DB table or column | `db/schema.ts`, then `bun run db:generate` (add any data move to the generated SQL) and `bun run db:migrate` on dev. The entrypoint applies it in production |
+| An API route | `server/routes/<resource>.ts`, behind `requireAdmin` unless deliberately public, its body through a strict schema in `server/validation.ts` |
 | A user setting | Call `useSettings().update(key, value, {type, description, group, options})` once anywhere - it self-seeds. Add the `SETTING_<key>_LABEL` and `SETTING_<key>_DESC` translations |
 | A composable | `src/composables/`. If it is reusable across projects, add it to the template so future clones get it |
 | A reusable Vue component | `src/components/` for cross-page pieces, `src/components/portfolio/` for the site itself |
@@ -131,20 +131,51 @@ that closes behind the person who walks through it.
 everyone and only becomes an editor when `useAdmin().editMode` is on.
 `/settings` and `/edit-3d/:id` carry `requiresAdmin`.
 
+# Server layout
+
+`server.ts` wires the middleware and mounts the modules under `server/`:
+`http.ts` (admin guard, errors, param and body parsing), `validation.ts` (one
+strict zod schema per body: an unknown key or a wrong type is a 400 with the
+reason), `uploads.ts`, `portfolio.ts`, `routes/*.ts`, and `seo.ts` + `site.ts`
+for the built app.
+
+- JSON bodies are capped at 1mb, except `PUT /api/models/:id/viewer-settings`
+  (10mb), mounted before the global parser.
+- `GET /api/portfolio` hides unpublished rows from visitors and serves them a
+  memo that every non-GET `/api` request invalidates. The admin session gets
+  every row, uncached.
+- Helmet sends a CSP. A new third-party origin (an embed, a CDN) fails until it
+  is added to the directives in `server.ts`.
+
 # Uploads
 
-`server.ts` accepts files on the admin-only routes and serves `storage/files`
-under `/media`. Three things are load-bearing:
+`server/uploads.ts` receives files on the admin-only routes; `/media` serves
+`storage/files`. Three things are load-bearing:
 
-- `fileFilter` checks the extension against a list AND the declared type against
-  a prefix list. `.svg` and `.html` are not on it: `/media` serves from the
-  site's own origin, so either one would run its script as if the site had
-  written it.
+- the file filter checks the extension against a list AND the declared type
+  against a prefix list. `.svg` and `.html` are not on it: `/media` serves from
+  the site's own origin, so either one would run its script as if the site had
+  written it. PDF is accepted by `POST /api/profile/cv` and nowhere else.
 - the stored name is `{uuid}{ext}`, generated here, never the client's.
 - `/media` sends `X-Content-Type-Options: nosniff`.
 
 Files are never deleted from disk: rows can go from the `file` table, the bytes
-stay.
+stay. The one unlink is the rollback of an upload whose row could not be
+written. A row cannot be deleted while `fileRefCountSql` in
+`server/routes/files.ts` counts a reference to it; every new place that holds
+a file id or a `/media` URL is added there. A dev server refuses uploads (503).
+
+# Pages carry their content
+
+Crawlers and AI tools mostly do not run JavaScript. In production Express
+serves `/` and `/project/:id` with the title, description, canonical, Open
+Graph tags, JSON-LD and a static HTML snapshot inside `#app`, all built from the
+public portfolio in the visitor's language cookie (French by default). Vue's
+mount replaces the snapshot. Unknown paths and unpublished projects answer 404.
+`/robots.txt`, `/sitemap.xml`, `/llms.txt` and `/llms-full.txt` are generated
+from the database. `server/site.ts` refuses to boot when `dist/index.html` lost
+one of the markers it fills (`<html lang>`, `<title>`, the description, the
+empty `#app`).
 
 # The i18n seed inserts, it does not overwrite
 
