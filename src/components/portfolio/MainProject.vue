@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { computed, ref, toRef } from "vue"
-import { Box, Grid3x3 } from "lucide-vue-next"
 import { useProjectCard } from "../../composables/useProjectCard"
 import { IMAGE_SIZES } from "../../lib/media"
 import { statRows } from "../../lib/portfolio-utils"
@@ -13,13 +12,13 @@ import UnpublishedBadge from "./UnpublishedBadge.vue"
 import type { MainProjectDto } from "../../types/portfolio"
 
 //CASE-STUDY CARD - three columns: the facts (number in outline, title,
-//description, the counts with their initial, the two actions), the thumbnails
-//between them and the model, and the model floating on its floor. Cards alternate sides down
-//the list so the section does not read as one repeated block. The wireframe
-//button turns the model and the thumbnails together.
-//detail: the head of the project's own page, as the plan lays it out: facts,
-//model with its toolbar (which replaces the two buttons), every thumbnail on
-//the right.
+//description, the counts with their initial), the thumbnails between them and
+//the model, and the model floating on its floor with its toolbar as a column
+//of icons. Cards alternate sides down the list so the section does not read as
+//one repeated block. The toolbar's wireframe mode turns the model and the
+//thumbnails together.
+//detail: the head of the project's own page, as the plan lays it out: facts
+//and software, model, every thumbnail on the right.
 const props = withDefaults(defineProps<{ project: MainProjectDto; number: number; flipped?: boolean; detail?: boolean }>(), {
   flipped: false,
   detail:  false,
@@ -42,20 +41,6 @@ const thumbs = computed(() => {
 })
 
 
-//the clay versions are decoded before the first sweep, so it never plays over
-//images still loading; the model and the thumbnails then turn together
-const thumbsEl = ref<HTMLElement | null>(null)
-async function toggleWireframe() {
-  if (!wireframe.value) {
-    const images = [...(thumbsEl.value?.querySelectorAll<HTMLImageElement>(".case__wire img, img.case__wire") ?? [])]
-    const results = await Promise.allSettled(images.map((img) => img.decode()))
-    for (const r of results) {
-      if (r.status === "rejected") console.warn("[project] a wireframe thumbnail could not be decoded:", r.reason)
-    }
-  }
-  wireframe.value = !wireframe.value
-}
-
 const titleId = `project-${props.project.id}-title`
 </script>
 
@@ -68,7 +53,7 @@ const titleId = `project-${props.project.id}-title`
     >
       <UnpublishedBadge :published="project.published" />
 
-      <ul v-if="thumbs.length" ref="thumbsEl" class="case__thumbs" :style="{ '--n': thumbs.length }" :aria-label="t('projectThumbs')">
+      <ul v-if="thumbs.length" class="case__thumbs" :style="{ '--n': thumbs.length }" :aria-label="t('projectThumbs')">
         <li v-for="(thumb, i) in thumbs" :key="i" :style="{ '--i': i }">
           <button
             type="button"
@@ -100,24 +85,12 @@ const titleId = `project-${props.project.id}-title`
 
         <SoftwareChips v-if="detail && project.software.length" :software="project.software" />
 
-        <!--the project's page has the viewer's own toolbar instead-->
-        <div v-if="!detail" class="case__actions">
-          <RouterLink :to="`/project/${project.id}`" class="site-button case__action case__action--accent">
-            <Box aria-hidden="true" />
-            {{ t("projectView3d") }}
-          </RouterLink>
-          <button type="button" class="site-button case__action" :aria-pressed="wireframe" @click="toggleWireframe">
-            <Grid3x3 aria-hidden="true" />
-            {{ t("projectWireframe") }}
-          </button>
-        </div>
       </div>
 
       <ProjectMedia
         v-model:wireframe="wireframe"
         :project="project"
         :thumbs="false"
-        :toolbar="detail"
         toolbar-side="right"
         class="case__media"
       />
@@ -297,23 +270,6 @@ the line x + y = t, t growing over the column's width plus height.*/
   color: var(--site-text-caption);
 }
 
-.case__actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--spacing-sm);
-}
-
-.case__action--accent {
-  border-color: var(--site-accent);
-  color: var(--site-accent);
-}
-
-.case__action[aria-pressed="true"] {
-  border-color: var(--site-accent);
-  background-color: var(--site-accent);
-  color: var(--site-on-accent);
-}
-
 @media (max-width: 1024px) {
   .case,
   .case--flipped,
@@ -328,9 +284,5 @@ the line x + y = t, t growing over the column's width plus height.*/
     display: grid;
     grid-template-columns: repeat(var(--n), minmax(0, 1fr));
   }
-}
-
-@media (max-width: 640px) {
-  .case__action { flex: 1 1 auto; }
 }
 </style>
