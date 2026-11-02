@@ -74,7 +74,7 @@ function enlarge() {
         :src="asImage.url"
         :alt="imageAlt"
         :sizes="sizes"
-        class="block-media__el"
+        :class="['block-media__el', { 'block-media__el--whole': asImage.fit === 'contain' }]"
         :style="{ objectFit: asImage.fit ?? 'cover' }"
       />
     </button>
@@ -155,6 +155,8 @@ while they load*/
   object-fit: cover;
   background-color: var(--color-background-gray-50);
 }
+/*shown whole: no box around the margins or behind a transparent drawing*/
+.block-media__el--whole { background: none; }
 
 .block-viewer {
   position: relative;
