@@ -119,8 +119,12 @@ function enlarge() {
 </template>
 
 <style scoped>
-/*TEXT - the prose styles are the shared .md-content*/
+/*TEXT - the prose styles are the shared .md-content; centred in its cell, so
+a short text beside an image reads against it rather than above a gap*/
 .block-text {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
   width: 100%;
   height: 100%;
   overflow: auto;

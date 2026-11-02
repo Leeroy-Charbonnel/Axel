@@ -64,9 +64,19 @@ const mainManifest = z.object({
   camera:      z.object({ position: vec3, target: vec3, fov: z.number().positive() }),
 })
 const galleryManifest = z.object({ title: bilingual, stats })
+const processStep = z.object({
+  section: bilingual.optional(),
+  image:   z.string().min(1).optional(),
+  video:   z.string().min(1).optional(),
+  //width / height of a video; an image is measured
+  aspect:  z.number().positive().optional(),
+  title:   bilingual,
+  text:    bilingual,
+}).refine((s) => Boolean(s.image) !== Boolean(s.video), "a step has an image or a video")
+  .refine((s) => !s.video || s.aspect !== undefined, "a video step gives its aspect")
 const processManifest = z.object({
   intro: bilingual,
-  steps: z.array(z.object({ image: z.string().min(1), title: bilingual, text: bilingual })),
+  steps: z.array(processStep),
   outro: bilingual,
 })
 
@@ -148,6 +158,11 @@ function viewerView({ min, max }: { min: Vec3; max: Vec3 }, camera: { position: 
   return { position, target }
 }
 
+async function imageAspect(path: string): Promise<number> {
+  const { width, height } = await measureImage(path)
+  return width / height
+}
+
 //the folder's details, sorted by name
 function detailNames(dir: string): string[] {
   return readdirSync(dir).filter((n) => /^detail-\d+\.(jpe?g|png|webp)$/i.test(n)).sort()
@@ -173,8 +188,10 @@ async function importMain(dir: string, uploader: string, startRight: boolean): P
     : null
   const steps: CaseStudyStep[] = []
   for (const s of story?.steps ?? []) {
-    const { width, height } = await measureImage(join(dir, s.image))
-    steps.push({ image: { fileId: await put(s.image), aspect: width / height }, title: s.title, text: s.text })
+    const media = s.image
+      ? { kind: "image" as const, fileId: await put(s.image), aspect: await imageAspect(join(dir, s.image)) }
+      : { kind: "video" as const, fileId: await put(s.video!), aspect: s.aspect! }
+    steps.push({ media, title: s.title, text: s.text, section: s.section })
   }
   //the viewport views and extras: vp-clay.jpg, screen.gif...
   const shots: Partial<Record<CaseStudyView, string>> = {}

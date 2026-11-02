@@ -23,7 +23,10 @@ describe("detail block content schemas", () => {
       { "vp-wire": ID, "vp-exploded": ID },
       {},
     ]
-    const steps = [0.8, 1, 1.78, 1.5, 0.75].map((aspect) => ({ image: { fileId: ID, aspect }, title: text, text }))
+    const steps = [0.8, 1, 1.78, 1.5, 0.75].map((aspect, i) => ({
+      media: { kind: i === 2 ? "video" as const : "image" as const, fileId: ID, aspect },
+      title: text, text, section: i % 2 === 0 ? text : undefined,
+    }))
     const pages = []
     for (const shape of ["tall", "wide", "compact"] as const)
       for (const intro of [text, null])

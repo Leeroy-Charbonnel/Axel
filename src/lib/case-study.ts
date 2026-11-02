@@ -5,10 +5,12 @@ import type { Bilingual, DetailBlock, DetailBlockContent, DetailBlockType } from
 //- an opening that follows the object's silhouette: a tall object gets a
 //  narrow, tall viewer beside the introduction, a wide one a wide viewer above
 //  it, a compact one a large viewer with the text at its side;
-//- the making-of: each step's image sized by its own aspect, its text beside
-//  it, the sides alternating from one step to the next;
-//- the working views (orthographic, exploded, clay, topology, maps), the
-//  renders (wireframe comparison, turntable, details) and the closing words.
+//- the making-of, in titled sections (references, blocking, modelling,
+//  materials...): each step's image or video sized by its own aspect, its text
+//  beside it, the sides alternating from one step to the next;
+//- without a making-of, the working views (orthographic, exploded, clay,
+//  topology, maps) stand in for it;
+//- the renders (wireframe comparison, turntable, details) and the closing words.
 //A band takes what the folder has and never leaves a hole. The page header
 //already carries the description, the numbers, the role and the software.
 
@@ -22,16 +24,19 @@ export const CASE_STUDY_VIEWS: CaseStudyView[] = [
   "vp-clay", "vp-wire", "vp-front", "vp-side", "vp-top", "vp-exploded", "vp-topology", "vp-textures", "screen",
 ]
 
-export interface CaseStudyImage {
+export interface CaseStudyMediaFile {
+  kind:   "image" | "video"
   fileId: string
   //width / height
   aspect: number
 }
 
 export interface CaseStudyStep {
-  image: CaseStudyImage
-  title: Bilingual
-  text:  Bilingual
+  media:    CaseStudyMediaFile
+  title:    Bilingual
+  text:     Bilingual
+  //opens a new section of the making-of under this title
+  section?: Bilingual
 }
 
 export interface CaseStudyMedia {
@@ -150,27 +155,29 @@ export function caseStudyBlocks(m: CaseStudyMedia): DetailBlock[] {
     pair(viewer, side, 2)
   }
 
-  //MAKING-OF - image and text side by side, the image sized by its aspect
-  if (m.steps.length) {
-    heading("Conception", "Making-of")
-    m.steps.forEach((s, i) => {
-      const portrait = s.image.aspect < 0.95
-      const square = !portrait && s.image.aspect < 1.25
-      const imageW = portrait || square ? 1 : 2
-      const h = portrait ? 3 : 2
-      const imageLeft = (i % 2 === 0) !== m.startRight
-      const img: Tile = { type: "image", content: { fileId: s.image.fileId, url: null, alt: s.title, fit: portrait ? "contain" : "cover" } }
-      place(img, imageLeft ? 0 : 3 - imageW, y, imageW, h, portrait ? 3 : 2)
-      place(text(stepText(s)), imageLeft ? imageW : 0, y, 3 - imageW, h, 2)
-      y += h
-    })
-  }
+  //MAKING-OF - media and text side by side, the media sized by its aspect
+  if (m.steps.length && !m.steps[0]!.section) heading("Conception", "Making-of")
+  m.steps.forEach((s, i) => {
+    if (s.section) heading(s.section.fr, s.section.en)
+    const portrait = s.media.aspect < 0.95
+    const square = !portrait && s.media.aspect < 1.25
+    const mediaW = portrait || square ? 1 : 2
+    const h = portrait ? 3 : 2
+    const mediaLeft = (i % 2 === 0) !== m.startRight
+    const media: Tile = s.media.kind === "video"
+      ? { type: "video", content: { fileId: s.media.fileId, url: null, autoplay: true, loop: true, muted: true, controls: false } }
+      : { type: "image", content: { fileId: s.media.fileId, url: null, alt: s.title, fit: portrait ? "contain" : "cover" } }
+    place(media, mediaLeft ? 0 : 3 - mediaW, y, mediaW, h, portrait ? 3 : 2)
+    place(text(stepText(s)), mediaLeft ? mediaW : 0, y, 3 - mediaW, h, 2)
+    y += h
+  })
 
-  //WORKING VIEWS - the orthographic set, then the exploded view with its close-ups
+  //WORKING VIEWS - without a making-of: the orthographic set, then the
+  //exploded view with its close-ups
   const ortho = present([viewImage("vp-front"), viewImage("vp-side"), viewImage("vp-top")])
   const exploded = viewImage("vp-exploded")
   const making = present([viewImage("vp-topology"), viewImage("vp-textures")])
-  if (ortho.length || exploded || making.length) {
+  if (!m.steps.length && (ortho.length || exploded || making.length)) {
     heading("Vues de travail", "Working views")
     row(ortho)
     if (exploded) pair(exploded, making, 1)
