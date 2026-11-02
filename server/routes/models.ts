@@ -3,7 +3,7 @@ import { asc, eq, sql } from "drizzle-orm"
 import { db } from "../../db/index"
 import { file as fileTable, mainProject, model3d } from "../../db/schema"
 import { notFound, parse, parsePatch, requireAdmin, uuidParam } from "../http"
-import { fileRow, optimizeModel, optimizeStoredGlb, saveOptimizedGlb, type ModelRow } from "../model-optimize"
+import { glbFileRow, optimizeModel, optimizeStoredGlb, saveOptimizedGlb, type ModelRow } from "../model-optimize"
 import { modelCreate, modelPatch, viewerSettingsBody } from "../validation"
 
 //MODEL_3D - reusable 3D assets, admin only. The files (.glb, thumbnail) are
@@ -65,7 +65,7 @@ modelsRouter.post("/api/models", requireAdmin, async (req, res) => {
     thumbnailFileId: body.thumbnailFileId ?? null,
     views:           body.views ?? [],
   }
-  const source = await fileRow(body.glbFileId)
+  const source = await glbFileRow(body.glbFileId)
   let optimized: Awaited<ReturnType<typeof optimizeStoredGlb>> | null = null
   let optimizeError: string | null = null
   try {
@@ -98,8 +98,10 @@ modelsRouter.post("/api/models/:id/optimize", requireAdmin, async (req, res) => 
 //patches only the fields sent: the Views tab must not clobber the GLB, etc.
 modelsRouter.put("/api/models/:id", requireAdmin, async (req, res) => {
   const id = uuidParam(req, "id")
+  const patch = parsePatch(modelPatch, req.body)
+  if (patch.glbFileId) await glbFileRow(patch.glbFileId)
   const [row] = await db.update(model3d)
-    .set({ ...parsePatch(modelPatch, req.body), updatedAt: new Date() })
+    .set({ ...patch, updatedAt: new Date() })
     .where(eq(model3d.id, id))
     .returning({ id: model3d.id })
   if (!row) notFound()
