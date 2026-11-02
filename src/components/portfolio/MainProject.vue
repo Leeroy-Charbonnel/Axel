@@ -11,9 +11,9 @@ import ProjectMedia from "./ProjectMedia.vue"
 import UnpublishedBadge from "./UnpublishedBadge.vue"
 import type { MainProjectDto } from "../../types/portfolio"
 
-//CASE-STUDY CARD - three columns: the thumbnails on the outer edge, the facts
-//(number in outline, title, description, the counts with their initial, the
-//two actions), and the model floating on its floor. Cards alternate sides down
+//CASE-STUDY CARD - three columns: the facts (number in outline, title,
+//description, the counts with their initial, the two actions), the thumbnails
+//between them and the model, and the model floating on its floor. Cards alternate sides down
 //the list so the section does not read as one repeated block. The wireframe
 //button turns the model and the thumbnails together.
 const props = defineProps<{ project: MainProjectDto; number: number; flipped: boolean }>()
@@ -88,20 +88,20 @@ const titleId = `project-${props.project.id}-title`
 </template>
 
 <style scoped>
-/*desktop: thumbnails | facts | model, mirrored on a flipped card; below
+/*desktop: facts | thumbnails | model, mirrored on a flipped card; below
 1025px the model, then the thumbnails in a row, then the facts*/
 .case {
   position: relative;
   display: grid;
-  grid-template-columns: var(--site-thumb-col) minmax(0, 4fr) minmax(0, 7fr);
-  grid-template-areas: "thumbs info media";
+  grid-template-columns: minmax(0, 4fr) var(--site-thumb-col) minmax(0, 7fr);
+  grid-template-areas: "info thumbs media";
   align-items: center;
   gap: var(--site-col-gap);
 }
 
 .case--flipped {
-  grid-template-columns: minmax(0, 7fr) minmax(0, 4fr) var(--site-thumb-col);
-  grid-template-areas: "media info thumbs";
+  grid-template-columns: minmax(0, 7fr) var(--site-thumb-col) minmax(0, 4fr);
+  grid-template-areas: "media thumbs info";
 }
 
 .case__thumbs  { grid-area: thumbs; }
