@@ -59,34 +59,59 @@ const visible = ref(false)
 const onScreen = ref(false)
 const pageHidden = ref(false)
 const viewer = shallowRef<ModelViewer | null>(null)
-//MARKS - one numbered box per label point, pushed out from the model's middle
-//on a short leader line, written straight to the DOM on every frame drawn
+//MARKS - one numbered box per label point on a leader line, written straight
+//to the DOM on every frame drawn
 const marksEl = ref<SVGSVGElement | null>(null)
 const labelCount = ref(0)
-const LEADER_PX = 46
+//how far the columns of boxes stand from the model's outermost parts
+const LEADER_PX = 56
+//half a mark box and a little air: how close a box comes to the viewer's edge
+const MARK_INSET_PX = 18
+//two box centres closer than this overlap
+const MARK_GAP_PX = 32
+const clamp = (v: number, min: number, max: number) => Math.min(Math.max(v, min), max)
+//The boxes stand in two columns, left and right of the model, each box level
+//with its part when there is room, the leaders straight and level wherever
+//they can be: a technical drawing's callouts.
 function placeMarks(points: LabelPoint[]) {
   labelCount.value = points.length
   const svg = marksEl.value
   if (!svg) return
-  const shown = points.filter((p) => p.visible)
-  const cx = shown.reduce((s, p) => s + p.x, 0) / Math.max(1, shown.length)
-  const cy = shown.reduce((s, p) => s + p.y, 0) / Math.max(1, shown.length)
+  const w = svg.clientWidth, h = svg.clientHeight
+  const shown = points.map((p, i) => ({ ...p, i })).filter((p) => p.visible)
+  if (!shown.length) return
+  const minX = Math.min(...shown.map((p) => p.x)), maxX = Math.max(...shown.map((p) => p.x))
+  const middle = (minX + maxX) / 2
+  const columns = [
+    { side: shown.filter((p) => p.x < middle), x: clamp(minX - LEADER_PX, MARK_INSET_PX, w - MARK_INSET_PX) },
+    { side: shown.filter((p) => p.x >= middle), x: clamp(maxX + LEADER_PX, MARK_INSET_PX, w - MARK_INSET_PX) },
+  ]
+  const at = new Map<number, { x: number; y: number }>()
+  for (const { side, x } of columns) {
+    //top to bottom, each box at least a box below the one above
+    const sorted = [...side].sort((a, b) => a.y - b.y)
+    const ys = sorted.map((p) => clamp(p.y, MARK_INSET_PX, h - MARK_INSET_PX))
+    for (let k = 1; k < ys.length; k++) ys[k] = Math.max(ys[k]!, ys[k - 1]! + MARK_GAP_PX)
+    //a column run past the bottom moves up as a whole
+    const over = (ys[ys.length - 1] ?? 0) - (h - MARK_INSET_PX)
+    if (over > 0) for (let k = 0; k < ys.length; k++) ys[k] = Math.max(MARK_INSET_PX + k * MARK_GAP_PX, ys[k]! - over)
+    sorted.forEach((p, k) => at.set(p.i, { x, y: ys[k]! }))
+  }
   points.forEach((p, i) => {
     const group = svg.children[i] as SVGGElement | undefined
     if (!group) return
-    group.style.display = p.visible ? "" : "none"
-    const dx = p.x - cx, dy = p.y - cy
-    const len = Math.hypot(dx, dy) || 1
-    const lx = p.x + (dx / len) * LEADER_PX, ly = p.y + (dy / len) * LEADER_PX
+    const box = at.get(i)
+    group.style.display = box ? "" : "none"
+    if (!box) return
     const line = group.children[0] as SVGLineElement
     line.setAttribute("x1", String(p.x))
     line.setAttribute("y1", String(p.y))
-    line.setAttribute("x2", String(lx))
-    line.setAttribute("y2", String(ly))
+    line.setAttribute("x2", String(box.x))
+    line.setAttribute("y2", String(box.y))
     const dot = group.children[1] as SVGCircleElement
     dot.setAttribute("cx", String(p.x))
     dot.setAttribute("cy", String(p.y))
-    ;(group.children[2] as SVGForeignObjectElement).setAttribute("transform", `translate(${lx} ${ly})`)
+    ;(group.children[2] as SVGForeignObjectElement).setAttribute("transform", `translate(${box.x} ${box.y})`)
   })
 }
 
