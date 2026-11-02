@@ -5,6 +5,8 @@ import { MEDIA_TYPES, acceptFor, mediaTypeOf, useMediaLibrary, type MediaFile, t
 import { useConfirm } from "../../../composables/useConfirm"
 import { useTranslations } from "../../../composables/useTranslations"
 import { formatBytes } from "../../../lib/format"
+import { IMAGE_SIZES } from "../../../lib/media"
+import SiteImage from "../../SiteImage.vue"
 
 //THE FILE GRID - shared by the picker dialog ("pick") and the settings files
 //tab ("manage"). Search, type filter, upload (button or drop), previews.
@@ -182,7 +184,7 @@ onMounted(() => { void library.load() })
           @click="onTile(f)"
         >
           <span class="media__preview">
-            <img v-if="mediaTypeOf(f) === 'image'" :src="f.url" alt="" loading="lazy" />
+            <SiteImage v-if="mediaTypeOf(f) === 'image'" :src="f.url" :sizes="IMAGE_SIZES.tile" />
             <component :is="ICONS[mediaTypeOf(f) ?? 'document']" v-else :size="24" aria-hidden="true" />
             <span v-if="chosen.includes(f.id)" class="media__check"><Check :size="14" /></span>
           </span>

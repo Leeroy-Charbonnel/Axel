@@ -58,16 +58,13 @@ const detailBlock = z.strictObject({
 })
 
 export const mainProjectPatch = z.strictObject({
-  modelId:            z.string(),
   title:              bilingual,
   description:        bilingual,
   published:          z.boolean(),
   role:               bilingual,
   year:               z.string().trim().max(20),
-  layout:             z.enum(["thumbs-left", "thumbs-right", "thumbs-bottom", "viewer-only"]),
   mainImageFileId:    fileId.nullable(),
   mainWireframeFileId: fileId.nullable(),
-  videoFileId:        fileId.nullable(),
   model3dId:          fileId.nullable(),
   model3dDesktopView: z.string(),
   model3dMobileView:  z.string(),
@@ -127,10 +124,10 @@ export const profilePatch = z.strictObject({
                   website:    httpUrl,
                 }),
   interests:    z.strictObject({ games: z.array(z.string()), art: z.array(z.string()) }),
-  //an uploaded file (/media/...) or an external image
+  //an uploaded file: the CSP serves images from this origin only
   avatarUrl:    z.string().trim().refine(
-                  (v) => v === "" || v.startsWith("/media/") || httpUrl.safeParse(v).success,
-                  "must be empty, a /media/ path or an http(s) URL",
+                  (v) => v === "" || v.startsWith("/media/"),
+                  "must be empty or a /media/ path",
                 ),
   cvFileId:     fileId.nullable(),
 }).partial()

@@ -2,8 +2,12 @@
 import { ref, toRef } from "vue"
 import { ArrowRight, Box, Image as ImageIcon, Layers } from "lucide-vue-next"
 import { useProjectCard } from "../../composables/useProjectCard"
+import { IMAGE_SIZES } from "../../lib/media"
 import EditableRegion from "../admin/EditableRegion.vue"
+import SiteImage from "../SiteImage.vue"
 import ThreeViewer from "./ThreeViewer.vue"
+import ProjectSpecStrip from "./ProjectSpecStrip.vue"
+import SoftwareChips from "./SoftwareChips.vue"
 import UnpublishedBadge from "./UnpublishedBadge.vue"
 import type { MainProjectDto } from "../../types/portfolio"
 
@@ -13,7 +17,7 @@ import type { MainProjectDto } from "../../types/portfolio"
 const props = defineProps<{ project: MainProjectDto }>()
 
 const {
-  lang, t, title, role, stats, viewerSettings, glbUrl,
+  lang, t, title, role, description, viewerSettings, glbUrl,
   showWireframe, hasWireframe, stillUrl, openStill, openThumbnail,
 } = useProjectCard(toRef(props, "project"))
 
@@ -33,6 +37,7 @@ const titleId = `project-${props.project.id}-title`
             :glb-url="glbUrl"
             :settings="viewerSettings"
             :poster="project.mainImageUrl"
+            :poster-sizes="IMAGE_SIZES.still"
             :alt="title"
             requested
             class="case__viewer"
@@ -45,24 +50,16 @@ const titleId = `project-${props.project.id}-title`
             :aria-label="`${t('projectOpenImage')} : ${title}`"
             @click="openStill"
           >
-            <img
+            <SiteImage
               v-if="project.mainImageUrl"
               :src="project.mainImageUrl"
-              alt=""
-              width="1920"
-              height="1080"
-              loading="lazy"
-              decoding="async"
+              :sizes="IMAGE_SIZES.still"
               class="case__image"
             />
-            <img
+            <SiteImage
               v-if="project.mainWireframeUrl"
               :src="project.mainWireframeUrl"
-              alt=""
-              width="1920"
-              height="1080"
-              loading="lazy"
-              decoding="async"
+              :sizes="IMAGE_SIZES.still"
               class="case__image case__image--wireframe"
             />
           </button>
@@ -79,7 +76,7 @@ const titleId = `project-${props.project.id}-title`
                   :aria-label="`${t('projectOpenImage')} : ${thumb.description[lang] || title}`"
                   @click="openThumbnail(thumb)"
                 >
-                  <img :src="thumb.url" alt="" width="160" height="160" loading="lazy" decoding="async" />
+                  <SiteImage :src="thumb.url" :sizes="IMAGE_SIZES.thumb" />
                 </button>
               </li>
             </template>
@@ -121,21 +118,11 @@ const titleId = `project-${props.project.id}-title`
         </header>
 
         <div class="case__body">
-          <p v-if="project.description[lang]" class="case__description">{{ project.description[lang] }}</p>
+          <p v-if="description" class="case__description">{{ description }}</p>
 
-          <dl v-if="stats.length" class="case__specs" :aria-label="t('projectSpecs')">
-            <div v-for="stat in stats" :key="stat.key" class="case__spec">
-              <dt class="case__spec-label">{{ stat.label }}</dt>
-              <dd class="case__spec-value">{{ stat.value }}</dd>
-            </div>
-          </dl>
+          <ProjectSpecStrip :stats="project.stats" :lang="lang" class="case__specs" />
 
-          <ul v-if="project.software.length" class="case__software" :aria-label="t('projectSoftware')">
-            <li v-for="sw in project.software" :key="sw.id" class="case__chip">
-              <img v-if="sw.logoUrl" :src="sw.logoUrl" alt="" width="20" height="20" loading="lazy" />
-              {{ sw.key }}
-            </li>
-          </ul>
+          <SoftwareChips :software="project.software" :aria-label="t('projectSoftware')" />
 
           <RouterLink :to="`/project/${project.id}`" class="site-button site-button--primary case__cta">
             {{ t("projectViewPage") }}
@@ -297,64 +284,8 @@ const titleId = `project-${props.project.id}-title`
   color: var(--site-text-body);
 }
 
-/*SPEC STRIP - full labels over the counts; the 1px gap over a line-coloured
-ground draws the hairlines between cells, however they wrap*/
-.case__specs {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, var(--site-spec-min)), 1fr));
-  gap: var(--border-width-sm);
-  width: 100%;
-  border: var(--border-width-sm) solid var(--site-line);
-  background-color: var(--site-line);
-}
-
-.case__spec {
-  display: flex;
-  flex-direction: column;
-  gap: var(--spacing-xxs);
-  padding: var(--spacing-sm) var(--spacing-md);
-  background-color: hsl(var(--background));
-}
-
-.case__spec-label {
-  font-size: var(--site-fs-label);
-  letter-spacing: var(--site-tracking-label);
-  text-transform: uppercase;
-  color: var(--site-text-caption);
-}
-
-.case__spec-value {
-  font-size: var(--site-fs-h3);
-  font-weight: var(--font-weight-bold);
-  font-variant-numeric: tabular-nums;
-  color: var(--site-text-heading);
-}
-
-.case__software {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--spacing-xs);
-  list-style: none;
-}
-
-.case__chip {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--spacing-xs);
-  padding: var(--spacing-xxs) var(--spacing-sm);
-  border: var(--border-width-sm) solid var(--site-line);
-  font-size: var(--site-fs-label);
-  font-weight: var(--font-weight-semibold);
-  letter-spacing: var(--letter-spacing-tight);
-  text-transform: uppercase;
-  color: var(--site-text-body);
-}
-
-.case__chip img {
-  width: var(--site-icon);
-  height: var(--site-icon);
-  object-fit: contain;
-}
+/*full width in a column that aligns its items to the start*/
+.case__specs { align-self: stretch; }
 
 @media (max-width: 1024px) {
   .case { grid-template-columns: minmax(0, 1fr); }

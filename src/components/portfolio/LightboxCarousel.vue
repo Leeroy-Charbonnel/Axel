@@ -3,6 +3,8 @@ import { computed, nextTick, ref, watch } from "vue"
 import { ChevronLeft, ChevronRight, X } from "lucide-vue-next"
 import { useLanguage } from "../../composables/useLanguage"
 import { useLightbox } from "../../composables/useLightbox"
+import { IMAGE_SIZES } from "../../lib/media"
+import SiteImage from "../SiteImage.vue"
 
 //LIGHTBOX - one instance in App.vue, opened by useLightbox().open(items, i).
 //A modal <dialog>: the page behind is inert, focus stays inside, Escape
@@ -140,7 +142,7 @@ watch(isOpen, async (open) => {
         @transitionend.self="onTrackTransitionEnd"
       >
         <div class="lightbox__slide" aria-hidden="true" @click.self="onSlideClick">
-          <img v-if="lastCloneUrl" :src="lastCloneUrl" alt="" draggable="false" class="lightbox__image" />
+          <SiteImage v-if="lastCloneUrl" :src="lastCloneUrl" :sizes="IMAGE_SIZES.lightbox" loading="eager" draggable="false" class="lightbox__image" />
         </div>
         <div
           v-for="(it, i) in items"
@@ -149,10 +151,10 @@ watch(isOpen, async (open) => {
           :aria-hidden="i !== index"
           @click.self="onSlideClick"
         >
-          <img :src="it.url" :alt="it.alt ?? ''" draggable="false" class="lightbox__image" />
+          <SiteImage :src="it.url" :alt="it.alt ?? ''" :sizes="IMAGE_SIZES.lightbox" loading="eager" draggable="false" class="lightbox__image" />
         </div>
         <div class="lightbox__slide" aria-hidden="true" @click.self="onSlideClick">
-          <img v-if="firstCloneUrl" :src="firstCloneUrl" alt="" draggable="false" class="lightbox__image" />
+          <SiteImage v-if="firstCloneUrl" :src="firstCloneUrl" :sizes="IMAGE_SIZES.lightbox" loading="eager" draggable="false" class="lightbox__image" />
         </div>
       </div>
 
@@ -241,7 +243,11 @@ watch(isOpen, async (open) => {
   padding: var(--site-topbar-height) var(--site-gutter) calc(var(--site-topbar-height) + var(--spacing-xl));
 }
 
+/*sized by the loaded image within the slide; eager, since a lazy image of
+no size yet never comes into view*/
 .lightbox__image {
+  width: auto;
+  height: auto;
   max-width: 100%;
   max-height: 100%;
   object-fit: contain;

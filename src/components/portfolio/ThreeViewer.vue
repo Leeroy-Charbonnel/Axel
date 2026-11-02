@@ -2,6 +2,7 @@
 import { computed, onBeforeUnmount, onMounted, ref, shallowRef, watch } from "vue"
 import { Box, Cylinder, Grid3x3, Maximize, Minimize, Rotate3d, RotateCcw, TriangleAlert } from "lucide-vue-next"
 import { useLanguage } from "../../composables/useLanguage"
+import SiteImage from "../SiteImage.vue"
 import type { ModelViewer } from "../../three/modelViewer"
 import type { ViewerMode, ViewerSettings } from "../../three/types"
 
@@ -17,14 +18,15 @@ const props = withDefaults(defineProps<{
   wireframe?:  boolean
   //the intro flight waits for the parent to say the section is on screen
   isInView?:   boolean
-  //image shown until the model is ready
-  poster?:     string | null
+  //image shown until the model is ready, and how wide the viewer is drawn
+  poster?:      string | null
+  posterSizes?: string
   //what the model is, for screen readers
-  alt?:        string
-  autoRotate?: boolean
+  alt?:         string
+  autoRotate?:  boolean
   //the visitor already asked for the model, so a touch device skips its own tap
-  requested?:  boolean
-}>(), { wireframe: false, isInView: true, poster: null, alt: "", autoRotate: false, requested: false })
+  requested?:   boolean
+}>(), { wireframe: false, isInView: true, poster: null, posterSizes: "100vw", alt: "", autoRotate: false, requested: false })
 
 const { t } = useLanguage()
 
@@ -214,13 +216,11 @@ watch(() => props.glbUrl, () => {
   >
     <canvas ref="canvas" class="three-viewer__canvas" :class="{ 'three-viewer__canvas--ready': phase === 'ready' }" />
 
-    <img
+    <SiteImage
       v-if="poster && phase !== 'ready'"
       :src="poster"
-      alt=""
+      :sizes="posterSizes"
       class="three-viewer__poster"
-      decoding="async"
-      loading="lazy"
     />
 
     <button

@@ -5,6 +5,8 @@ import { useLanguage } from "../../composables/useLanguage"
 import { useLightbox } from "../../composables/useLightbox"
 import { safeUrl } from "../../lib/safe-url"
 import { statRows } from "../../lib/portfolio-utils"
+import { IMAGE_SIZES } from "../../lib/media"
+import SiteImage from "../SiteImage.vue"
 import AnimatedReveal from "./AnimatedReveal.vue"
 import SectionHeader from "./SectionHeader.vue"
 import UnpublishedBadge from "./UnpublishedBadge.vue"
@@ -56,7 +58,7 @@ function open(p: GalleryProjectDto) {
                 :aria-label="`${t('projectOpenImage')} : ${card.title}`"
                 @click="open(card.project)"
               >
-                <img :src="card.project.imageUrl" alt="" width="800" height="600" loading="lazy" decoding="async" />
+                <SiteImage :src="card.project.imageUrl" :sizes="IMAGE_SIZES.gallery" />
               </button>
               <p v-else class="gallery__media gallery__media--empty">{{ t("projectNoImage") }}</p>
 

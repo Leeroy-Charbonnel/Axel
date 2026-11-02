@@ -3,7 +3,6 @@ import { computed } from "vue"
 import { Box, ExternalLink } from "lucide-vue-next"
 import BilingualField from "../fields/BilingualField.vue"
 import TextField from "../fields/TextField.vue"
-import SelectField from "../fields/SelectField.vue"
 import MediaField from "../fields/MediaField.vue"
 import ListField from "../fields/ListField.vue"
 import ModelField, { type ModelChoice } from "../fields/ModelField.vue"
@@ -11,7 +10,7 @@ import SoftwareField from "../fields/SoftwareField.vue"
 import StatsFields from "./StatsFields.vue"
 import { useEditor, type DraftOf } from "../../../composables/useEditor"
 import { useTranslations } from "../../../composables/useTranslations"
-import { MAIN_PROJECT_LAYOUTS, type MainProjectDto, type MainProjectLayout, type ThumbnailDto } from "../../../types/portfolio"
+import type { MainProjectDto, ThumbnailDto } from "../../../types/portfolio"
 
 const props = defineProps<{ entity: MainProjectDto }>()
 const editor = useEditor()
@@ -21,14 +20,6 @@ const p = computed(() => editor.display("mainProject", props.entity))
 function set(partial: DraftOf<"mainProject">) {
   editor.patch("mainProject", props.entity.id, partial)
 }
-
-const LAYOUT_KEYS: Record<MainProjectLayout, string> = {
-  "thumbs-left":   "fieldLayoutThumbsLeft",
-  "thumbs-right":  "fieldLayoutThumbsRight",
-  "thumbs-bottom": "fieldLayoutThumbsBottom",
-  "viewer-only":   "fieldLayoutViewerOnly",
-}
-const layouts = computed(() => MAIN_PROJECT_LAYOUTS.map((l) => ({ value: l.key, label: t(LAYOUT_KEYS[l.key]) })))
 
 const model = computed<ModelChoice>(() => ({
   model3dId:   p.value.model3dId,
@@ -65,12 +56,6 @@ const newThumbnail = (): ThumbnailDto => ({
 
     <section class="ed-form__section">
       <h3 class="ed-form__title">{{ t('formSectionVisuals') }}</h3>
-      <SelectField
-        :label="t('fieldLayout')"
-        :model-value="p.layout"
-        :options="layouts"
-        @update:model-value="(v) => set({ layout: v })"
-      />
       <MediaField
         :label="t('fieldMainImage')"
         accept="image"

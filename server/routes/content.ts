@@ -44,7 +44,6 @@ contentRouter.post("/api/main-project", requireAdmin, async (_req, res) => {
   const [row] = await db.insert(mainProject).values({
     title:               { en: "New project", fr: "Nouveau projet" },
     description:         { en: "Project description", fr: "Description du projet" },
-    wireframeParameters: { whiteMaterialColor: "ffffff", lightsOverwrite: [], emissiveMaterialsOverwrite: [] },
     stats:               { vertices: 0, edges: 0, faces: 0, triangles: 0 },
     sortOrder:           await nextSortOrder(mainProject),
   }).returning()

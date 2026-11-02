@@ -4,6 +4,7 @@ import { MoveHorizontal } from "lucide-vue-next"
 import { useTranslations } from "../../../composables/useTranslations"
 import { pickBilingual } from "../../../lib/markdown"
 import type { Lang } from "../../../lib/lang"
+import SiteImage from "../../SiteImage.vue"
 import BlockEmpty from "./BlockEmpty.vue"
 import type { CompareBlockContent } from "../../../types/portfolio"
 
@@ -13,7 +14,7 @@ import type { CompareBlockContent } from "../../../types/portfolio"
 //the block asks for it. Its handle is a slider: arrows step, Page keys jump,
 //Home / End go to the edges.
 
-const props = defineProps<{ content: CompareBlockContent; lang: Lang }>()
+const props = defineProps<{ content: CompareBlockContent; lang: Lang; sizes: string }>()
 const { t } = useTranslations()
 
 const STEP = 0.05
@@ -77,12 +78,11 @@ onBeforeUnmount(stopDrag)
     @pointerdown="onPointerDown"
     @pointermove="onHover"
   >
-    <img :src="content.afterUrl!" :alt="afterLabel" loading="lazy" decoding="async" class="bcompare__img" draggable="false" />
-    <img
+    <SiteImage :src="content.afterUrl!" :alt="afterLabel" :sizes="sizes" class="bcompare__img" draggable="false" />
+    <SiteImage
       :src="content.beforeUrl!"
       :alt="beforeLabel"
-      loading="lazy"
-      decoding="async"
+      :sizes="sizes"
       class="bcompare__img bcompare__img--before"
       :style="{ clipPath: `inset(0 ${100 - position * 100}% 0 0)` }"
       draggable="false"

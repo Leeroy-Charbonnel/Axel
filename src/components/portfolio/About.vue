@@ -1,8 +1,11 @@
 <script setup lang="ts">
 import { computed } from "vue"
 import { useLanguage } from "../../composables/useLanguage"
+import { IMAGE_SIZES } from "../../lib/media"
+import SiteImage from "../SiteImage.vue"
 import AnimatedReveal from "./AnimatedReveal.vue"
 import SectionHeader from "./SectionHeader.vue"
+import SoftwareChips from "./SoftwareChips.vue"
 import EditableRegion from "../admin/EditableRegion.vue"
 import type { ProfileDto, SoftwareDto } from "../../types/portfolio"
 
@@ -26,14 +29,11 @@ const interestGroups = computed(() => [
         <EditableRegion kind="profile" :label="t('editorKindProfile')">
           <div class="about">
             <div class="about__intro">
-              <img
+              <SiteImage
                 v-if="profile.avatarUrl"
                 :src="profile.avatarUrl"
                 :alt="profile.name"
-                width="224"
-                height="224"
-                loading="lazy"
-                decoding="async"
+                :sizes="IMAGE_SIZES.avatar"
                 class="about__avatar"
               />
               <p class="about__bio">{{ profile.about[lang] }}</p>
@@ -42,12 +42,7 @@ const interestGroups = computed(() => [
             <div class="about__side">
               <div v-if="software.length" class="about__group">
                 <h3 class="site-eyebrow">{{ t("aboutSoftware") }}</h3>
-                <ul class="about__software">
-                  <li v-for="sw in software" :key="sw.id" class="about__chip">
-                    <img v-if="sw.logoUrl" :src="sw.logoUrl" alt="" width="20" height="20" loading="lazy" />
-                    {{ sw.key }}
-                  </li>
-                </ul>
+                <SoftwareChips :software="software" />
               </div>
 
               <div v-if="interestGroups.length" class="about__group">
@@ -111,31 +106,6 @@ const interestGroups = computed(() => [
   gap: var(--spacing-sm);
 }
 
-.about__software {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--spacing-xs);
-  list-style: none;
-}
-
-.about__chip {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--spacing-xs);
-  padding: var(--spacing-xxs) var(--spacing-sm);
-  border: var(--border-width-sm) solid var(--site-line);
-  font-size: var(--site-fs-label);
-  font-weight: var(--font-weight-semibold);
-  letter-spacing: var(--letter-spacing-tight);
-  text-transform: uppercase;
-  color: var(--site-text-body);
-}
-
-.about__chip img {
-  width: var(--site-icon);
-  height: var(--site-icon);
-  object-fit: contain;
-}
 
 .about__interests {
   display: grid;

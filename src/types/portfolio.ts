@@ -1,5 +1,6 @@
 //PORTFOLIO domain types - shape returned by GET /api/portfolio. Mirrors the
 //DB tables in db/schema.ts but with file ids resolved to /media URLs.
+import type { ImageSizes } from "../lib/media"
 
 export interface Bilingual {
   en: string
@@ -11,19 +12,6 @@ export interface ProjectStats {
   edges:      number
   faces?:     number
   triangles?: number
-}
-
-export interface WireframeLight {
-  index:      number
-  intensity?: number
-  color:      string
-}
-
-export interface WireframeParameters {
-  wireframeColor?:             string
-  whiteMaterialColor:          string
-  lightsOverwrite:             WireframeLight[]
-  emissiveMaterialsOverwrite:  string[]
 }
 
 export interface SoftwareDto {
@@ -65,15 +53,6 @@ export interface ThumbnailDto {
   wireframeUrl:    string | null
   description:     Bilingual
 }
-
-export type MainProjectLayout = "thumbs-left" | "thumbs-right" | "thumbs-bottom" | "viewer-only"
-
-export const MAIN_PROJECT_LAYOUTS: { key: MainProjectLayout; label: string }[] = [
-  { key: "thumbs-left",   label: "Thumbnails left" },
-  { key: "thumbs-right",  label: "Thumbnails right" },
-  { key: "thumbs-bottom", label: "Thumbnails bottom" },
-  { key: "viewer-only",   label: "Viewer only" },
-]
 
 //DETAIL PAGE - per-project content grid (bento-style). Authored via the
 //page editor, rendered on the public detail page route.
@@ -247,27 +226,17 @@ export interface DetailPage {
 
 export interface MainProjectDto {
   id:                  number
-  modelId:             string
-  layout:              MainProjectLayout
   title:               Bilingual
   description:         Bilingual
   mainImageUrl:        string | null
   mainWireframeUrl:    string | null
-  videoUrl:            string | null
   //3D model reference - the project's viewer picks a model + which
   //named view to apply per breakpoint. model3dId is null until the
   //admin assigns one (or until the migration script has run).
   model3dId:           string | null
   model3dDesktopView:  string
   model3dMobileView:   string
-  //Legacy fields - still resolved by the server from the file/blob
-  //attached to this row, kept here so the migration script can read
-  //them. Will be removed once every project has been moved over.
-  glbFileId:           string | null
-  glbUrl:              string | null
-  viewerSettings:      unknown | null
   thumbnails:          ThumbnailDto[]
-  wireframeParameters: WireframeParameters
   detailPage:          DetailPage
   stats:               ProjectStats
   software:            SoftwareDto[]
@@ -347,4 +316,6 @@ export interface PortfolioDto {
   experiences:     ExperienceDto[]
   profile:         ProfileDto | null
   editorPrefs:     EditorPrefsDto
+  //[width, height] of every image URL above that has a stored size
+  images:          ImageSizes
 }

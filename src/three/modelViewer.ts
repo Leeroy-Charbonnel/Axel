@@ -170,7 +170,7 @@ export class ModelViewer {
 
     const setup = computeAutoSetup(root, { animations: gltf.animations })
     this.setup = setup
-    for (const w of setup.warnings) console.warn(`[three] ${url}: ${w}`)
+    for (const w of setup.warnings) console.warn(`[three] ${url}: ${w.code}`, w)
 
     //MATERIALS - one sweep copy per source material; the emissive picks get
     //their own copy of it
