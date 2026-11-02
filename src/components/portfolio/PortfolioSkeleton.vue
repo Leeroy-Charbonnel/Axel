@@ -45,7 +45,7 @@ const counts = lastSectionCounts()
 .skeleton__hero {
   display: flex;
   align-items: center;
-  min-height: var(--site-hero-min-height);
+  padding-top: var(--site-section-gap);
 }
 
 .skeleton__hero-grid {

@@ -152,7 +152,9 @@ function open(p: GalleryProjectDto) {
   border-top: var(--border-width-sm) solid var(--site-line);
 }
 
+/*the title takes the free height, so the stats and the link line up across a row*/
 .gallery__title {
+  flex: 1 0 auto;
   font-size: var(--site-fs-body);
   font-weight: var(--font-weight-bold);
   letter-spacing: var(--letter-spacing-tight);
@@ -185,7 +187,6 @@ function open(p: GalleryProjectDto) {
   align-self: flex-start;
   gap: var(--spacing-xxs);
   min-height: var(--site-touch-target);
-  margin-top: auto;
   margin-bottom: calc(-1 * var(--spacing-sm));
   font-size: var(--site-fs-label);
   font-weight: var(--font-weight-semibold);

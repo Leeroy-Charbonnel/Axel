@@ -113,6 +113,8 @@ watch(() => route.fullPath, closeMenu)
   align-items: center;
   width: var(--site-rail-width);
   padding-block: var(--spacing-md);
+  overflow-y: auto;
+  scrollbar-width: none;
 }
 
 /*centred in the rail; the language switch keeps the foot, never overlapping*/
@@ -132,7 +134,7 @@ watch(() => route.fullPath, closeMenu)
   padding: var(--spacing-sm) 0;
   writing-mode: vertical-rl;
   transform: rotate(180deg);
-  font-size: var(--site-fs-label);
+  font-size: var(--site-fs-rail);
   font-weight: var(--font-weight-bold);
   letter-spacing: var(--site-tracking-label);
   text-transform: uppercase;
@@ -144,6 +146,12 @@ watch(() => route.fullPath, closeMenu)
 .rail__link[aria-current="true"] { color: var(--site-accent); }
 
 .rail__lang { flex-direction: column; }
+
+/*a laptop-short window: the labels sit closer, and below that the rail scrolls
+rather than hiding its last links*/
+@media (max-height: 800px) {
+  .rail__link { padding: var(--spacing-xxs) 0; }
+}
 
 /*TOP BAR - hidden on desktop*/
 .topbar {
