@@ -4,6 +4,9 @@ import { authClient, type SessionUser } from "../lib/authClient"
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
+  //back and forward return where the reader was; a new page opens at its top
+  //(previous / next project reuse the same component, so this is not automatic)
+  scrollBehavior: (to, _from, saved) => saved ?? (to.hash ? { el: to.hash } : { top: 0 }),
   routes: [
     //Portfolio public landing page - single-page scroll layout
     { path: "/",                component: HomePage },
@@ -13,6 +16,9 @@ const router = createRouter({
     //no route carried a meta flag, so it returned true on its second line every
     //time and these pages opened for anyone who typed the address.
     { path: "/settings",        component: () => import("../pages/SettingsPage.vue"), meta: { requiresAdmin: true } },
+
+    //Every token, field and block rendered with sample content, for the admin
+    { path: "/styleguide",      component: () => import("../pages/StyleguidePage.vue"), meta: { requiresAdmin: true } },
 
     //Three.js model editor - per-model edit page. model_3d rows use uuid
     //primary keys since the uuid migration, so the param accepts hex+dashes
