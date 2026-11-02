@@ -142,3 +142,32 @@
     padding-bottom: calc(var(--vsui-nav-height-mobile) + var(--vsui-space-lg));
   }
 }
+
+/*3D MODEL EDITOR (/edit-3d) - sizes of its own controls; colours derive from
+the shadcn HSL tokens like every other editor surface*/
+:root {
+  --me-page-bg:      hsl(var(--background));
+  --me-stage-bg:     hsl(var(--background));
+  --me-chrome-bg:    hsl(var(--card) / 0.92);
+  --me-scrim:        hsl(var(--background) / 0.6);
+  --me-head-height:  56px;
+  --me-strip-height: 56px;
+  --me-tab-height:   52px;
+  --me-panel-width:  clamp(20rem, 28vw, 26rem);
+  --me-drawer-width: min(26rem, 92vw);
+  --me-seg-height:   36px;
+  --me-seg-width:    18rem;
+  --me-dot-target:   24px;
+  --me-dot-size:     8px;
+  --me-dot-ring:     3px;
+  --me-dot-hover-scale: 1.4;
+  --me-number-width: 4.5rem;
+  --me-range-target: 24px;
+  --me-swatch:       32px;
+  --me-swatch-sm:    14px;
+  --me-kbd-width:    3.5rem;
+  --me-aspect-desktop: var(--mp-viewer-aspect);
+  --me-aspect-phone:   9 / 16;
+  --me-indeterminate-duration: 1.2s;
+  --me-pulse-low:    0.5;
+}
