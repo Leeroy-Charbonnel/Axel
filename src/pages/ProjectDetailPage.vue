@@ -12,14 +12,17 @@ import EditableRegion from "../components/admin/EditableRegion.vue"
 import Contact from "../components/portfolio/Contact.vue"
 import DetailGrid from "../components/portfolio/detail/DetailGrid.vue"
 import BentoEditor from "../components/portfolio/detail/BentoEditor.vue"
+import ProjectMedia from "../components/portfolio/ProjectMedia.vue"
 import ProjectSpecStrip from "../components/portfolio/ProjectSpecStrip.vue"
 import SoftwareChips from "../components/portfolio/SoftwareChips.vue"
-import { storedContent } from "../components/portfolio/detail/block-types"
+import { hasContent, storedContent } from "../components/portfolio/detail/block-types"
+import NotFoundPage from "./NotFoundPage.vue"
 import type { DetailBlock, DetailPage } from "../types/portfolio"
 
 //PROJECT DETAIL PAGE - a case study: header (title, year, role, summary, spec
-//strip, software), the content blocks, the previous / next published project
-//and the contact section shared with the home page. For the admin in edit
+//strip, software), the content blocks (or, while there are none, the still,
+//its thumbnails and the 3D model), the previous / next published project and
+//the contact section shared with the home page. For the admin in edit
 //mode the header is an editable region (inspector) and the blocks become the
 //bento editor; the blocks are this page's own state, saved through the edit
 //bar.
@@ -61,6 +64,8 @@ const blocks    = ref<DetailBlock[]>([])
 const savedJson = ref("[]")
 const history   = useSnapshotHistory(blocks)
 const dirty     = computed(() => JSON.stringify(blocks.value) !== savedJson.value)
+//what a visitor sees: unfinished blocks are left out
+const shownBlocks = computed(() => blocks.value.filter((b) => hasContent(b, shownLang.value, data.value?.models ?? [])))
 
 function syncBlocks() {
   blocks.value = JSON.parse(JSON.stringify(source.value?.detailPage.blocks ?? [])) as DetailBlock[]
@@ -108,7 +113,8 @@ function goBack() {
 </script>
 
 <template>
-  <article class="case" :class="{ 'case--editing': editMode }" :lang="shownLang">
+  <NotFoundPage v-if="portfolio.loaded.value && !portfolio.error.value && !project" />
+  <article v-else class="case" :class="{ 'case--editing': editMode }" :lang="shownLang">
     <div v-if="!portfolio.loaded.value && !portfolio.error.value" class="site-container case__skeleton" aria-busy="true">
       <span class="case__skel case__skel--line"></span>
       <span class="case__skel case__skel--title"></span>
@@ -123,7 +129,7 @@ function goBack() {
         <ArrowLeft :size="16" aria-hidden="true" />
         <span>{{ t('detailBack') }}</span>
       </a>
-      <p class="case__missing-text" role="alert">{{ portfolio.error.value ?? t('detailNotFound') }}</p>
+      <p class="case__missing-text" role="alert">{{ portfolio.error.value }}</p>
     </div>
 
     <template v-else>
@@ -167,8 +173,8 @@ function goBack() {
 
       <section class="site-container case__blocks" :aria-label="title">
         <BentoEditor v-if="editMode" v-model:blocks="blocks" :lang="shownLang" :commit="history.commit" />
-        <DetailGrid v-else-if="blocks.length" :blocks="blocks" :lang="shownLang" />
-        <p v-else class="case__empty">{{ t('detailNoBlocks') }}</p>
+        <DetailGrid v-else-if="shownBlocks.length" :blocks="shownBlocks" :lang="shownLang" />
+        <ProjectMedia v-else :project="project" />
       </section>
 
       <nav v-if="prev || next" class="site-container case__pager" :aria-label="t('detailPager')">
@@ -192,7 +198,8 @@ function goBack() {
   display: flex;
   flex-direction: column;
   gap: var(--site-section-gap);
-  padding-block: var(--spacing-3xl) var(--site-section-gap);
+  /*no bottom padding: the contact section ends with its own, as on the home page*/
+  padding-top: var(--spacing-3xl);
   font-family: var(--site-font);
   color: var(--site-text-body);
 }
@@ -288,19 +295,6 @@ function goBack() {
   margin: 0;
   font-size: var(--site-fs-small);
   color: var(--site-text-heading);
-}
-
-/*BLOCKS*/
-.case__empty {
-  margin: 0;
-  padding: var(--spacing-3xl) 0;
-  text-align: center;
-  font-size: var(--site-fs-label);
-  text-transform: uppercase;
-  letter-spacing: var(--site-tracking-label);
-  color: var(--site-text-caption);
-  border-top: var(--border-width) solid var(--site-line);
-  border-bottom: var(--border-width) solid var(--site-line);
 }
 
 /*PREVIOUS / NEXT*/

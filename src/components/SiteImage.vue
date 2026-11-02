@@ -1,7 +1,11 @@
+<script lang="ts">
+const warned = new Set<string>()
+</script>
+
 <script setup lang="ts">
 import { computed } from "vue"
 import { usePortfolio } from "../composables/usePortfolio"
-import { derivativeUrl, storedImage, widthSteps } from "../lib/media"
+import { derivativeUrl, storedImage, widthSteps, type ImageSizes } from "../lib/media"
 
 //EVERY PUBLIC IMAGE. An upload under /media/images is offered as resized WebP
 //copies (srcset), with the stored width and height so the box is reserved
@@ -17,7 +21,19 @@ const props = withDefaults(defineProps<{
 
 const { data } = usePortfolio()
 
-const size = computed(() => data.value?.images[props.src] ?? null)
+//a payload cached from before a deploy can lack the sizes: the image is drawn
+//without them, and the console says which one, once
+const size = computed(() => {
+  if (!data.value) return null
+  const sizes: ImageSizes | undefined = data.value.images
+  const found = sizes?.[props.src]
+  if (found) return found
+  if (storedImage(props.src) && !warned.has(props.src)) {
+    warned.add(props.src)
+    console.warn(`[image] no stored dimensions for ${props.src}, drawn without width and height`)
+  }
+  return null
+})
 
 const variants = computed(() => {
   const stored = storedImage(props.src)

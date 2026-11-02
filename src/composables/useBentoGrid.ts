@@ -50,7 +50,8 @@ export function useBentoGrid(o: BentoGridOptions) {
   const phantom = computed(() => preview.value?.get(NEW_ID) ?? null)
 
   //POINTER TO CELL - the canvas may be scaled down to fit, so pixel offsets
-  //are divided by the scale and measured against the resolved grid tracks
+  //are divided by the scale and measured against the resolved grid tracks;
+  //rows grow with their text, so each one has its own height
   function cellAt(clientX: number, clientY: number): { x: number; y: number } | null {
     const el = o.grid.value
     if (!el) return null
@@ -58,18 +59,24 @@ export function useBentoGrid(o: BentoGridOptions) {
     if (clientX < box.left || clientX > box.right || clientY < box.top || clientY > box.bottom) return null
     const scale = box.width / el.offsetWidth
     const css = getComputedStyle(el)
-    const rowPx = parseFloat(css.gridTemplateRows)
+    const rowsPx = css.gridTemplateRows.split(" ").map(parseFloat)
     const colGap = parseFloat(css.columnGap)
     const rowGap = parseFloat(css.rowGap)
-    if (![rowPx, colGap, rowGap].every(Number.isFinite)) {
+    if (![...rowsPx, colGap, rowGap].every(Number.isFinite)) {
       throw new Error("[bento] the canvas grid tracks did not resolve to pixels")
     }
     const colPx = (el.offsetWidth - (cols.value - 1) * colGap) / cols.value
     const px = (clientX - box.left) / scale
     const py = (clientY - box.top) / scale
+    let y = 0
+    let bottom = rowsPx[0]! + rowGap
+    while (y < rowsPx.length - 1 && py >= bottom) {
+      y += 1
+      bottom += rowsPx[y]! + rowGap
+    }
     return {
       x: Math.min(cols.value - 1, Math.max(0, Math.floor(px / (colPx + colGap)))),
-      y: Math.max(0, Math.floor(py / (rowPx + rowGap))),
+      y,
     }
   }
 

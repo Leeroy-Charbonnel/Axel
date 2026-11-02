@@ -8,7 +8,7 @@ import { usePortfolio } from "../../../composables/usePortfolio"
 import { useTranslations } from "../../../composables/useTranslations"
 import { phoneAuthored, type GridLayout } from "../../../lib/bento-layout"
 import type { Lang } from "../../../lib/lang"
-import { blockType } from "./block-types"
+import { blockType, FILL_TYPES } from "./block-types"
 import DetailBlockRenderer from "./DetailBlockRenderer.vue"
 import BlockBorder from "./BlockBorder.vue"
 import BlockPanel from "./BlockPanel.vue"
@@ -217,6 +217,7 @@ async function resetPhone() {
             :ref="(el) => { if (el) blockEls.set(b.id, el as HTMLElement); else blockEls.delete(b.id) }"
             class="bento__block"
             :class="{
+              'bento__block--fill': FILL_TYPES.has(b.type),
               'bento__block--selected': selectedId === b.id,
               'bento__block--dragging': grid.drag.value?.id === b.id && grid.drag.value.moved,
             }"
@@ -334,7 +335,7 @@ phone it is scaled down instead of squeezed*/
   position: relative;
   display: grid;
   grid-template-columns: repeat(var(--cols), minmax(0, 1fr));
-  grid-template-rows: repeat(var(--rows), var(--row));
+  grid-template-rows: repeat(var(--rows), minmax(var(--row), auto));
   gap: var(--gap);
   touch-action: none;
   user-select: none;
@@ -362,6 +363,8 @@ phone it is scaled down instead of squeezed*/
   outline-offset: calc(-1 * var(--border-width));
   transition: outline-color var(--transition-fast) ease;
 }
+/*as on the public grid: media take the cell's size, text sets it*/
+.bento__block--fill { contain: size; }
 .bento__block:hover { outline-color: var(--editor-text-muted); }
 .bento__block:focus-visible { outline: var(--editor-outline-width) solid hsl(var(--ring)); }
 .bento__block--selected,

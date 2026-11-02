@@ -1,8 +1,9 @@
 import type { DetailBlock } from "../types/portfolio"
 
 //BENTO LAYOUT - pure geometry of the detail-page grid, shared by the public
-//render, the editor and the showcase seed. Desktop is 3 columns of fixed-height
-//rows; phone is one column whose rows come from mobileY / mobileH.
+//render, the editor and the showcase seed. Desktop is 3 columns of rows with a
+//minimum height that grow with their text; phone is one column whose rows come
+//from mobileY / mobileH.
 
 export type GridLayout = "desktop" | "phone"
 export interface Rect { x: number; y: number; w: number; h: number }
@@ -41,6 +42,21 @@ export function layoutRects(blocks: DetailBlock[], layout: GridLayout): Rects {
     y += b.h
   }
   return rects
+}
+
+//a row no block covers is taken out and the rows below move up: what the
+//public page draws once the blocks it leaves out are gone
+export function closeEmptyRows(rects: Rects): Rects {
+  const covered = new Set<number>()
+  for (const r of rects.values()) for (let y = r.y; y < r.y + r.h; y++) covered.add(y)
+  const shift = (y: number) => {
+    let empty = 0
+    for (let row = 0; row < y; row++) if (!covered.has(row)) empty++
+    return y - empty
+  }
+  const out: Rects = new Map()
+  for (const [id, r] of rects) out.set(id, { ...r, y: shift(r.y) })
+  return out
 }
 
 export function bottomOf(rects: Iterable<Rect>): number {
