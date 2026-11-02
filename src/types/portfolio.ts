@@ -269,10 +269,16 @@ export interface MainProjectDto {
   detailPage:          DetailPage
   stats:               ProjectStats
   software:            SoftwareDto[]
+  //Hidden from visitors when false; the admin still sees and edits it
+  published:           boolean
+  //What the artist did on it, e.g. "Solo - modeling, texturing"
+  role:                Bilingual
+  year:                string
 }
 
 export interface GalleryProjectDto {
   id:       number
+  published: boolean
   title:    Bilingual
   link:     string
   imageUrl: string | null
@@ -292,13 +298,33 @@ export interface ExperienceDto {
   location:    string
   summary:     Bilingual
   description: { en: string[]; fr: string[] }
+  published:   boolean
+}
+
+export interface ProfileLinks {
+  instagram:  string
+  artstation: string
+  sketchfab:  string
+  linkedin:   string
+  website:    string
 }
 
 export interface ProfileDto {
-  about:     Bilingual
-  contact:   { phone: string; email: string; instagram: string }
-  interests: { games: string[]; art: string[] }
-  avatarUrl: string
+  name:         string
+  //Hero line under the name, e.g. "3D Artist - hard surface and props"
+  headline:     Bilingual
+  //One or two sentences in the hero, also the meta description
+  pitch:        Bilingual
+  location:     string
+  available:    boolean
+  //Text next to the availability dot, e.g. "Open to freelance from March"
+  availability: Bilingual
+  about:        Bilingual
+  contact:      { phone: string; email: string }
+  links:        ProfileLinks
+  interests:    { games: string[]; art: string[] }
+  avatarUrl:    string
+  cvUrl:        string | null
 }
 
 //Global editor preferences (admin's settings table rows). Public viewers

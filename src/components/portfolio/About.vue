@@ -22,8 +22,12 @@ async function onAboutSave(newVal: string) {
   await updateProfile({ about: { ...props.profile.about, [lang.value]: newVal } })
 }
 
-async function onContactSave(field: "phone" | "email" | "instagram", newVal: string) {
+async function onContactSave(field: "phone" | "email", newVal: string) {
   await updateProfile({ contact: { ...props.profile.contact, [field]: newVal } })
+}
+
+async function onInstagramSave(newVal: string) {
+  await updateProfile({ links: { ...props.profile.links, instagram: newVal } })
 }
 
 async function onInterestSave(field: "games" | "art", newVal: string) {
@@ -114,9 +118,9 @@ function onReplaceAvatar() {
             <span class="about__contact-label">{{ t("experienceInsta") }}</span>
             <EditableText
               tag="span"
-              :value="profile.contact.instagram"
+              :value="profile.links.instagram"
               placeholder="@handle"
-              @save="(v) => onContactSave('instagram', v)"
+              @save="onInstagramSave"
             />
           </li>
         </ul>
