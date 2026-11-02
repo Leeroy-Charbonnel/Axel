@@ -1,46 +1,39 @@
 <script setup lang="ts">
-import { useLanguage } from "../../../composables/useLanguage"
 import { pickBilingual } from "../../../lib/markdown"
+import type { Lang } from "../../../lib/lang"
 import type { HeadingBlockContent } from "../../../types/portfolio"
 
-//SECTION HEADING - big brutalist title with an accent bar. Structures
-//the page between two block rows.
-
-defineProps<{ content: HeadingBlockContent }>()
-const { lang } = useLanguage()
+//SECTION HEADING - the title under a hairline, at the bottom of its block
+//so it introduces the row that follows
+defineProps<{ content: HeadingBlockContent; lang: Lang }>()
 </script>
 
 <template>
-  <h2 class="bheading">
-    <span class="bheading__bar" aria-hidden="true"></span>
-    <span class="bheading__text">{{ pickBilingual(content.text, lang) || "Section" }}</span>
-  </h2>
+  <div class="bheading">
+    <h2 class="bheading__text" :lang="lang">{{ pickBilingual(content.text, lang) }}</h2>
+  </div>
 </template>
 
 <style scoped>
 .bheading {
   display: flex;
-  align-items: center;
-  gap: var(--spacing-md);
+  align-items: flex-end;
   width: 100%;
   height: 100%;
-  margin: 0;
-  padding: 0 var(--spacing-md);
+  padding-bottom: var(--spacing-md);
   overflow: hidden;
 }
-.bheading__bar {
-  flex-shrink: 0;
-  width: var(--spacing-xs);
-  height: 60%;
-  background-color: var(--color-accent);
-}
 .bheading__text {
-  font-size: var(--font-size-xl);
-  font-weight: var(--font-weight-black);
+  flex: 1;
+  margin: 0;
+  padding-top: var(--spacing-md);
+  border-top: var(--border-width) solid hsl(var(--border-color));
+  font-size: var(--site-fs-h2);
+  line-height: var(--site-lh-tight);
+  font-weight: var(--font-weight-bold);
   text-transform: uppercase;
-  letter-spacing: var(--letter-spacing-wide);
+  letter-spacing: var(--site-tracking-heading);
   color: var(--color-text-hover);
-  line-height: 1.1;
-  word-break: break-word;
+  overflow-wrap: anywhere;
 }
 </style>

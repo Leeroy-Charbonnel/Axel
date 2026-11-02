@@ -1,48 +1,34 @@
 <script setup lang="ts">
-import { Upload } from "lucide-vue-next"
-import { useMediaLibrary } from "../../../admin/media/useMediaLibrary"
+import MediaField from "../../../admin/fields/MediaField.vue"
+import ToggleField from "../../../admin/fields/ToggleField.vue"
+import { useTranslations } from "../../../../composables/useTranslations"
 import type { VideoBlockContent } from "../../../../types/portfolio"
 
 const props = defineProps<{ content: VideoBlockContent }>()
-const emit = defineEmits<{ (e: "dirty"): void; (e: "structural"): void }>()
+const { t } = useTranslations()
 
-const { uploading, pickMedia } = useMediaLibrary()
-
-async function onPick() {
-  const [row] = await pickMedia({ accept: "video" })
-  if (!row) return
-  emit("structural")
-  props.content.fileId = row.id
-  props.content.url    = row.url
-  emit("dirty")
-}
-
-function toggle(key: "autoplay" | "loop" | "muted" | "controls", v: boolean) {
-  props.content[key] = v
-  emit("dirty")
-}
+const TOGGLES = [
+  { key: "autoplay", label: "blockVideoAutoplay" },
+  { key: "loop",     label: "blockVideoLoop" },
+  { key: "muted",    label: "blockVideoMuted" },
+  { key: "controls", label: "blockVideoControls" },
+] as const
 </script>
 
 <template>
-  <p class="dp-hint">Default is gif-style playback (autoplay, loop, muted). Enable controls for a regular player.</p>
-  <button type="button" class="dp-upload" :disabled="uploading" @click="onPick">
-    <Upload :size="14" />
-    <span>{{ uploading ? "Uploading..." : content.fileId ? "Replace video" : "Upload video" }}</span>
-  </button>
-  <label class="dp-toggle">
-    <input type="checkbox" :checked="content.autoplay" @change="toggle('autoplay', ($event.target as HTMLInputElement).checked)" />
-    <span>Autoplay</span>
-  </label>
-  <label class="dp-toggle">
-    <input type="checkbox" :checked="content.loop" @change="toggle('loop', ($event.target as HTMLInputElement).checked)" />
-    <span>Loop</span>
-  </label>
-  <label class="dp-toggle">
-    <input type="checkbox" :checked="content.muted" @change="toggle('muted', ($event.target as HTMLInputElement).checked)" />
-    <span>Muted (required for autoplay)</span>
-  </label>
-  <label class="dp-toggle">
-    <input type="checkbox" :checked="content.controls" @change="toggle('controls', ($event.target as HTMLInputElement).checked)" />
-    <span>Show controls</span>
-  </label>
+  <MediaField
+    :label="t('blockFieldVideo')"
+    accept="video"
+    :hint="t('blockHintVideo')"
+    :url="props.content.url"
+    @pick="(f) => { props.content.fileId = f.id; props.content.url = f.url }"
+    @clear="props.content.fileId = null; props.content.url = null"
+  />
+  <ToggleField
+    v-for="tg in TOGGLES"
+    :key="tg.key"
+    :label="t(tg.label)"
+    :model-value="props.content[tg.key]"
+    @update:model-value="(v) => (props.content[tg.key] = v)"
+  />
 </template>

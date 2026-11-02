@@ -1,12 +1,16 @@
 <script setup lang="ts">
-import BilingualInput from "./BilingualInput.vue"
+import BilingualField from "../../../admin/fields/BilingualField.vue"
+import { useTranslations } from "../../../../composables/useTranslations"
 import type { HeadingBlockContent } from "../../../../types/portfolio"
 
-defineProps<{ content: HeadingBlockContent }>()
-const emit = defineEmits<{ (e: "dirty"): void; (e: "structural"): void }>()
+const props = defineProps<{ content: HeadingBlockContent }>()
+const { t } = useTranslations()
 </script>
 
 <template>
-  <p class="dp-hint">Big section title - use it to structure the page or as a separator.</p>
-  <BilingualInput label="Title" :value="content.text" @dirty="emit('dirty')" />
+  <BilingualField
+    :label="t('fieldTitle')"
+    :model-value="props.content.text"
+    @update:model-value="(v) => (props.content.text = v)"
+  />
 </template>

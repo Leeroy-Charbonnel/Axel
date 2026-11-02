@@ -1,49 +1,42 @@
 <script setup lang="ts">
-import { Upload } from "lucide-vue-next"
-import { useMediaLibrary } from "../../../admin/media/useMediaLibrary"
-import BilingualInput from "./BilingualInput.vue"
+import BilingualField from "../../../admin/fields/BilingualField.vue"
+import MediaField from "../../../admin/fields/MediaField.vue"
+import ToggleField from "../../../admin/fields/ToggleField.vue"
+import { useTranslations } from "../../../../composables/useTranslations"
 import type { CompareBlockContent } from "../../../../types/portfolio"
 
 const props = defineProps<{ content: CompareBlockContent }>()
-const emit = defineEmits<{ (e: "dirty"): void; (e: "structural"): void }>()
-
-const { uploading, pickMedia } = useMediaLibrary()
-
-async function onPick(side: "before" | "after") {
-  const [row] = await pickMedia({ accept: "image" })
-  if (!row) return
-  emit("structural")
-  if (side === "before") { props.content.beforeFileId = row.id; props.content.beforeUrl = row.url }
-  else                   { props.content.afterFileId  = row.id; props.content.afterUrl  = row.url }
-  emit("dirty")
-}
-
-function setFollowMouse(v: boolean) {
-  props.content.followMouse = v
-  emit("dirty")
-}
+const { t } = useTranslations()
 </script>
 
 <template>
-  <p class="dp-hint">Two images split by a divider. Click / drag to move it.</p>
-  <div class="dp-row">
-    <button type="button" class="dp-upload" :disabled="uploading" @click="onPick('before')">
-      <Upload :size="14" />
-      <span>{{ content.beforeFileId ? "Replace before" : "Upload before" }}</span>
-    </button>
-    <img v-if="content.beforeUrl" :src="content.beforeUrl" alt="" class="dp-thumb" />
-  </div>
-  <div class="dp-row">
-    <button type="button" class="dp-upload" :disabled="uploading" @click="onPick('after')">
-      <Upload :size="14" />
-      <span>{{ content.afterFileId ? "Replace after" : "Upload after" }}</span>
-    </button>
-    <img v-if="content.afterUrl" :src="content.afterUrl" alt="" class="dp-thumb" />
-  </div>
-  <label class="dp-toggle">
-    <input type="checkbox" :checked="content.followMouse ?? false" @change="setFollowMouse(($event.target as HTMLInputElement).checked)" />
-    <span>Divider follows the mouse (no click needed)</span>
-  </label>
-  <BilingualInput label="Before label" :value="content.beforeLabel" @dirty="emit('dirty')" />
-  <BilingualInput label="After label" :value="content.afterLabel" @dirty="emit('dirty')" />
+  <MediaField
+    :label="t('blockFieldBefore')"
+    accept="image"
+    :url="props.content.beforeUrl"
+    @pick="(f) => { props.content.beforeFileId = f.id; props.content.beforeUrl = f.url }"
+    @clear="props.content.beforeFileId = null; props.content.beforeUrl = null"
+  />
+  <MediaField
+    :label="t('blockFieldAfter')"
+    accept="image"
+    :url="props.content.afterUrl"
+    @pick="(f) => { props.content.afterFileId = f.id; props.content.afterUrl = f.url }"
+    @clear="props.content.afterFileId = null; props.content.afterUrl = null"
+  />
+  <BilingualField
+    :label="t('blockFieldBeforeLabel')"
+    :model-value="props.content.beforeLabel"
+    @update:model-value="(v) => (props.content.beforeLabel = v)"
+  />
+  <BilingualField
+    :label="t('blockFieldAfterLabel')"
+    :model-value="props.content.afterLabel"
+    @update:model-value="(v) => (props.content.afterLabel = v)"
+  />
+  <ToggleField
+    :label="t('blockCompareFollow')"
+    :model-value="props.content.followMouse ?? false"
+    @update:model-value="(v) => (props.content.followMouse = v)"
+  />
 </template>

@@ -1,87 +1,113 @@
 <script setup lang="ts">
-import { ref, watch } from "vue"
-import { ChevronDown } from "lucide-vue-next"
-import { useLanguage } from "../../../composables/useLanguage"
+import { ref, useId, watch } from "vue"
+import { Plus } from "lucide-vue-next"
+import { useTranslations } from "../../../composables/useTranslations"
 import { pickBilingual, renderMd } from "../../../lib/markdown"
+import type { Lang } from "../../../lib/lang"
+import BlockEmpty from "./BlockEmpty.vue"
 import type { AccordionBlockContent } from "../../../types/portfolio"
 
-//ACCORDION - collapsible sections with markdown bodies. First item
-//starts open so the block never renders as a wall of closed bars.
+//ACCORDION - one section open at a time, the first one to start with. Each
+//header is a real button wired to its panel (aria-expanded / aria-controls);
+//up and down arrows move between headers.
 
-const props = defineProps<{ content: AccordionBlockContent }>()
+const props = defineProps<{ content: AccordionBlockContent; lang: Lang }>()
+const { t } = useTranslations()
+const uid = useId()
 
-const { lang } = useLanguage()
-
-const openIdx = ref<number | null>(props.content.items.length > 0 ? 0 : null)
+const openIdx = ref<number | null>(props.content.items.length ? 0 : null)
+const heads = ref<HTMLButtonElement[]>([])
 
 watch(() => props.content.items.length, (n) => {
-  if (openIdx.value !== null && openIdx.value >= n) openIdx.value = n > 0 ? 0 : null
+  if (openIdx.value !== null && openIdx.value >= n) openIdx.value = n ? 0 : null
 })
 
 function toggle(i: number) {
   openIdx.value = openIdx.value === i ? null : i
 }
+
+function onKeydown(e: KeyboardEvent, i: number) {
+  const n = props.content.items.length
+  const moves: Record<string, number> = { ArrowDown: (i + 1) % n, ArrowUp: (i - 1 + n) % n, Home: 0, End: n - 1 }
+  const to = moves[e.key]
+  if (to === undefined) return
+  e.preventDefault()
+  heads.value[to]?.focus()
+}
 </script>
 
 <template>
-  <div class="accordion md-content">
-    <p v-if="!content.items.length" class="accordion__empty">No sections</p>
-    <section
-      v-for="(item, i) in content.items"
-      :key="i"
-      class="accordion__item"
-      :class="{ 'accordion__item--open': openIdx === i }"
-    >
-      <button type="button" class="accordion__head" :aria-expanded="openIdx === i" @click.stop="toggle(i)">
-        <span class="accordion__title">{{ pickBilingual(item.title, lang) || `Section ${i + 1}` }}</span>
-        <ChevronDown :size="14" class="accordion__chevron" />
-      </button>
-      <div v-show="openIdx === i" class="accordion__body" v-html="renderMd(pickBilingual(item.body, lang))"></div>
+  <div v-if="content.items.length" class="baccordion" :lang="lang">
+    <section v-for="(item, i) in content.items" :key="i" class="baccordion__item">
+      <h3 class="baccordion__heading">
+        <button
+          :id="`${uid}-h${i}`"
+          ref="heads"
+          type="button"
+          class="baccordion__head"
+          :aria-expanded="openIdx === i"
+          :aria-controls="`${uid}-p${i}`"
+          @click="toggle(i)"
+          @keydown="onKeydown($event, i)"
+        >
+          <span>{{ pickBilingual(item.title, lang) }}</span>
+          <Plus :size="16" class="baccordion__icon" aria-hidden="true" />
+        </button>
+      </h3>
+      <div
+        v-show="openIdx === i"
+        :id="`${uid}-p${i}`"
+        role="region"
+        :aria-labelledby="`${uid}-h${i}`"
+        class="baccordion__body"
+        v-html="renderMd(pickBilingual(item.body, lang))"
+      ></div>
     </section>
   </div>
+  <BlockEmpty v-else type="accordion" :message="t('blockEmptyItems')" />
 </template>
 
 <style scoped>
-.accordion {
+.baccordion {
   width: 100%;
   height: 100%;
   overflow-y: auto;
-  display: flex;
-  flex-direction: column;
+  padding: 0 var(--spacing-md);
 }
-.accordion__empty {
-  margin: auto;
-  color: var(--color-text-tertiary);
-  font-size: var(--font-size-xs);
-  text-transform: uppercase;
-  letter-spacing: var(--letter-spacing-wide);
-}
-.accordion__item {
-  border-bottom: var(--border-width-sm) solid var(--color-gray-medium);
-}
-.accordion__head {
+.baccordion__item { border-bottom: var(--border-width) solid hsl(var(--border-color)); }
+.baccordion__heading { margin: 0; }
+.baccordion__head {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: var(--spacing-sm);
   width: 100%;
-  padding: var(--spacing-sm) var(--spacing-md);
+  min-height: var(--site-touch-target);
+  padding: var(--spacing-sm) 0;
   background: transparent;
   border: none;
   color: var(--color-text-hover);
-  font-size: var(--font-size-sm);
+  font-size: var(--site-fs-small);
   font-weight: var(--font-weight-bold);
   text-transform: uppercase;
-  letter-spacing: var(--letter-spacing-tight);
-  cursor: pointer;
+  letter-spacing: var(--site-tracking-heading);
   text-align: left;
+  cursor: pointer;
+  transition: color var(--transition-fast) ease;
 }
-.accordion__head:hover { color: var(--color-accent); }
-.accordion__chevron { flex-shrink: 0; transition: transform 0.15s ease; }
-.accordion__item--open .accordion__chevron { transform: rotate(180deg); }
-.accordion__body {
-  padding: 0 var(--spacing-md) var(--spacing-sm) var(--spacing-md);
-  font-size: var(--font-size-sm);
-  line-height: 1.5;
+.baccordion__head:hover { color: var(--color-accent); }
+.baccordion__head:focus-visible { outline: var(--border-width-md) solid hsl(var(--ring)); outline-offset: var(--vsui-space-2xs); }
+.baccordion__icon { flex-shrink: 0; transition: transform var(--transition-fast) ease; }
+.baccordion__head[aria-expanded="true"] .baccordion__icon { transform: rotate(45deg); }
+.baccordion__body {
+  padding: 0 0 var(--spacing-md);
+  font-size: var(--site-fs-small);
+  line-height: var(--site-lh-body);
+  color: var(--color-text-secondary);
+}
+.baccordion__body :deep(p) { margin: 0 0 var(--spacing-sm); }
+.baccordion__body :deep(ul) { padding-left: var(--spacing-lg); list-style: square; }
+@media (prefers-reduced-motion: reduce) {
+  .baccordion__icon { transition: none; }
 }
 </style>

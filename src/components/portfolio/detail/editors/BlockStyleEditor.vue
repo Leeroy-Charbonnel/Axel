@@ -1,84 +1,76 @@
 <script setup lang="ts">
+import { computed } from "vue"
+import Field from "../../../admin/fields/Field.vue"
+import NumberField from "../../../admin/fields/NumberField.vue"
+import SelectField from "../../../admin/fields/SelectField.vue"
 import BorderSideIcon from "./BorderSideIcon.vue"
-import type { BorderLineStyle, BorderSides, DetailBlock } from "../../../../types/portfolio"
+import { useTranslations } from "../../../../composables/useTranslations"
+import type { BorderLineStyle, BorderSides, DetailBlock, DetailBlockStyle } from "../../../../types/portfolio"
 
-//SHARED STYLE EDITOR - Excel-like border controls, shown for EVERY
-//selected block above its type-specific editor. Side presets are icon
-//toggles (square with the active sides drawn on, like Excel's picker);
-//width and line type are selects.
+//THE BORDER OF ANY BLOCK - which sides (icon toggles, as in a spreadsheet),
+//the line width and the line type.
 
 const props = defineProps<{ block: DetailBlock }>()
-const emit = defineEmits<{ (e: "dirty"): void }>()
+const { t } = useTranslations()
+
+const MAX_WIDTH = 12
 
 const SIDES: { value: BorderSides; label: string }[] = [
-  { value: "none",       label: "No border" },
-  { value: "all",        label: "All sides" },
-  { value: "top",        label: "Top" },
-  { value: "bottom",     label: "Bottom" },
-  { value: "left",       label: "Left" },
-  { value: "right",      label: "Right" },
-  { value: "top-bottom", label: "Top + bottom" },
-  { value: "left-right", label: "Left + right" },
+  { value: "none",       label: "blockBorderNone" },
+  { value: "all",        label: "blockBorderAll" },
+  { value: "top",        label: "blockBorderTop" },
+  { value: "bottom",     label: "blockBorderBottom" },
+  { value: "left",       label: "blockBorderLeft" },
+  { value: "right",      label: "blockBorderRight" },
+  { value: "top-bottom", label: "blockBorderTopBottom" },
+  { value: "left-right", label: "blockBorderLeftRight" },
 ]
-const LINE_STYLES: { value: BorderLineStyle; label: string }[] = [
-  { value: "solid",    label: "Solid" },
-  { value: "dashed",   label: "Dashed" },
-  { value: "dotted",   label: "Dotted (square)" },
-  { value: "dash-dot", label: "Dash-dot" },
-  { value: "double",   label: "Double" },
-]
+const lines = computed<{ value: BorderLineStyle; label: string }[]>(() => [
+  { value: "solid",    label: t("blockLineSolid") },
+  { value: "dashed",   label: t("blockLineDashed") },
+  { value: "dotted",   label: t("blockLineDotted") },
+  { value: "dash-dot", label: t("blockLineDashDot") },
+  { value: "double",   label: t("blockLineDouble") },
+])
 
-function ensureStyle() {
-  if (!props.block.style) props.block.style = {}
-  return props.block.style
-}
-function setSides(v: BorderSides) {
-  ensureStyle().borderSides = v
-  emit("dirty")
-}
-function setWidth(v: string) {
-  const n = parseInt(v, 10)
-  ensureStyle().borderWidth = Number.isFinite(n) ? Math.max(1, Math.min(12, n)) : 1
-  emit("dirty")
-}
-function setLineStyle(v: string) {
-  ensureStyle().borderStyle = v as BorderLineStyle
-  emit("dirty")
+const sides = computed(() => props.block.style?.borderSides ?? "none")
+
+function set(partial: DetailBlockStyle) {
+  props.block.style = { ...props.block.style, ...partial }
 }
 </script>
 
 <template>
-  <div class="dp-field">
-    <span>Border</span>
-    <div class="style-editor__sides">
+  <Field :label="t('blockStyleBorder')" group v-slot="{ labelId }">
+    <div class="style-editor__sides" role="radiogroup" :aria-labelledby="labelId">
       <button
         v-for="s in SIDES"
         :key="s.value"
         type="button"
-        class="dp-icon-btn"
-        :class="{ 'style-editor__side--active': (block.style?.borderSides ?? 'none') === s.value }"
-        :title="s.label"
-        @click="setSides(s.value)"
+        role="radio"
+        class="ed-btn ed-btn--icon"
+        :class="{ 'ed-btn--active': sides === s.value }"
+        :aria-checked="sides === s.value"
+        :aria-label="t(s.label)"
+        :title="t(s.label)"
+        @click="set({ borderSides: s.value })"
       >
         <BorderSideIcon :sides="s.value" />
       </button>
     </div>
-  </div>
-  <div class="style-editor__row">
-    <label class="dp-field style-editor__half">
-      <span>Line width</span>
-      <input
-        type="number" class="dp-input" min="1" max="12"
-        :value="block.style?.borderWidth ?? 1"
-        @input="setWidth(($event.target as HTMLInputElement).value)"
-      />
-    </label>
-    <label class="dp-field style-editor__half">
-      <span>Line type</span>
-      <select class="dp-select" :value="block.style?.borderStyle ?? 'solid'" @change="setLineStyle(($event.target as HTMLSelectElement).value)">
-        <option v-for="ls in LINE_STYLES" :key="ls.value" :value="ls.value">{{ ls.label }}</option>
-      </select>
-    </label>
+  </Field>
+  <div v-if="sides !== 'none'" class="ed-form__grid">
+    <NumberField
+      :label="t('blockBorderWidth')"
+      :model-value="block.style?.borderWidth ?? 1"
+      @update:model-value="(v) => set({ borderWidth: Math.max(1, Math.min(MAX_WIDTH, v)) })"
+    />
+    <SelectField
+      :label="t('blockBorderStyle')"
+      :model-value="block.style?.borderStyle ?? 'solid'"
+      :options="lines"
+      @update:model-value="(v) => set({ borderStyle: v })"
+    />
   </div>
 </template>
 
@@ -88,13 +80,4 @@ function setLineStyle(v: string) {
   flex-wrap: wrap;
   gap: var(--spacing-xxs);
 }
-.style-editor__side--active {
-  background-color: var(--color-background-gray-200);
-  color: var(--color-accent);
-}
-.style-editor__row {
-  display: flex;
-  gap: var(--spacing-xs);
-}
-.style-editor__half { flex: 1 1 0; min-width: 0; }
 </style>

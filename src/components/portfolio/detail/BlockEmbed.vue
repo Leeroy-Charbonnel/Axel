@@ -1,64 +1,38 @@
 <script setup lang="ts">
 import { computed } from "vue"
-import { MonitorPlay } from "lucide-vue-next"
+import { useTranslations } from "../../../composables/useTranslations"
+import { EMBED_ALLOW, EMBED_SANDBOX, embedSrc } from "../../../lib/embed"
+import BlockEmpty from "./BlockEmpty.vue"
 import type { EmbedBlockContent } from "../../../types/portfolio"
 
-//EMBED - iframe embed. YouTube / Vimeo / Sketchfab page urls are
-//rewritten to their embed form; anything else is iframed as-is.
-
+//EMBED - a YouTube, Vimeo or Sketchfab player in a sandboxed frame
 const props = defineProps<{ content: EmbedBlockContent }>()
+const { t } = useTranslations()
 
-function toEmbedUrl(raw: string): string {
-  const url = raw.trim()
-  if (!url) return ""
-  //youtube: watch?v=ID, youtu.be/ID, shorts/ID -> embed/ID
-  const yt = url.match(/(?:youtube\.com\/(?:watch\?.*v=|shorts\/)|youtu\.be\/)([\w-]{6,})/)
-  if (yt) return `https://www.youtube.com/embed/${yt[1]}`
-  //vimeo: vimeo.com/ID -> player.vimeo.com/video/ID
-  const vm = url.match(/vimeo\.com\/(\d+)/)
-  if (vm) return `https://player.vimeo.com/video/${vm[1]}`
-  //sketchfab: model page -> /embed
-  const sf = url.match(/sketchfab\.com\/(?:3d-)?models\/([\w-]+)/)
-  if (sf) return `https://sketchfab.com/models/${sf[1]}/embed`
-  return url
-}
-
-const embedUrl = computed(() => toEmbedUrl(props.content.url))
+const src = computed(() => embedSrc(props.content.url))
 </script>
 
 <template>
   <iframe
-    v-if="embedUrl"
-    :src="embedUrl"
+    v-if="src"
+    :src="src"
     class="bembed"
-    frameborder="0"
-    allow="autoplay; fullscreen; xr-spatial-tracking"
+    :title="t('blockEmbedTitle')"
+    :sandbox="EMBED_SANDBOX"
+    :allow="EMBED_ALLOW"
     allowfullscreen
     loading="lazy"
+    referrerpolicy="strict-origin-when-cross-origin"
   ></iframe>
-  <div v-else class="bembed__empty">
-    <MonitorPlay :size="32" />
-    <span>No embed url</span>
-  </div>
+  <BlockEmpty v-else type="embed" :message="content.url ? t('blockEmbedUnsupported') : t('blockEmptyMedia')" />
 </template>
 
 <style scoped>
 .bembed {
-  width: 100%;
-  height: 100%;
   display: block;
-}
-.bembed__empty {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: var(--spacing-xs);
   width: 100%;
   height: 100%;
-  color: var(--color-text-tertiary);
-  font-size: var(--font-size-xs);
-  text-transform: uppercase;
-  letter-spacing: var(--letter-spacing-wide);
+  border: none;
+  background-color: var(--color-background-gray-50);
 }
 </style>

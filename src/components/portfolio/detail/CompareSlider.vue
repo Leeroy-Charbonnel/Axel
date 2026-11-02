@@ -1,136 +1,173 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref } from "vue"
-import { useLanguage } from "../../../composables/useLanguage"
+import { MoveHorizontal } from "lucide-vue-next"
+import { useTranslations } from "../../../composables/useTranslations"
 import { pickBilingual } from "../../../lib/markdown"
+import type { Lang } from "../../../lib/lang"
+import BlockEmpty from "./BlockEmpty.vue"
 import type { CompareBlockContent } from "../../../types/portfolio"
 
-//COMPARE SLIDER - two stacked images split by a vertical divider (a bare
-//line, no handle). Default interaction: the divider only moves while the
-//pointer is held down (click / drag, touch included). The per-block
-//followMouse option switches to hover-tracking instead. The "after"
-//image paints fully underneath; the "before" image is clipped to the
-//left of the divider via clip-path so both stay pixel-aligned regardless
-//of object-fit cropping.
+//BEFORE / AFTER - the "after" image underneath, the "before" one clipped to
+//the left of the divider so both stay aligned whatever the crop. The divider
+//moves while the pointer is held (touch included), or follows the mouse when
+//the block asks for it. Its handle is a slider: arrows step, Page keys jump,
+//Home / End go to the edges.
 
-const props = defineProps<{ content: CompareBlockContent }>()
+const props = defineProps<{ content: CompareBlockContent; lang: Lang }>()
+const { t } = useTranslations()
 
-const { lang } = useLanguage()
+const STEP = 0.05
+const JUMP = 0.25
 
 const rootRef  = ref<HTMLDivElement | null>(null)
-//Divider position as a fraction of the width (0..1). Starts centered.
 const position = ref(0.5)
-const dragging = ref(false)
+const percent  = computed(() => Math.round(position.value * 100))
 
-const beforeLabel = computed(() => pickBilingual(props.content.beforeLabel, lang.value))
-const afterLabel  = computed(() => pickBilingual(props.content.afterLabel, lang.value))
+const beforeLabel = computed(() => pickBilingual(props.content.beforeLabel, props.lang))
+const afterLabel  = computed(() => pickBilingual(props.content.afterLabel, props.lang))
+const ready       = computed(() => Boolean(props.content.beforeUrl && props.content.afterUrl))
 
-function positionFromEvent(e: PointerEvent) {
-  const el = rootRef.value
-  if (!el) return
-  const rect = el.getBoundingClientRect()
-  if (rect.width === 0) return
-  position.value = Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width))
+function clamp(v: number) {
+  return Math.min(1, Math.max(0, v))
+}
+
+function fromPointer(e: PointerEvent) {
+  const rect = rootRef.value?.getBoundingClientRect()
+  if (!rect?.width) return
+  position.value = clamp((e.clientX - rect.left) / rect.width)
 }
 
 function onPointerDown(e: PointerEvent) {
-  dragging.value = true
-  positionFromEvent(e)
-  document.addEventListener("pointermove", onDocPointerMove)
-  document.addEventListener("pointerup",   onDocPointerUp)
+  fromPointer(e)
+  document.addEventListener("pointermove", fromPointer)
+  document.addEventListener("pointerup", stopDrag)
+  document.addEventListener("pointercancel", stopDrag)
 }
-function onDocPointerMove(e: PointerEvent) {
-  if (!dragging.value) return
-  positionFromEvent(e)
+function stopDrag() {
+  document.removeEventListener("pointermove", fromPointer)
+  document.removeEventListener("pointerup", stopDrag)
+  document.removeEventListener("pointercancel", stopDrag)
 }
-function onDocPointerUp() {
-  dragging.value = false
-  document.removeEventListener("pointermove", onDocPointerMove)
-  document.removeEventListener("pointerup",   onDocPointerUp)
-}
-
-//Hover tracking is OPT-IN per block (followMouse). Without it the split
-//only responds to click / drag.
-function onPointerMove(e: PointerEvent) {
-  if (props.content.followMouse && e.pointerType === "mouse") positionFromEvent(e)
+function onHover(e: PointerEvent) {
+  if (props.content.followMouse && e.pointerType === "mouse") fromPointer(e)
 }
 
-onBeforeUnmount(() => {
-  document.removeEventListener("pointermove", onDocPointerMove)
-  document.removeEventListener("pointerup",   onDocPointerUp)
-})
+function onKeydown(e: KeyboardEvent) {
+  const moves: Record<string, number> = {
+    ArrowLeft: position.value - STEP, ArrowDown: position.value - STEP,
+    ArrowRight: position.value + STEP, ArrowUp: position.value + STEP,
+    PageDown: position.value - JUMP, PageUp: position.value + JUMP,
+    Home: 0, End: 1,
+  }
+  const to = moves[e.key]
+  if (to === undefined) return
+  e.preventDefault()
+  position.value = clamp(to)
+}
+
+onBeforeUnmount(stopDrag)
 </script>
 
 <template>
   <div
+    v-if="ready"
     ref="rootRef"
-    class="compare"
+    class="bcompare"
+    :lang="lang"
     @pointerdown="onPointerDown"
-    @pointermove="onPointerMove"
+    @pointermove="onHover"
   >
+    <img :src="content.afterUrl!" :alt="afterLabel" loading="lazy" decoding="async" class="bcompare__img" draggable="false" />
     <img
-      v-if="content.afterUrl"
-      :src="content.afterUrl"
-      :alt="afterLabel"
-      class="compare__img"
-      draggable="false"
-    />
-    <img
-      v-if="content.beforeUrl"
-      :src="content.beforeUrl"
+      :src="content.beforeUrl!"
       :alt="beforeLabel"
-      class="compare__img compare__img--before"
-      :style="{ clipPath: `inset(0 ${(1 - position) * 100}% 0 0)` }"
+      loading="lazy"
+      decoding="async"
+      class="bcompare__img bcompare__img--before"
+      :style="{ clipPath: `inset(0 ${100 - position * 100}% 0 0)` }"
       draggable="false"
     />
-    <div class="compare__divider" :style="{ left: `${position * 100}%` }"></div>
-    <span v-if="beforeLabel" class="compare__label compare__label--before">{{ beforeLabel }}</span>
-    <span v-if="afterLabel"  class="compare__label compare__label--after">{{ afterLabel }}</span>
+    <div
+      class="bcompare__divider"
+      :style="{ left: `${position * 100}%` }"
+      role="slider"
+      tabindex="0"
+      :aria-label="t('blockCompareSlider')"
+      aria-valuemin="0"
+      aria-valuemax="100"
+      :aria-valuenow="percent"
+      :aria-valuetext="`${beforeLabel} ${percent} %, ${afterLabel} ${100 - percent} %`"
+      @keydown="onKeydown"
+    >
+      <span class="bcompare__handle"><MoveHorizontal :size="16" aria-hidden="true" /></span>
+    </div>
+    <span v-if="beforeLabel" class="bcompare__label bcompare__label--before">{{ beforeLabel }}</span>
+    <span v-if="afterLabel" class="bcompare__label bcompare__label--after">{{ afterLabel }}</span>
   </div>
+  <BlockEmpty v-else type="compare" />
 </template>
 
 <style scoped>
-.compare {
+.bcompare {
   position: relative;
   width: 100%;
   height: 100%;
   overflow: hidden;
   cursor: ew-resize;
-  touch-action: none;
+  touch-action: pan-y;
   user-select: none;
 }
-.compare__img {
+.bcompare__img {
   position: absolute;
   inset: 0;
+  display: block;
   width: 100%;
   height: 100%;
   object-fit: cover;
-  display: block;
   pointer-events: none;
 }
-.compare__img--before { z-index: 3; }
-.compare__divider {
+.bcompare__img--before { z-index: 3; }
+.bcompare__divider {
   position: absolute;
   top: 0;
   bottom: 0;
-  width: var(--border-width-md);
-  background-color: var(--color-accent-neutral);
-  transform: translateX(-50%);
   z-index: 4;
-  pointer-events: none;
+  width: var(--border-width);
+  background-color: var(--color-text-hover);
+  transform: translateX(-50%);
 }
-.compare__label {
+.bcompare__divider:focus-visible { outline: none; }
+.bcompare__handle {
   position: absolute;
-  bottom: var(--spacing-xs);
+  top: 50%;
+  left: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--site-touch-target);
+  height: var(--site-touch-target);
+  transform: translate(-50%, -50%);
+  color: var(--color-text-hover);
+  background-color: var(--overlay-bg);
+  border: var(--border-width) solid var(--color-text-hover);
+  border-radius: var(--border-radius-full);
+}
+.bcompare__divider:focus-visible .bcompare__handle {
+  border-color: hsl(var(--ring));
+  box-shadow: 0 0 0 var(--border-width-md) hsl(var(--ring));
+}
+.bcompare__label {
+  position: absolute;
+  bottom: var(--spacing-sm);
   z-index: 4;
   padding: var(--spacing-xxs) var(--spacing-xs);
-  font-size: var(--font-size-xs);
+  font-size: var(--site-fs-label);
   text-transform: uppercase;
-  letter-spacing: var(--letter-spacing-wide);
+  letter-spacing: var(--site-tracking-label);
   color: var(--color-text-hover);
-  background-color: var(--semi-transparent-dark);
-  backdrop-filter: blur(var(--filter-blur));
+  background-color: var(--overlay-bg);
   pointer-events: none;
 }
-.compare__label--before { left: var(--spacing-xs); }
-.compare__label--after  { right: var(--spacing-xs); }
+.bcompare__label--before { left: var(--spacing-sm); }
+.bcompare__label--after  { right: var(--spacing-sm); }
 </style>

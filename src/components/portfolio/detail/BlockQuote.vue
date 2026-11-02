@@ -1,16 +1,15 @@
 <script setup lang="ts">
-import { useLanguage } from "../../../composables/useLanguage"
 import { pickBilingual } from "../../../lib/markdown"
+import type { Lang } from "../../../lib/lang"
 import type { QuoteBlockContent } from "../../../types/portfolio"
 
-//QUOTE - large typographic quote with an optional author line.
-
-defineProps<{ content: QuoteBlockContent }>()
-const { lang } = useLanguage()
+//QUOTE - large type, an accent opening mark and the author as a caption
+defineProps<{ content: QuoteBlockContent; lang: Lang }>()
 </script>
 
 <template>
-  <figure class="bquote">
+  <figure class="bquote" :lang="lang">
+    <span class="bquote__mark" aria-hidden="true">&ldquo;</span>
     <blockquote class="bquote__text">{{ pickBilingual(content.text, lang) }}</blockquote>
     <figcaption v-if="content.author" class="bquote__author">{{ content.author }}</figcaption>
   </figure>
@@ -25,25 +24,27 @@ const { lang } = useLanguage()
   width: 100%;
   height: 100%;
   margin: 0;
-  padding: var(--spacing-lg);
+  padding: var(--spacing-lg) var(--spacing-md);
   overflow: auto;
+}
+.bquote__mark {
+  font-size: var(--site-fs-h1);
+  line-height: var(--site-lh-tight);
+  height: var(--spacing-lg);
+  color: var(--color-accent);
 }
 .bquote__text {
   margin: 0;
-  font-size: var(--font-size-lg);
+  font-size: var(--site-fs-h3);
+  line-height: var(--site-lh-body);
   font-weight: var(--font-weight-medium);
-  font-style: italic;
-  line-height: 1.4;
   color: var(--color-text-hover);
-  word-break: break-word;
+  overflow-wrap: anywhere;
 }
-.bquote__text::before { content: "\201C"; color: var(--color-accent); }
-.bquote__text::after  { content: "\201D"; color: var(--color-accent); }
 .bquote__author {
-  font-size: var(--font-size-xs);
+  font-size: var(--site-fs-label);
   text-transform: uppercase;
-  letter-spacing: var(--letter-spacing-wide);
+  letter-spacing: var(--site-tracking-label);
   color: var(--color-text-tertiary);
 }
-.bquote__author::before { content: "\2014\00A0"; }
 </style>

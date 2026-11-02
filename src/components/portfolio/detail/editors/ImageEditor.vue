@@ -1,52 +1,40 @@
 <script setup lang="ts">
-import { Upload } from "lucide-vue-next"
-import { useMediaLibrary } from "../../../admin/media/useMediaLibrary"
-import BilingualInput from "./BilingualInput.vue"
+import { computed } from "vue"
+import BilingualField from "../../../admin/fields/BilingualField.vue"
+import MediaField from "../../../admin/fields/MediaField.vue"
+import SelectField from "../../../admin/fields/SelectField.vue"
+import { useTranslations } from "../../../../composables/useTranslations"
 import type { ImageBlockContent, ImageFit } from "../../../../types/portfolio"
 
 const props = defineProps<{ content: ImageBlockContent }>()
-const emit = defineEmits<{ (e: "dirty"): void; (e: "structural"): void }>()
+const { t } = useTranslations()
 
-const { uploading, pickMedia } = useMediaLibrary()
-
-const FITS: { value: ImageFit; label: string }[] = [
-  { value: "cover",   label: "Cover - fill the block, crop overflow" },
-  { value: "contain", label: "Contain - whole image visible" },
-  { value: "fill",    label: "Fill - stretch to the block" },
-  { value: "none",    label: "None - native size" },
-]
-
-async function onPick() {
-  const [row] = await pickMedia({ accept: "image" })
-  if (!row) return
-  emit("structural")
-  props.content.fileId = row.id
-  props.content.url    = row.url
-  emit("dirty")
-}
-
-function ensureAlt() {
-  if (!props.content.alt) props.content.alt = { en: "", fr: "" }
-  return props.content.alt
-}
-
-function setFit(v: string) {
-  props.content.fit = v as ImageFit
-  emit("dirty")
-}
+const fits = computed<{ value: ImageFit; label: string }[]>(() => [
+  { value: "cover",   label: t("blockFitCover") },
+  { value: "contain", label: t("blockFitContain") },
+  { value: "fill",    label: t("blockFitFill") },
+  { value: "none",    label: t("blockFitNone") },
+])
 </script>
 
 <template>
-  <p class="dp-hint">Static images and animated GIFs both work here.</p>
-  <button type="button" class="dp-upload" :disabled="uploading" @click="onPick">
-    <Upload :size="14" />
-    <span>{{ uploading ? "Uploading..." : content.fileId ? "Replace image" : "Upload image" }}</span>
-  </button>
-  <label class="dp-field">
-    <span>Image fit</span>
-    <select class="dp-select" :value="content.fit ?? 'cover'" @change="setFit(($event.target as HTMLSelectElement).value)">
-      <option v-for="f in FITS" :key="f.value" :value="f.value">{{ f.label }}</option>
-    </select>
-  </label>
-  <BilingualInput label="Alt text" :value="ensureAlt()" @dirty="emit('dirty')" />
+  <MediaField
+    :label="t('fieldImage')"
+    accept="image"
+    :url="props.content.url"
+    @pick="(f) => { props.content.fileId = f.id; props.content.url = f.url }"
+    @clear="props.content.fileId = null; props.content.url = null"
+  />
+  <SelectField
+    :label="t('blockFieldFit')"
+    :model-value="props.content.fit ?? 'cover'"
+    :options="fits"
+    @update:model-value="(v) => (props.content.fit = v)"
+  />
+  <BilingualField
+    :label="t('blockFieldAlt')"
+    :hint="t('blockHintAlt')"
+    :model-value="props.content.alt ?? { fr: '', en: '' }"
+    @update:model-value="(v) => (props.content.alt = v)"
+  />
 </template>

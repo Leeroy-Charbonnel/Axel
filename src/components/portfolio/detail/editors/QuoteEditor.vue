@@ -1,20 +1,24 @@
 <script setup lang="ts">
-import BilingualInput from "./BilingualInput.vue"
+import BilingualField from "../../../admin/fields/BilingualField.vue"
+import TextField from "../../../admin/fields/TextField.vue"
+import { useTranslations } from "../../../../composables/useTranslations"
 import type { QuoteBlockContent } from "../../../../types/portfolio"
 
 const props = defineProps<{ content: QuoteBlockContent }>()
-const emit = defineEmits<{ (e: "dirty"): void; (e: "structural"): void }>()
-
-function setAuthor(v: string) {
-  props.content.author = v
-  emit("dirty")
-}
+const { t } = useTranslations()
 </script>
 
 <template>
-  <BilingualInput label="Quote" :value="content.text" multiline :rows="3" @dirty="emit('dirty')" />
-  <label class="dp-field">
-    <span>Author (optional)</span>
-    <input type="text" class="dp-input" :value="content.author" @input="setAuthor(($event.target as HTMLInputElement).value)" />
-  </label>
+  <BilingualField
+    :label="t('blockFieldQuote')"
+    multiline
+    :rows="3"
+    :model-value="props.content.text"
+    @update:model-value="(v) => (props.content.text = v)"
+  />
+  <TextField
+    :label="t('blockFieldAuthor')"
+    :model-value="props.content.author"
+    @update:model-value="(v) => (props.content.author = v)"
+  />
 </template>

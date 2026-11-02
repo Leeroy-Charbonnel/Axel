@@ -1,76 +1,53 @@
 <script setup lang="ts">
-import { Upload } from "lucide-vue-next"
-import { useMediaLibrary } from "../../../admin/media/useMediaLibrary"
-import BilingualInput from "./BilingualInput.vue"
-import ItemCard from "./ItemCard.vue"
-import type { CarouselBlockContent } from "../../../../types/portfolio"
+import { computed } from "vue"
+import BilingualField from "../../../admin/fields/BilingualField.vue"
+import ListField from "../../../admin/fields/ListField.vue"
+import MediaField from "../../../admin/fields/MediaField.vue"
+import SelectField from "../../../admin/fields/SelectField.vue"
+import { useTranslations } from "../../../../composables/useTranslations"
+import type { CarouselBlockContent, CarouselItem } from "../../../../types/portfolio"
 
 const props = defineProps<{ content: CarouselBlockContent }>()
-const emit = defineEmits<{ (e: "dirty"): void; (e: "structural"): void }>()
+const { t } = useTranslations()
 
-const { uploading, pickMedia } = useMediaLibrary()
+const INTERVALS_S = [3, 5, 8]
+const intervals = computed(() => [
+  { value: "0", label: t("blockIntervalOff") },
+  ...INTERVALS_S.map((s) => ({ value: String(s * 1000), label: t("blockIntervalSeconds").replace("{n}", String(s)) })),
+])
 
-async function onAdd() {
-  const rows = await pickMedia({ accept: "image", multiple: true })
-  if (!rows.length) return
-  emit("structural")
-  for (const row of rows) {
-    props.content.items.push({ fileId: row.id, url: row.url, caption: { en: "", fr: "" } })
-  }
-  emit("dirty")
-}
-
-function move(i: number, delta: number) {
-  const j = i + delta
-  if (j < 0 || j >= props.content.items.length) return
-  emit("structural")
-  const [it] = props.content.items.splice(i, 1)
-  props.content.items.splice(j, 0, it!)
-  emit("dirty")
-}
-function remove(i: number) {
-  emit("structural")
-  props.content.items.splice(i, 1)
-  emit("dirty")
-}
-function ensureCaption(i: number) {
-  const item = props.content.items[i]!
-  if (!item.caption) item.caption = { en: "", fr: "" }
-  return item.caption
-}
-function setInterval_(v: string) {
-  props.content.intervalMs = parseInt(v, 10)
-  emit("dirty")
-}
+//a slide without a file is dropped on save
+const newSlide = (): CarouselItem => ({ fileId: "", url: null, caption: { fr: "", en: "" } })
 </script>
 
 <template>
-  <button type="button" class="dp-upload" :disabled="uploading" @click="onAdd">
-    <Upload :size="14" />
-    <span>{{ uploading ? "Uploading..." : "Add image(s)" }}</span>
-  </button>
-  <label class="dp-field">
-    <span>Auto-advance</span>
-    <select class="dp-select" :value="String(content.intervalMs)" @change="setInterval_(($event.target as HTMLSelectElement).value)">
-      <option value="0">Manual only</option>
-      <option value="3000">Every 3s</option>
-      <option value="5000">Every 5s</option>
-      <option value="8000">Every 8s</option>
-    </select>
-  </label>
-  <p v-if="!content.items.length" class="dp-hint">No slides yet - add images above.</p>
-  <ItemCard
-    v-for="(item, i) in content.items"
-    :key="item.fileId + i"
-    :title="`Slide ${i + 1}`"
-    :index="i"
-    :count="content.items.length"
-    @move="(d) => move(i, d)"
-    @remove="remove(i)"
+  <SelectField
+    :label="t('blockFieldInterval')"
+    :hint="t('blockHintCarousel')"
+    :model-value="String(props.content.intervalMs)"
+    :options="intervals"
+    @update:model-value="(v) => (props.content.intervalMs = Number(v))"
+  />
+  <ListField
+    :label="t('blockFieldSlides')"
+    :add-label="t('blockAddSlide')"
+    :model-value="props.content.items"
+    :create="newSlide"
+    @update:model-value="(v) => (props.content.items = v)"
   >
-    <template #thumb>
-      <img v-if="item.url" :src="item.url" alt="" class="dp-thumb" />
+    <template #item="{ item, update }">
+      <MediaField
+        :label="t('fieldImage')"
+        accept="image"
+        :clearable="false"
+        :url="item.url"
+        @pick="(f) => update({ ...item, fileId: f.id, url: f.url })"
+      />
+      <BilingualField
+        :label="t('fieldCaption')"
+        :model-value="item.caption ?? { fr: '', en: '' }"
+        @update:model-value="(v) => update({ ...item, caption: v })"
+      />
     </template>
-    <BilingualInput label="Caption" :value="ensureCaption(i)" @dirty="emit('dirty')" />
-  </ItemCard>
+  </ListField>
 </template>

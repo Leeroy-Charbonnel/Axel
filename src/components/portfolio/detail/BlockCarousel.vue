@@ -1,169 +1,224 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, watch } from "vue"
 import { ChevronLeft, ChevronRight } from "lucide-vue-next"
-import { useLanguage } from "../../../composables/useLanguage"
+import { useReducedMotion } from "../../../composables/useReducedMotion"
+import { useTranslations } from "../../../composables/useTranslations"
 import { pickBilingual } from "../../../lib/markdown"
+import type { Lang } from "../../../lib/lang"
+import BlockEmpty from "./BlockEmpty.vue"
 import type { CarouselBlockContent } from "../../../types/portfolio"
 
-//CAROUSEL - ordered image strip with arrows + dots. Slides move via a
-//translateX on the track (all images stay mounted, no load flash).
-//intervalMs > 0 auto-advances; any manual interaction resets the timer.
+//CAROUSEL - slides on a translated track, arrows, dots, left / right keys when
+//focused, and a swipe on touch. Auto-advance pauses on hover and focus and is
+//off for a reader who limits motion.
 
-const props = defineProps<{ content: CarouselBlockContent }>()
+const props = defineProps<{ content: CarouselBlockContent; lang: Lang }>()
+const { t } = useTranslations()
+const reducedMotion = useReducedMotion()
 
-const { lang } = useLanguage()
+const SWIPE_PX = 40
 
-const index = ref(0)
-const items = computed(() => props.content.items.filter((i) => i.url))
-const count = computed(() => items.value.length)
+const index  = ref(0)
+const paused = ref(false)
+const items  = computed(() => props.content.items.filter((i) => i.url))
+const count  = computed(() => items.value.length)
+const caption = computed(() => pickBilingual(items.value[index.value]?.caption, props.lang))
 
-//Clamp the index if items shrink under it (author removed a slide).
 watch(count, (n) => { if (index.value >= n) index.value = Math.max(0, n - 1) })
 
-function go(delta: number) {
-  if (count.value === 0) return
-  index.value = (index.value + delta + count.value) % count.value
-  restartTimer()
-}
 function goTo(i: number) {
-  index.value = i
-  restartTimer()
+  if (!count.value) return
+  index.value = (i + count.value) % count.value
 }
 
 let timer: ReturnType<typeof setInterval> | null = null
 function restartTimer() {
-  if (timer) { clearInterval(timer); timer = null }
+  if (timer) clearInterval(timer)
+  timer = null
   const ms = props.content.intervalMs
-  if (ms > 0 && count.value > 1) {
-    timer = setInterval(() => { index.value = (index.value + 1) % count.value }, ms)
+  if (ms > 0 && count.value > 1 && !paused.value && !reducedMotion.value) {
+    timer = setInterval(() => goTo(index.value + 1), ms)
   }
 }
-watch(() => props.content.intervalMs, restartTimer, { immediate: true })
-watch(count, restartTimer)
-
+watch([() => props.content.intervalMs, count, paused, reducedMotion, index], restartTimer, { immediate: true })
 onBeforeUnmount(() => { if (timer) clearInterval(timer) })
 
-const caption = computed(() => pickBilingual(items.value[index.value]?.caption, lang.value))
+function onKeydown(e: KeyboardEvent) {
+  if (e.key === "ArrowLeft")  { e.preventDefault(); goTo(index.value - 1) }
+  if (e.key === "ArrowRight") { e.preventDefault(); goTo(index.value + 1) }
+}
+
+let swipeX: number | null = null
+function onPointerDown(e: PointerEvent) {
+  if (e.pointerType !== "mouse") swipeX = e.clientX
+}
+function onPointerUp(e: PointerEvent) {
+  if (swipeX === null) return
+  const dx = e.clientX - swipeX
+  swipeX = null
+  if (Math.abs(dx) >= SWIPE_PX) goTo(index.value + (dx < 0 ? 1 : -1))
+}
 </script>
 
 <template>
-  <div class="carousel">
-    <div v-if="count === 0" class="carousel__empty">No images</div>
-    <template v-else>
-      <div class="carousel__track" :style="{ transform: `translateX(-${index * 100}%)` }">
+  <div
+    v-if="count"
+    class="bcarousel"
+    :class="{ 'bcarousel--still': reducedMotion }"
+    role="region"
+    aria-roledescription="carousel"
+    :aria-label="t('blockCarouselLabel')"
+    tabindex="0"
+    :lang="lang"
+    @keydown="onKeydown"
+    @mouseenter="paused = true"
+    @mouseleave="paused = false"
+    @focusin="paused = true"
+    @focusout="paused = false"
+    @pointerdown="onPointerDown"
+    @pointerup="onPointerUp"
+  >
+    <div class="bcarousel__track" :style="{ transform: `translateX(-${index * 100}%)` }">
+      <figure
+        v-for="(item, i) in items"
+        :key="`${item.fileId}-${i}`"
+        class="bcarousel__slide"
+        role="group"
+        aria-roledescription="slide"
+        :aria-label="t('blockSlideOf').replace('{n}', String(i + 1)).replace('{total}', String(count))"
+        :aria-hidden="i !== index"
+        :inert="i !== index"
+      >
         <img
-          v-for="(item, i) in items"
-          :key="item.fileId"
           :src="item.url ?? undefined"
-          :alt="pickBilingual(item.caption, lang) || `Slide ${i + 1}`"
-          class="carousel__img"
+          :alt="pickBilingual(item.caption, lang)"
+          :loading="i === 0 ? 'eager' : 'lazy'"
+          decoding="async"
+          class="bcarousel__img"
           draggable="false"
         />
-      </div>
+      </figure>
+    </div>
 
-      <template v-if="count > 1">
-        <button type="button" class="carousel__arrow carousel__arrow--prev" aria-label="Previous slide" @click.stop="go(-1)">
-          <ChevronLeft :size="18" />
-        </button>
-        <button type="button" class="carousel__arrow carousel__arrow--next" aria-label="Next slide" @click.stop="go(1)">
-          <ChevronRight :size="18" />
-        </button>
-        <div class="carousel__dots">
-          <button
-            v-for="(item, i) in items"
-            :key="item.fileId"
-            type="button"
-            class="carousel__dot"
-            :class="{ 'carousel__dot--active': i === index }"
-            :aria-label="`Go to slide ${i + 1}`"
-            @click.stop="goTo(i)"
-          ></button>
-        </div>
-      </template>
-
-      <span v-if="caption" class="carousel__caption">{{ caption }}</span>
+    <template v-if="count > 1">
+      <button type="button" class="bcarousel__arrow bcarousel__arrow--prev" :aria-label="t('blockCarouselPrev')" @click="goTo(index - 1)">
+        <ChevronLeft :size="20" aria-hidden="true" />
+      </button>
+      <button type="button" class="bcarousel__arrow bcarousel__arrow--next" :aria-label="t('blockCarouselNext')" @click="goTo(index + 1)">
+        <ChevronRight :size="20" aria-hidden="true" />
+      </button>
     </template>
+
+    <div class="bcarousel__bar">
+      <p class="bcarousel__caption" aria-live="polite">
+        <span class="bcarousel__count">{{ String(index + 1).padStart(2, "0") }} / {{ String(count).padStart(2, "0") }}</span>
+        <span v-if="caption">{{ caption }}</span>
+      </p>
+      <div v-if="count > 1" class="bcarousel__dots">
+        <button
+          v-for="(item, i) in items"
+          :key="`dot-${item.fileId}-${i}`"
+          type="button"
+          class="bcarousel__dot"
+          :aria-label="t('blockCarouselGoTo').replace('{n}', String(i + 1))"
+          :aria-current="i === index"
+          @click="goTo(i)"
+        ><span class="bcarousel__dot-mark"></span></button>
+      </div>
+    </div>
   </div>
+  <BlockEmpty v-else type="carousel" />
 </template>
 
 <style scoped>
-.carousel {
+.bcarousel {
   position: relative;
   width: 100%;
   height: 100%;
   overflow: hidden;
+  touch-action: pan-y;
 }
-.carousel__empty {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 100%;
-  color: var(--color-text-tertiary);
-  font-size: var(--font-size-xs);
-  text-transform: uppercase;
-  letter-spacing: var(--letter-spacing-wide);
-}
-.carousel__track {
+.bcarousel:focus-visible { outline: var(--border-width-md) solid hsl(var(--ring)); outline-offset: calc(-1 * var(--border-width-md)); }
+.bcarousel__track {
   display: flex;
   height: 100%;
-  transition: transform 0.35s ease;
+  transition: transform var(--site-reveal-duration) var(--site-ease);
 }
-.carousel__img {
+.bcarousel--still .bcarousel__track { transition: none; }
+.bcarousel__slide {
   flex: 0 0 100%;
+  height: 100%;
+  margin: 0;
+}
+.bcarousel__img {
+  display: block;
   width: 100%;
   height: 100%;
   object-fit: cover;
-  display: block;
+  background-color: var(--color-background-gray-50);
 }
-.carousel__arrow {
+.bcarousel__arrow {
   position: absolute;
   top: 50%;
-  transform: translateY(-50%);
   z-index: 4;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: var(--spacing-xl);
-  height: var(--spacing-xl);
-  background-color: var(--semi-transparent-dark);
-  border: var(--border-width-sm) solid var(--color-border-muted);
+  width: var(--site-touch-target);
+  height: var(--site-touch-target);
+  transform: translateY(-50%);
   color: var(--color-text-hover);
+  background-color: var(--overlay-bg);
+  border: var(--border-width) solid hsl(var(--border-color));
   cursor: pointer;
-  backdrop-filter: blur(var(--filter-blur));
-  transition: border-color 0.15s ease, color 0.15s ease;
+  transition: border-color var(--transition-fast) ease, color var(--transition-fast) ease;
 }
-.carousel__arrow:hover { border-color: var(--color-accent); color: var(--color-accent); }
-.carousel__arrow--prev { left: var(--spacing-xs); }
-.carousel__arrow--next { right: var(--spacing-xs); }
-.carousel__dots {
+.bcarousel__arrow:hover { border-color: var(--color-accent); color: var(--color-accent); }
+.bcarousel__arrow:focus-visible { outline: var(--border-width-md) solid hsl(var(--ring)); }
+.bcarousel__arrow--prev { left: var(--spacing-sm); }
+.bcarousel__arrow--next { right: var(--spacing-sm); }
+.bcarousel__bar {
   position: absolute;
-  bottom: var(--spacing-xs);
-  left: 50%;
-  transform: translateX(-50%);
-  display: flex;
-  gap: var(--spacing-xs);
+  right: 0;
+  bottom: 0;
+  left: 0;
   z-index: 4;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-sm);
+  padding: 0 var(--spacing-sm);
+  background: linear-gradient(to top, var(--overlay-bg), transparent);
 }
-.carousel__dot {
-  width: var(--spacing-xs);
-  height: var(--spacing-xs);
+.bcarousel__caption {
+  display: flex;
+  gap: var(--spacing-sm);
+  min-width: 0;
+  margin: 0;
+  font-size: var(--site-fs-label);
+  letter-spacing: var(--site-tracking-label);
+  text-transform: uppercase;
+  color: var(--color-text-secondary);
+}
+.bcarousel__count { color: var(--color-text-hover); font-variant-numeric: tabular-nums; }
+.bcarousel__dots { display: flex; flex-shrink: 0; }
+.bcarousel__dot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--site-touch-target);
+  height: var(--site-touch-target);
   padding: 0;
-  background-color: var(--color-text-tertiary);
+  background: none;
   border: none;
   cursor: pointer;
-  transition: background-color 0.15s ease;
 }
-.carousel__dot--active { background-color: var(--color-accent-neutral); }
-.carousel__caption {
-  position: absolute;
-  bottom: calc(var(--spacing-xs) + var(--spacing-md));
-  left: var(--spacing-xs);
-  z-index: 4;
-  padding: var(--spacing-xxs) var(--spacing-xs);
-  font-size: var(--font-size-xs);
-  color: var(--color-text-hover);
-  background-color: var(--semi-transparent-dark);
-  backdrop-filter: blur(var(--filter-blur));
-  pointer-events: none;
+.bcarousel__dot:focus-visible { outline: var(--border-width-md) solid hsl(var(--ring)); outline-offset: calc(-1 * var(--border-width-md)); }
+.bcarousel__dot-mark {
+  width: var(--detail-dot);
+  height: var(--detail-dot);
+  background-color: var(--color-text-tertiary);
+  transition: background-color var(--transition-fast) ease;
 }
+.bcarousel__dot[aria-current="true"] .bcarousel__dot-mark { background-color: var(--color-accent); }
 </style>

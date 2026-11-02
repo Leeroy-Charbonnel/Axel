@@ -1,22 +1,23 @@
 <script setup lang="ts">
+import { computed } from "vue"
+import UrlField from "../../../admin/fields/UrlField.vue"
+import { useTranslations } from "../../../../composables/useTranslations"
+import { embedSrc } from "../../../../lib/embed"
 import type { EmbedBlockContent } from "../../../../types/portfolio"
 
 const props = defineProps<{ content: EmbedBlockContent }>()
-const emit = defineEmits<{ (e: "dirty"): void; (e: "structural"): void }>()
+const { t } = useTranslations()
 
-function setUrl(v: string) {
-  props.content.url = v
-  emit("dirty")
-}
+const unsupported = computed(() => props.content.url.trim() !== "" && embedSrc(props.content.url) === null)
 </script>
 
 <template>
-  <p class="dp-hint">
-    Paste a YouTube / Vimeo / Sketchfab link (the embed form is derived
-    automatically) or any url to iframe.
-  </p>
-  <label class="dp-field">
-    <span>URL</span>
-    <input type="url" class="dp-input" placeholder="https://youtube.com/watch?v=..." :value="content.url" @input="setUrl(($event.target as HTMLInputElement).value)" />
-  </label>
+  <UrlField
+    :label="t('blockFieldUrl')"
+    :hint="t('blockHintEmbed')"
+    placeholder="https://www.youtube.com/watch?v="
+    :model-value="props.content.url"
+    @update:model-value="(v) => (props.content.url = v)"
+  />
+  <p v-if="unsupported" class="ed-error" role="alert">{{ t('blockEmbedUnsupported') }}</p>
 </template>

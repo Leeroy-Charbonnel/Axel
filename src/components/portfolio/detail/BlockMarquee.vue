@@ -1,45 +1,68 @@
 <script setup lang="ts">
-import { computed } from "vue"
+import { computed, onBeforeUnmount, onMounted, ref } from "vue"
+import { useReducedMotion } from "../../../composables/useReducedMotion"
+import BlockEmpty from "./BlockEmpty.vue"
 import type { MarqueeBlockContent } from "../../../types/portfolio"
 
-//MARQUEE - continuously scrolling image strip, usable as a separator
-//between sections. Pure CSS animation: the strip is rendered twice and
-//translated by -50%, so the loop is seamless. Duration derives from the
-//configured speed (px/s) and an estimated strip length; the exact px
-//width doesn't matter for the loop, only the pace feeling.
+//MARQUEE - an image strip that scrolls on its own, drawn twice and moved by
+//one strip width so the loop has no seam. The pace is the configured speed in
+//px per second over the measured strip. It stops on hover; for a reader who
+//limits motion it stands still and scrolls by hand instead.
 
 const props = defineProps<{ content: MarqueeBlockContent }>()
+const reducedMotion = useReducedMotion()
 
-const items = computed(() => props.content.items.filter((i) => i.url))
+const MIN_SPEED = 10
 
-//Rough strip length estimate: each image renders at ~1.6x the row height
-//in width. Good enough to keep the perceived speed stable when slides
-//are added or removed.
-const durationS = computed(() => {
-  const speed = Math.max(10, props.content.speedPxs || 60)
-  const estimatedItemPx = 280
-  const stripPx = Math.max(1, items.value.length) * estimatedItemPx
-  return stripPx / speed
+const items   = computed(() => props.content.items.filter((i) => i.url))
+const strip   = ref<HTMLElement | null>(null)
+const stripPx = ref(0)
+const durationS = computed(() => stripPx.value / Math.max(MIN_SPEED, props.content.speedPxs))
+
+let observer: ResizeObserver | null = null
+onMounted(() => {
+  if (!strip.value) return
+  observer = new ResizeObserver(([entry]) => { stripPx.value = entry?.contentRect.width ?? 0 })
+  observer.observe(strip.value)
 })
+onBeforeUnmount(() => observer?.disconnect())
 </script>
 
 <template>
-  <div class="bmarquee" :style="{ '--marquee-duration': `${durationS}s` }">
-    <div v-if="!items.length" class="bmarquee__empty">No images</div>
-    <div v-else class="bmarquee__track">
-      <!--Strip rendered twice for the seamless -50% loop.-->
-      <div v-for="copy in 2" :key="copy" class="bmarquee__strip" :aria-hidden="copy === 2">
+  <div
+    v-if="items.length"
+    class="bmarquee"
+    :class="{ 'bmarquee--still': reducedMotion }"
+    :style="{ '--marquee-duration': `${durationS}s` }"
+  >
+    <div class="bmarquee__track">
+      <div ref="strip" class="bmarquee__strip">
         <img
-          v-for="item in items"
-          :key="`${copy}-${item.fileId}`"
+          v-for="(item, i) in items"
+          :key="`${item.fileId}-${i}`"
           :src="item.url ?? undefined"
           alt=""
+          loading="lazy"
+          decoding="async"
+          class="bmarquee__img"
+          draggable="false"
+        />
+      </div>
+      <div v-if="!reducedMotion" class="bmarquee__strip" aria-hidden="true">
+        <img
+          v-for="(item, i) in items"
+          :key="`copy-${item.fileId}-${i}`"
+          :src="item.url ?? undefined"
+          alt=""
+          loading="lazy"
+          decoding="async"
           class="bmarquee__img"
           draggable="false"
         />
       </div>
     </div>
   </div>
+  <BlockEmpty v-else type="marquee" />
 </template>
 
 <style scoped>
@@ -47,40 +70,31 @@ const durationS = computed(() => {
   width: 100%;
   height: 100%;
   overflow: hidden;
-  display: flex;
-  align-items: center;
-}
-.bmarquee__empty {
-  margin: auto;
-  color: var(--color-text-tertiary);
-  font-size: var(--font-size-xs);
-  text-transform: uppercase;
-  letter-spacing: var(--letter-spacing-wide);
 }
 .bmarquee__track {
   display: flex;
-  height: 100%;
   width: max-content;
+  height: 100%;
   animation: bmarquee-scroll var(--marquee-duration) linear infinite;
 }
+.bmarquee:hover .bmarquee__track { animation-play-state: paused; }
+.bmarquee--still { overflow-x: auto; }
+.bmarquee--still .bmarquee__track { animation: none; }
 .bmarquee__strip {
   display: flex;
   height: 100%;
-  gap: var(--spacing-sm);
-  padding-right: var(--spacing-sm);
+  gap: var(--detail-gap);
+  padding-right: var(--detail-gap);
 }
 .bmarquee__img {
+  display: block;
   height: 100%;
   width: auto;
   object-fit: cover;
-  display: block;
   user-select: none;
 }
 @keyframes bmarquee-scroll {
   from { transform: translateX(0); }
   to   { transform: translateX(-50%); }
-}
-@media (prefers-reduced-motion) {
-  .bmarquee__track { animation: none; }
 }
 </style>

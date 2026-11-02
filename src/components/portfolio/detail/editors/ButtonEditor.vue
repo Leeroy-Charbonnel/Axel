@@ -1,29 +1,28 @@
 <script setup lang="ts">
-import BilingualInput from "./BilingualInput.vue"
+import BilingualField from "../../../admin/fields/BilingualField.vue"
+import ToggleField from "../../../admin/fields/ToggleField.vue"
+import UrlField from "../../../admin/fields/UrlField.vue"
+import { useTranslations } from "../../../../composables/useTranslations"
 import type { ButtonBlockContent } from "../../../../types/portfolio"
 
 const props = defineProps<{ content: ButtonBlockContent }>()
-const emit = defineEmits<{ (e: "dirty"): void; (e: "structural"): void }>()
-
-function setUrl(v: string) {
-  props.content.url = v
-  emit("dirty")
-}
-function setNewTab(v: boolean) {
-  props.content.newTab = v
-  emit("dirty")
-}
+const { t } = useTranslations()
 </script>
 
 <template>
-  <p class="dp-hint">Single call-to-action link (ArtStation, download, external page...).</p>
-  <BilingualInput label="Label" :value="content.label" @dirty="emit('dirty')" />
-  <label class="dp-field">
-    <span>URL</span>
-    <input type="url" class="dp-input" placeholder="https://..." :value="content.url" @input="setUrl(($event.target as HTMLInputElement).value)" />
-  </label>
-  <label class="dp-toggle">
-    <input type="checkbox" :checked="content.newTab" @change="setNewTab(($event.target as HTMLInputElement).checked)" />
-    <span>Open in a new tab</span>
-  </label>
+  <BilingualField
+    :label="t('blockFieldLabel')"
+    :model-value="props.content.label"
+    @update:model-value="(v) => (props.content.label = v)"
+  />
+  <UrlField
+    :label="t('blockFieldUrl')"
+    :model-value="props.content.url"
+    @update:model-value="(v) => (props.content.url = v)"
+  />
+  <ToggleField
+    :label="t('blockButtonNewTab')"
+    :model-value="props.content.newTab"
+    @update:model-value="(v) => (props.content.newTab = v)"
+  />
 </template>

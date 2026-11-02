@@ -1,12 +1,19 @@
 <script setup lang="ts">
-import BilingualInput from "./BilingualInput.vue"
+import BilingualField from "../../../admin/fields/BilingualField.vue"
+import { useTranslations } from "../../../../composables/useTranslations"
 import type { TextBlockContent } from "../../../../types/portfolio"
 
-defineProps<{ content: TextBlockContent }>()
-const emit = defineEmits<{ (e: "dirty"): void; (e: "structural"): void }>()
+const props = defineProps<{ content: TextBlockContent }>()
+const { t } = useTranslations()
 </script>
 
 <template>
-  <p class="dp-hint">Markdown supported. Double-click the block to edit inline (current language).</p>
-  <BilingualInput label="Markdown source" :value="content.text" multiline mono :rows="6" @dirty="emit('dirty')" />
+  <BilingualField
+    :label="t('blockFieldMarkdown')"
+    :hint="t('blockHintText')"
+    multiline
+    :rows="8"
+    :model-value="props.content.text"
+    @update:model-value="(v) => (props.content.text = v)"
+  />
 </template>
