@@ -526,6 +526,18 @@ the controls sit above them*/
 }
 .three-viewer__toolbar--right .three-viewer__modes { flex-direction: column; }
 .three-viewer__toolbar--right .three-viewer__button-label { display: none; }
+/*a phone: the column would cover the model, the toolbar goes back under it*/
+@media (max-width: 640px) {
+  .three-viewer__toolbar--right {
+    left: var(--vsui-space-md);
+    right: auto;
+    top: auto;
+    bottom: var(--vsui-space-md);
+    flex-direction: row;
+    transform: none;
+  }
+  .three-viewer__toolbar--right .three-viewer__modes { flex-direction: row; }
+}
 
 .three-viewer__button {
   display: inline-flex;

@@ -31,7 +31,7 @@ const {
 </script>
 
 <template>
-  <div class="media" :class="[`media--thumbs-${thumbsSide}`, { 'media--wireframe': showWireframe }]">
+  <div class="media" :class="[`media--thumbs-${thumbsSide}`, { 'media--wireframe': showWireframe, 'media--with-thumbs': thumbs }]">
     <div class="media__stage" :class="{ 'media__stage--still': !glbUrl }">
       <ThreeViewer
         v-if="glbUrl"
@@ -220,9 +220,9 @@ const {
 
 /*phone: the stage is too small to carry a column, the thumbnails make a row under it*/
 @media (max-width: 640px) {
-  .media__stage { margin-bottom: calc(var(--site-thumb-row) + var(--spacing-sm)); }
+  .media--with-thumbs .media__stage { margin-bottom: calc(var(--site-thumb-row) + var(--spacing-sm)); }
 
-    .media--thumbs-left :deep(.three-viewer__toolbar) {
+  .media--thumbs-left :deep(.three-viewer__toolbar) {
     right: auto;
     left: var(--spacing-md);
   }
