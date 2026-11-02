@@ -17,10 +17,8 @@ export const SECTIONS = [
   { id: "contact",    labelKey: "navContact" },
 ] as const
 
-export interface NavSection {
-  id:    string
-  label: string
-}
+//a label of the page's own text, or a translation key read when drawn
+export type NavSection = { id: string; label: string } | { id: string; labelKey: string }
 
 //the section crossing this line of the viewport is the current one
 const SPY_LINE = 0.35
@@ -80,8 +78,8 @@ export function useSectionNav() {
   const { t } = useLanguage()
   startSpy()
 
-  const sections = computed<NavSection[]>(() =>
-    pageSections.value ?? SECTIONS.map((s) => ({ id: s.id, label: t(s.labelKey) })))
+  const sections = computed(() => (pageSections.value ?? SECTIONS).map((s) =>
+    ({ id: s.id, label: "labelKey" in s ? t(s.labelKey) : s.label })))
   //the rail marks where the reader is on the page that owns the list
   const ownPage = computed(() => pageSections.value !== null || route.path === "/")
 

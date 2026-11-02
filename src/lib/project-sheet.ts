@@ -181,7 +181,7 @@ export function sheetBlocks(m: SheetMedia): DetailBlock[] {
   if (m.exploded) {
     bandExploded(w,
       m.exploded.modelId
-        ? viewerTile(m.exploded.modelId, "", "exploded")
+        ? viewerTile(m.exploded.modelId, m.view, "exploded")
         : imageTile(m.exploded.fileId, bi("Vue éclatée", "Exploded view")),
       m.exploded.legend.length ? legendTile(m.exploded.legend, "number") : null)
   }

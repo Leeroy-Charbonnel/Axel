@@ -68,7 +68,7 @@ const HEAD_ANCHOR = "project-head"
 watch([shownBlocks, shownLang, () => project.value?.id], () => {
   if (!project.value) return setPageSections(null)
   setPageSections([
-    { id: HEAD_ANCHOR, label: t("navProject") },
+    { id: HEAD_ANCHOR, labelKey: "navProject" },
     ...readingOrder(shownBlocks.value).filter((b) => b.type === "heading")
       .map((b) => ({ id: sectionAnchor(b.id), label: pickBilingual((b.content as HeadingBlockContent).text, shownLang.value) })),
   ])

@@ -93,6 +93,8 @@ const sheetManifest = z.object({
     //the model set apart, and one point per legend number in its frame
     glb:    z.string().min(1).optional(),
     labels: z.array(vec3).optional(),
+    //the camera of exploded.png, in the exploded file's frame, fov vertical in degrees
+    camera: z.object({ position: vec3, target: vec3, fov: z.number().positive() }).optional(),
   }).optional(),
   shaders:   z.array(z.object({ title: bilingual, steps: z.array(labelled) })).default([]),
   materials: z.array(z.object({
@@ -286,12 +288,20 @@ async function importMain(dir: string, uploader: string, startRight: boolean): P
 }
 
 //the exploded model: its own row, optimized once, its marks in its settings
-async function explodedModel(glbId: string, name: string, labels: Vec3[]): Promise<string> {
+async function explodedModel(
+  glbId: string, name: string, labels: Vec3[], camera: { position: Vec3; target: Vec3; fov: number } | null,
+): Promise<string> {
   let [row] = await db.select().from(model3d).where(eq(model3d.sourceGlbFileId, glbId))
   if (!row) [row] = await db.select().from(model3d).where(eq(model3d.glbFileId, glbId))
   if (!row) [row] = await db.insert(model3d).values({ name, glbFileId: glbId, views: [] }).returning()
+  //the drawing's camera as the model's view, when the sheet gives it
+  const [source] = await db.select().from(file).where(eq(file.id, row!.sourceGlbFileId ?? row!.glbFileId))
+  if (!source) throw new Error(`${name}: its GLB file row is missing`)
+  const views = camera
+    ? [{ name: VIEW, ...viewerView(await glbBounds(join(STORAGE_DIR, source.storedFilename)), camera), wireframe: false }]
+    : []
   const settings = { ...(row!.viewerSettings ?? {}), labels }
-  await db.update(model3d).set({ name, viewerSettings: settings, updatedAt: new Date() }).where(eq(model3d.id, row!.id))
+  await db.update(model3d).set({ name, views, viewerSettings: settings, updatedAt: new Date() }).where(eq(model3d.id, row!.id))
   if (!row!.sourceGlbFileId) await optimizeModel({ ...row!, viewerSettings: settings })
   return row!.id
 }
@@ -319,7 +329,9 @@ async function importSheet(
     exploded: s.exploded
       ? {
         fileId:  await put(s.exploded.image),
-        modelId: s.exploded.glb ? await explodedModel(await put(s.exploded.glb), `${title} (exploded)`, s.exploded.labels ?? []) : null,
+        modelId: s.exploded.glb
+          ? await explodedModel(await put(s.exploded.glb), `${title} (exploded)`, s.exploded.labels ?? [], s.exploded.camera ?? null)
+          : null,
         legend:  s.exploded.legend,
       }
       : null,
