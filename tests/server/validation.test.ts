@@ -43,20 +43,20 @@ describe("detail block content schemas", () => {
     const img = { fileId: ID, caption: text }
     const full: SheetMedia = {
       modelId: ID, view: "Default", intro: text,
-      plans: { fileId: ID, text }, section: { fileId: ID, legend: [text, text] },
-      blocking: { imageIds: [ID, ID], videoId: ID, text },
+      plansId: ID,
+      blocking: { levels: [img, img, img], videoId: ID, text },
       exploded: { fileId: ID, legend: [text], text },
-      wood: { fileId: ID, detailId: ID, legend: [text] },
       shaders: [{ title: text, steps: [img, img] }],
       materials: [{ fileId: ID, name: text, rows: [{ label: text, value: "0.35" }] }],
       maps: [img], uvId: ID, process: [img, img], specs: [{ label: text, value: text }], outro: text,
     }
     const cuts: Partial<SheetMedia>[] = [
-      {}, { intro: null, outro: null }, { section: null }, { plans: { fileId: ID, text: null }, section: null },
-      { blocking: null }, { blocking: { imageIds: [ID], videoId: null, text: null } },
-      { blocking: { imageIds: [ID, ID], videoId: null, text } }, { blocking: { imageIds: [], videoId: ID, text: null } },
+      {}, { intro: null, outro: null },
+      { blocking: null }, { blocking: { levels: [img], videoId: null, text: null } },
+      { blocking: { levels: [img, img], videoId: null, text } }, { blocking: { levels: [], videoId: ID, text: null } },
+      { blocking: { levels: [], videoId: ID, text } },
       { exploded: null }, { exploded: { fileId: ID, legend: [], text: null } },
-      { wood: null }, { wood: null, shaders: [] }, { wood: { fileId: ID, detailId: null, legend: [] } },
+      { shaders: [] },
       { materials: [] }, { maps: [] }, { uvId: null }, { materials: [], maps: [], uvId: null },
       { process: [] }, { specs: [] }, { specs: [], outro: null },
     ]

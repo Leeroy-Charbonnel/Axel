@@ -2,9 +2,7 @@ import type { Bilingual, DetailBlock, DetailBlockContent, DetailBlockType, Mater
 
 //PROJECT SHEET - the detail page of a project imported with a technical plan
 //(scripts/import-renders.ts, sheet/sheet.json), laid out on the 3-column grid
-//as a sheet: plans beside the model in blueprint, the section and its legend,
-//the blocking, the exploded view and its nomenclature, the build of the wood,
-//the shaders step by step, materials and maps, the production stages, then
+//as a sheet: plans beside the model in blueprint, the blocking, the exploded view and its nomenclature, the shaders step by step, materials and maps, the production stages, then
 //the specifications. A band takes what the folder has and never leaves a hole.
 //The page head already carries the title, the numbers and the thumbnails.
 
@@ -17,11 +15,10 @@ export interface SheetMedia {
   modelId:   string
   view:      string
   intro:     Bilingual | null
-  plans:     { fileId: string; text: Bilingual | null }
-  section:   { fileId: string; legend: Bilingual[] } | null
-  blocking:  { imageIds: string[]; videoId: string | null; text: Bilingual | null } | null
+  plansId:   string
+  //from the roughest pass to the refined one
+  blocking:  { levels: SheetImage[]; videoId: string | null; text: Bilingual | null } | null
   exploded:  { fileId: string; legend: Bilingual[]; text: Bilingual | null } | null
-  wood:      { fileId: string; detailId: string | null; legend: Bilingual[] } | null
   //one row of squares per shader, under its own title
   shaders:   { title: Bilingual; steps: SheetImage[] }[]
   materials: Omit<MaterialItem, "url">[]
@@ -91,27 +88,20 @@ export function sheetBlocks(m: SheetMedia): DetailBlock[] {
 
   if (m.intro) row([text(m.intro)], 1)
 
-  //PLANS - the drawing beside the model in the same black and white, then the
-  //section with its legend
+  //PLANS - the drawing beside the model in the same black and white
   heading("Plans techniques", "Technical drawings")
   const blueprint: Tile = {
     type: "viewer3d", content: { model3dId: m.modelId, desktopView: m.view, mobileView: m.view, look: "blueprint" },
   }
-  pair(image(m.plans.fileId, bi("Vues orthographiques cotées", "Dimensioned orthographic views")), [blueprint])
-  row(present([
-    m.section ? image(m.section.fileId, bi("Coupe A-A", "Section A-A")) : null,
-    m.section ? legend(m.section.legend, "number") : null,
-    m.plans.text ? text(m.plans.text) : null,
-  ]), 2)
+  pair(image(m.plansId, bi("Vues orthographiques cotées", "Dimensioned orthographic views")), [blueprint])
 
-  //BLOCKING - the motion test beside the first pass, the second pass beside the words
+  //BLOCKING - the passes side by side, the motion test and the words beside them
   if (m.blocking) {
     heading("Blocking", "Blocking")
-    const [one, two] = m.blocking.imageIds.map((id, i) => image(id, bi(`Blocking ${i + 1}`, `Blocking ${i + 1}`)))
-    const main = m.blocking.videoId ? video(m.blocking.videoId) : one
-    const side = m.blocking.videoId ? one : two
-    if (main) pair(main, side ? [side] : [])
-    row(present([m.blocking.videoId ? two ?? null : null, m.blocking.text ? text(m.blocking.text) : null]), 2)
+    const levels = m.blocking.levels.length ? sequence(m.blocking.levels, true) : null
+    const side = present([m.blocking.videoId ? video(m.blocking.videoId) : null, m.blocking.text ? text(m.blocking.text) : null])
+    if (levels) pair(levels, side)
+    else row(side, 2)
   }
 
   //EXPLODED VIEW - the parts and their nomenclature
@@ -123,16 +113,9 @@ export function sheetBlocks(m: SheetMedia): DetailBlock[] {
     ]))
   }
 
-  //THE WOOD - its layers, the edge under a loupe, the shaders square by square
-  if (m.wood || m.shaders.length) {
-    heading("Construction du bois", "Building the wood")
-    if (m.wood) {
-      pair(image(m.wood.fileId, bi("Couches du bois", "Wood layers")), present([
-        m.wood.detailId ? image(m.wood.detailId, bi("Tranche du contreplaqué", "Plywood edge")) : null,
-        legend(m.wood.legend, "letter"),
-      ]))
-    }
-    //the shader's name beside its squares
+  //SHADERS - each one built square by square, its name beside its squares
+  if (m.shaders.length) {
+    heading("Shaders", "Shaders")
     for (const s of m.shaders) row([text({ fr: `### ${s.title.fr}`, en: `### ${s.title.en}` }), sequence(s.steps, true)], 1)
   }
 

@@ -66,8 +66,8 @@ export interface WireframeMaterialParams {
   roughness:         number
   envMapIntensity:   number
   specularIntensity: number
-  //share of a material's own glow kept once swept, 1 when absent
-  emission?:         number
+  //true: the swept surface is left transparent, only its edges are drawn
+  clear?:            boolean
 }
 
 export interface ViewerSettings {

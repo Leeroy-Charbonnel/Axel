@@ -31,7 +31,7 @@ import {
   type SweepBasicMaterial,
   type SweepMaterial,
 } from "./materials"
-import type { MaterialState, StartView, Vec3, ViewerMode, ViewerSettings } from "./types"
+import type { MaterialState, StartView, Vec3, ViewerMode, ViewerSettings, WireframeMaterialParams } from "./types"
 import { WireframeSweep } from "./wireframe"
 
 //THE PUBLIC VIEWER'S SCENE LOGIC, framework free: load a GLB, apply the saved
@@ -617,7 +617,7 @@ export class ModelViewer {
     axis.normalize()
     const start = wf.sweepStart ?? setup.sweep.start
     const end   = wf.sweepEnd   ?? setup.sweep.end
-    const mat = wf.material ?? VIEWER_DEFAULTS.wireframeMaterial
+    const mat: WireframeMaterialParams = wf.material ?? VIEWER_DEFAULTS.wireframeMaterial
     this.sweep!.setFrame({ axis, min: start, range: Math.max(1e-4, end - start) })
     pushSweepUniforms(this.materials, {
       emissiveColor:     wf.color ?? VIEWER_DEFAULTS.wireframeModeColor,
@@ -626,7 +626,7 @@ export class ModelViewer {
       roughness:         mat.roughness,
       envIntensity:      mat.envMapIntensity,
       specularIntensity: mat.specularIntensity,
-      emission:          mat.emission ?? 1,
+      clear:             mat.clear ?? false,
     })
     this.sweep!.setDuration(wf.sweepDurationMs ?? setup.sweep.durationMs)
     this.sweep!.setStyle({

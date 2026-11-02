@@ -26,7 +26,9 @@ const props = withDefaults(defineProps<{
   autoRotate?:  boolean
   //the mode buttons, reset and fullscreen; a card with its own controls hides them
   toolbar?:     boolean
-}>(), { wireframe: false, poster: null, posterSizes: "100vw", alt: "", autoRotate: false, toolbar: true })
+  //under the model, or a column of icons at its right
+  toolbarSide?: "bottom" | "right"
+}>(), { wireframe: false, poster: null, posterSizes: "100vw", alt: "", autoRotate: false, toolbar: true, toolbarSide: "bottom" })
 
 const emit = defineEmits<{ "update:wireframe": [on: boolean] }>()
 
@@ -166,9 +168,6 @@ function resetView() {
   viewer.value?.resetView()
 }
 
-//a page button that opens the model full screen, as the toolbar's does
-defineExpose({ toggleFullscreen })
-
 onMounted(() => {
   reducedMotion  = window.matchMedia("(prefers-reduced-motion: reduce)").matches
   touch = window.matchMedia("(pointer: coarse)").matches
@@ -265,7 +264,13 @@ watch(() => props.glbUrl, () => {
       </button>
     </div>
 
-    <div v-if="phase === 'ready' && toolbar" class="three-viewer__toolbar" role="toolbar" :aria-label="t('viewerToolbar')">
+    <div
+      v-if="phase === 'ready' && toolbar"
+      class="three-viewer__toolbar"
+      :class="`three-viewer__toolbar--${toolbarSide}`"
+      role="toolbar"
+      :aria-label="t('viewerToolbar')"
+    >
       <div class="three-viewer__modes" role="group" :aria-label="t('viewerModes')">
         <button
           v-for="m in MODES"
@@ -413,6 +418,18 @@ the controls sit above them*/
   display: flex;
   border: var(--border-width) solid var(--color-gray-medium);
 }
+
+/*a column of icons, centred on the right edge; the names stay in aria-label and title*/
+.three-viewer__toolbar--right {
+  left: auto;
+  right: var(--vsui-space-md);
+  bottom: auto;
+  top: 50%;
+  flex-direction: column;
+  transform: translateY(-50%);
+}
+.three-viewer__toolbar--right .three-viewer__modes { flex-direction: column; }
+.three-viewer__toolbar--right .three-viewer__button-label { display: none; }
 
 .three-viewer__button {
   display: inline-flex;

@@ -17,8 +17,8 @@ import type { MainProjectDto } from "../../types/portfolio"
 //the list so the section does not read as one repeated block. The wireframe
 //button turns the model and the thumbnails together.
 //detail: the head of the project's own page, as the plan lays it out: facts,
-//model with its toolbar, every thumbnail on the right; "View 3D" opens the
-//model full screen.
+//model with its toolbar (which replaces the two buttons), every thumbnail on
+//the right.
 const props = withDefaults(defineProps<{ project: MainProjectDto; number: number; flipped?: boolean; detail?: boolean }>(), {
   flipped: false,
   detail:  false,
@@ -39,7 +39,7 @@ const thumbs = computed(() => {
   const all = props.project.thumbnails.filter((thumb) => thumb.url)
   return props.detail ? all : all.slice(0, CARD_THUMBS)
 })
-const media = ref<InstanceType<typeof ProjectMedia> | null>(null)
+
 
 //the clay versions are decoded before the first sweep, so it never plays over
 //images still loading; the model and the thumbnails then turn together
@@ -97,12 +97,9 @@ const titleId = `project-${props.project.id}-title`
           </div>
         </dl>
 
-        <div class="case__actions">
-          <button v-if="detail" type="button" class="site-button case__action case__action--accent" @click="media?.fullscreen()">
-            <Box aria-hidden="true" />
-            {{ t("projectView3d") }}
-          </button>
-          <RouterLink v-else :to="`/project/${project.id}`" class="site-button case__action case__action--accent">
+        <!--the project's page has the viewer's own toolbar instead-->
+        <div v-if="!detail" class="case__actions">
+          <RouterLink :to="`/project/${project.id}`" class="site-button case__action case__action--accent">
             <Box aria-hidden="true" />
             {{ t("projectView3d") }}
           </RouterLink>
@@ -113,7 +110,14 @@ const titleId = `project-${props.project.id}-title`
         </div>
       </div>
 
-      <ProjectMedia ref="media" v-model:wireframe="wireframe" :project="project" :thumbs="false" :toolbar="detail" class="case__media" />
+      <ProjectMedia
+        v-model:wireframe="wireframe"
+        :project="project"
+        :thumbs="false"
+        :toolbar="detail"
+        toolbar-side="right"
+        class="case__media"
+      />
     </article>
   </EditableRegion>
 </template>

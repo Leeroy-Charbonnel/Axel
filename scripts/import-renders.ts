@@ -85,11 +85,9 @@ const processManifest = z.object({
 const labelled = z.object({ image: z.string().min(1), label: bilingual })
 const sheetManifest = z.object({
   intro:     bilingual.optional(),
-  plans:     z.object({ image: z.string().min(1), text: bilingual.optional() }),
-  section:   z.object({ image: z.string().min(1), legend: z.array(bilingual) }).optional(),
-  blocking:  z.object({ images: z.array(z.string().min(1)), video: z.string().min(1).optional(), text: bilingual.optional() }).optional(),
+  plans:     z.object({ image: z.string().min(1) }),
+  blocking:  z.object({ images: z.array(labelled), video: z.string().min(1).optional(), text: bilingual.optional() }).optional(),
   exploded:  z.object({ image: z.string().min(1), legend: z.array(bilingual), text: bilingual.optional() }).optional(),
-  wood:      z.object({ image: z.string().min(1), detail: z.string().min(1).optional(), legend: z.array(bilingual) }).optional(),
   shaders:   z.array(z.object({ title: bilingual, steps: z.array(labelled) })).default([]),
   materials: z.array(z.object({
     image: z.string().min(1),
@@ -283,8 +281,6 @@ async function importSheet(s: z.infer<typeof sheetManifest>, put: (name: string)
     for (const i of list) out.push({ fileId: await put(i.image), caption: i.label })
     return out
   }
-  const blockingIds: string[] = []
-  for (const name of s.blocking?.images ?? []) blockingIds.push(await put(name))
   const shaders = []
   for (const shader of s.shaders) shaders.push({ title: shader.title, steps: await images(shader.steps) })
   const materials = []
@@ -292,13 +288,11 @@ async function importSheet(s: z.infer<typeof sheetManifest>, put: (name: string)
   return sheetBlocks({
     modelId, view: VIEW,
     intro:    s.intro ?? null,
-    plans:    { fileId: await put(s.plans.image), text: s.plans.text ?? null },
-    section:  s.section ? { fileId: await put(s.section.image), legend: s.section.legend } : null,
+    plansId:  await put(s.plans.image),
     blocking: s.blocking
-      ? { imageIds: blockingIds, videoId: s.blocking.video ? await put(s.blocking.video) : null, text: s.blocking.text ?? null }
+      ? { levels: await images(s.blocking.images), videoId: s.blocking.video ? await put(s.blocking.video) : null, text: s.blocking.text ?? null }
       : null,
     exploded: s.exploded ? { fileId: await put(s.exploded.image), legend: s.exploded.legend, text: s.exploded.text ?? null } : null,
-    wood:     s.wood ? { fileId: await put(s.wood.image), detailId: s.wood.detail ? await put(s.wood.detail) : null, legend: s.wood.legend } : null,
     shaders,
     materials,
     maps:     await images(s.maps),

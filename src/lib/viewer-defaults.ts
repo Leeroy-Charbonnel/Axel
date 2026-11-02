@@ -29,11 +29,11 @@ export const VIEWER_DEFAULTS = {
   floorGlowScale:     3.2,
 } as const
 
-//THE BLUEPRINT LOOK of a detail-page viewer: matte black surfaces under white
-//edges, to sit beside a technical plan drawn the same way
+//THE BLUEPRINT LOOK of a detail-page viewer: white edges over surfaces left
+//clear, so the page shows through them, as on a technical plan
 export const BLUEPRINT_LOOK = {
   lineColor: "#ffffff",
-  material:  { color: "#000000", metalness: 0, roughness: 1, envMapIntensity: 0, specularIntensity: 0, emission: 0 },
+  material:  { color: "#000000", metalness: 0, roughness: 1, envMapIntensity: 0, specularIntensity: 0, clear: true },
 } as const
 
 export const VIEWER_PREF_KEYS = {

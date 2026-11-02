@@ -28,9 +28,10 @@ const items = computed(() => props.content.items.filter((i) => i.url))
 
 <style scoped>
 .bseq {
+  --gap: var(--spacing-sm);
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(var(--site-seq-min), 1fr));
-  gap: var(--spacing-lg) var(--spacing-md);
+  gap: var(--spacing-lg) var(--gap);
   width: 100%;
   margin: 0;
   padding: 0;
@@ -45,19 +46,19 @@ const items = computed(() => props.content.items.filter((i) => i.url))
   min-width: 0;
   text-align: center;
 }
+/*each image at its own proportions, as wide as its column*/
 .bseq__img {
   display: block;
   width: 100%;
-  aspect-ratio: 1;
-  object-fit: contain;
+  height: auto;
 }
 /*a dash between two numbered steps, level with the images' middle*/
 .bseq--numbered .bseq__item + .bseq__item::before {
   content: "";
   position: absolute;
   top: 50%;
-  right: calc(100% + var(--spacing-md) / 4);
-  width: calc(var(--spacing-md) / 2);
+  right: calc(100% + var(--gap) / 4);
+  width: calc(var(--gap) / 2);
   border-top: var(--border-width-sm) solid var(--site-line-strong);
 }
 .bseq__num {
