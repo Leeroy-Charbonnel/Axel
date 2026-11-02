@@ -20,7 +20,8 @@ export function useProjectCard(project: Ref<MainProjectDto>) {
   const viewerSettings  = computed(() => (isMobile.value ? mobileSettings.value : desktopSettings.value))
   const glbUrl          = useResolvedGlbUrl(project, portfolioData)
 
-  //the still swaps to its wireframe render; the 3D viewer has its own modes
+  //wireframe mode: the viewer's own mode when there is a model, the button when
+  //there is only the still; the thumbnails and the lightbox follow it
   const showWireframe = ref(false)
   const hasWireframe  = computed(() => Boolean(project.value.mainWireframeUrl))
   const stillUrl      = computed(() =>
@@ -31,11 +32,15 @@ export function useProjectCard(project: Ref<MainProjectDto>) {
   const role        = computed(() => pickBilingual(project.value.role, lang.value))
   const description = computed(() => pickBilingual(project.value.description, lang.value))
 
+  //a thumbnail as shown: its wireframe render in wireframe mode, when it has one
+  const thumbUrl = (thumb: ThumbnailDto) => (showWireframe.value && thumb.wireframeUrl ? thumb.wireframeUrl : thumb.url)
+
   const slides = computed(() => {
     const list: { url: string; alt: string }[] = []
     if (stillUrl.value) list.push({ url: stillUrl.value, alt: title.value })
     for (const thumb of project.value.thumbnails) {
-      if (thumb.url) list.push({ url: thumb.url, alt: thumb.description[lang.value] })
+      const url = thumbUrl(thumb)
+      if (url) list.push({ url, alt: thumb.description[lang.value] })
     }
     return list
   })
@@ -46,7 +51,7 @@ export function useProjectCard(project: Ref<MainProjectDto>) {
 
   //slides skip images without a file, so a thumbnail is found by url, not position
   function openThumbnail(thumb: ThumbnailDto) {
-    openLightbox(slides.value, slides.value.findIndex((s) => s.url === thumb.url))
+    openLightbox(slides.value, slides.value.findIndex((s) => s.url === thumbUrl(thumb)))
   }
 
   return { lang, t, title, role, description, viewerSettings, glbUrl, showWireframe, hasWireframe, stillUrl, openStill, openThumbnail }

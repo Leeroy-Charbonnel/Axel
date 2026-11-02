@@ -7,10 +7,11 @@
 //
 //IDEMPOTENT: a file already imported (same "<slug>/<name>" original name) is
 //reused, a project or card with the same French title is updated in place.
-//--retire unpublishes every other main project and gallery card. DATABASE_URL
-//only, never the production database.
+//--retire unpublishes every other main project and gallery card. --order lists
+//folder names to put first, in that order; the rest follow by name.
+//DATABASE_URL only, never the production database.
 //
-//Usage: bun scripts/import-renders.ts <root> [--retire]
+//Usage: bun scripts/import-renders.ts <root> [--retire] [--order=a,b,c]
 
 import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, statSync } from "node:fs"
 import { randomUUID } from "node:crypto"
@@ -125,9 +126,12 @@ async function importMain(dir: string, uploader: string): Promise<number> {
   const glbId = await put("model.glb")
   const mainId = await put("main.jpg")
   const wireId = await put("main-wire.jpg")
-  const detailIds = await Promise.all(detailNames(dir).map(put))
+  const details = detailNames(dir)
+  const detailIds = await Promise.all(details.map(put))
+  //detail-01-wire.jpg is the wireframe of detail-01.jpg, when the folder has it
+  const wireName = (name: string) => name.replace(/(\.[a-z]+)$/i, "-wire$1")
+  const detailWireIds = await Promise.all(details.map((n) => (has(wireName(n)) ? put(wireName(n)) : null)))
   const videoId = has("turntable.mp4") ? await put("turntable.mp4") : null
-  const gifId = has("turntable.gif") ? await put("turntable.gif") : null
 
   //MODEL - one per GLB, optimized once
   const view = await viewerView(join(dir, "model.glb"), m.camera)
@@ -144,7 +148,7 @@ async function importMain(dir: string, uploader: string): Promise<number> {
     console.log(`  ${m.slug}: GLB ${(report.bytesBefore / 1048576).toFixed(1)} MB -> ${(report.bytesAfter / 1048576).toFixed(1)} MB`)
   }
 
-  const thumbnails = [...detailIds, ...(gifId ? [gifId] : [])].map((fileId) => ({ fileId, wireframeFileId: null, description: m.title }))
+  const thumbnails = detailIds.map((fileId, i) => ({ fileId, wireframeFileId: detailWireIds[i] ?? null, description: m.title }))
   const values = mainProjectPatch.required().parse({
     title: m.title, description: m.description, published: true, role: m.role, year: m.year,
     mainImageFileId: mainId, mainWireframeFileId: wireId,
@@ -188,13 +192,15 @@ async function importGallery(dir: string, uploader: string): Promise<number> {
 async function main() {
   refuseProduction()
   const root = process.argv[2]
-  if (!root) throw new Error("usage: bun scripts/import-renders.ts <root> [--retire]")
+  if (!root) throw new Error("usage: bun scripts/import-renders.ts <root> [--retire] [--order=a,b,c]")
   const retire = process.argv.includes("--retire")
+  const order = process.argv.find((a) => a.startsWith("--order="))?.slice("--order=".length).split(",") ?? []
+  const rank = (name: string) => (order.includes(name) ? order.indexOf(name) : order.length)
   const uploader = await adminId()
 
   const mainIds: number[] = []
   const galleryIds: number[] = []
-  for (const name of readdirSync(root).sort()) {
+  for (const name of readdirSync(root).sort().sort((a, b) => rank(a) - rank(b))) {
     const dir = join(root, name)
     if (!statSync(dir).isDirectory() || !existsSync(join(dir, "manifest.json"))) continue
     if (existsSync(join(dir, "model.glb"))) {

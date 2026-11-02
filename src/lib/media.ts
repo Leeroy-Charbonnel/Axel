@@ -15,7 +15,7 @@ export const IMAGE_SIZES = {
   still:    `(max-width: 1024px) 100vw, ${Math.round(CONTAINER * 8 / 12)}px`,
   gallery:  "(max-width: 640px) 100vw, 360px",
   lightbox: "100vw",
-  thumb:    "72px",
+  thumb:    "160px",
   avatar:   "96px",
   icon:     "18px",
   //a media library tile, --editor-media-tile and its share of the free space

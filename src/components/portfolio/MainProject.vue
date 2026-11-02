@@ -9,9 +9,12 @@ import SoftwareChips from "./SoftwareChips.vue"
 import UnpublishedBadge from "./UnpublishedBadge.vue"
 import type { MainProjectDto } from "../../types/portfolio"
 
-//CASE-STUDY CARD - the still first (ProjectMedia), then what a recruiter
+//CASE-STUDY CARD - the model first (ProjectMedia), then what a recruiter
 //scans: year, role, title, the spec strip, the software, and the project page.
-const props = defineProps<{ project: MainProjectDto }>()
+//Cards alternate sides down the list so the section does not read as one
+//repeated block: a flipped card puts its facts on the left, the model and its
+//thumbnail column on the right.
+const props = defineProps<{ project: MainProjectDto; flipped: boolean }>()
 
 const { lang, t, title, role, description } = useProjectCard(toRef(props, "project"))
 
@@ -20,10 +23,10 @@ const titleId = `project-${props.project.id}-title`
 
 <template>
   <EditableRegion kind="mainProject" :id="project.id" :label="t('editorKindMainProject')">
-    <article class="case" :class="{ 'site-unpublished': !project.published }" :aria-labelledby="titleId">
+    <article class="case" :class="{ 'case--flipped': flipped, 'site-unpublished': !project.published }" :aria-labelledby="titleId">
       <UnpublishedBadge :published="project.published" />
 
-      <ProjectMedia :project="project" />
+      <ProjectMedia :project="project" :thumbs-side="flipped ? 'right' : 'left'" class="case__media" />
 
       <div class="case__info">
         <header class="case__head">
@@ -108,8 +111,14 @@ const titleId = `project-${props.project.id}-title`
 /*full width in a column that aligns its items to the start*/
 .case__specs { align-self: stretch; }
 
+/*flipped: the facts in the first column, the model in the second*/
+.case--flipped { grid-template-columns: minmax(0, 4fr) minmax(0, 8fr); }
+.case--flipped .case__media { order: 1; }
+
 @media (max-width: 1024px) {
-  .case { grid-template-columns: minmax(0, 1fr); }
+  .case,
+  .case--flipped { grid-template-columns: minmax(0, 1fr); }
+  .case--flipped .case__media { order: 0; }
 }
 
 @media (max-width: 640px) {

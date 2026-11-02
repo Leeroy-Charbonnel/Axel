@@ -16,7 +16,7 @@ import type { ViewerMode, ViewerSettings } from "../../three/types"
 const props = withDefaults(defineProps<{
   glbUrl:      string
   settings:    ViewerSettings | null
-  //driven by the project card's wireframe button
+  //wireframe mode, two-way: the card's thumbnails follow the viewer's own toolbar
   wireframe?:  boolean
   //image shown when the model cannot be, and how wide the viewer is drawn
   poster?:      string | null
@@ -25,6 +25,8 @@ const props = withDefaults(defineProps<{
   alt?:         string
   autoRotate?:  boolean
 }>(), { wireframe: false, poster: null, posterSizes: "100vw", alt: "", autoRotate: false })
+
+const emit = defineEmits<{ "update:wireframe": [on: boolean] }>()
 
 const { t } = useLanguage()
 
@@ -201,7 +203,10 @@ watch(() => props.wireframe, (on) => {
   if (on) mode.value = "wireframe"
   else if (mode.value === "wireframe") mode.value = "render"
 })
-watch(mode, (m) => viewer.value?.setMode(m))
+watch(mode, (m) => {
+  viewer.value?.setMode(m)
+  emit("update:wireframe", m === "wireframe")
+})
 watch(() => props.settings, (s) => {
   if (phase.value === "ready" && s) viewer.value?.applySettings(s)
 }, { deep: true })

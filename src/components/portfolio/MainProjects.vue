@@ -17,8 +17,8 @@ const { t } = useLanguage()
       <SectionHeader id="projects-title" :title="t('projectsTitle')" />
 
       <div class="projects__list">
-        <AnimatedReveal v-for="project in projects" :key="project.id">
-          <MainProject :project="project" />
+        <AnimatedReveal v-for="(project, i) in projects" :key="project.id">
+          <MainProject :project="project" :flipped="i % 2 === 1" />
         </AnimatedReveal>
         <SectionAddButton kind="mainProject" />
       </div>

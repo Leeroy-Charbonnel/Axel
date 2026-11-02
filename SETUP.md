@@ -28,7 +28,7 @@ Vite proxies `/api` and `/media` to the Express server on 3001. The dev server
 serves and writes files in the local `storage/files`, so a dev database copied
 from prod also needs the prod files copied there (see "Refreshing dev from prod").
 
-`bun scripts/import-renders.ts <folder> [--retire]` turns render folders into
+`bun scripts/import-renders.ts <folder> [--retire] [--order=a,b]` turns render folders into
 projects in the dev database. A folder with `model.glb` becomes a main project:
 the model is optimized like an upload, and its page is a case study built by
 `src/lib/case-study.ts`. A folder with `card.jpg` becomes a gallery card. Each
