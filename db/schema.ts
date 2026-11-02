@@ -91,6 +91,7 @@ export const model3d = pgTable("model_3d", {
                      target:    [number, number, number]
                      zoom?:     number
                      wireframe: boolean
+                     aspect?:   number
                    }>>().notNull().default([]),
   createdAt:       timestamp("created_at").notNull().defaultNow(),
   updatedAt:       timestamp("updated_at").notNull().defaultNow(),

@@ -142,6 +142,7 @@ const modelView = z.strictObject({
   target:    vec3,
   zoom:      z.number().optional(),
   wireframe: z.boolean(),
+  aspect:    z.number().positive().optional(),
 })
 
 export const modelCreate = z.strictObject({

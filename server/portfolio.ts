@@ -168,6 +168,7 @@ async function buildPortfolio(admin: boolean): Promise<PortfolioDto> {
       wireframeLineColor: prefs.get("editor3d_wireframe_line_color") ?? null,
       wireframeModeColor: prefs.get("editor3d_wireframe_mode_color") ?? null,
       wireframeMaterial:  prefs.get("editor3d_wireframe_material")   ?? null,
+      wireframeLineWidth: prefs.get("editor3d_wireframe_line_width") ?? null,
     },
   }
 }

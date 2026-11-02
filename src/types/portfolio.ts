@@ -44,6 +44,8 @@ export interface Model3dView {
   target:    [number, number, number]
   zoom?:     number
   wireframe: boolean
+  //width / height of the frame the view was saved in
+  aspect?:   number
 }
 export interface Model3dDto {
   id:              string
@@ -334,6 +336,7 @@ export interface EditorPrefsDto {
   wireframeLineColor: string | null
   wireframeModeColor: string | null
   wireframeMaterial:  string | null  //JSON-encoded WfMatParams
+  wireframeLineWidth: string | null  //pixels, as stored
 }
 
 export interface PortfolioDto {

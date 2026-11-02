@@ -8,8 +8,8 @@ import type { EditorPrefsDto, MainProjectDto, Model3dDto, PortfolioDto } from ".
 //every model on the site instead of staying frozen in whichever was saved last.
 //
 //The camera comes from the named view the project (or block) picks, desktop or
-//phone. A name that matches no view leaves startView null and the viewer frames
-//the model on its own.
+//phone. A name that matches no view leaves startView null: the viewer then uses
+//the model's default view for its frame, or frames the model on its own.
 
 type Source<T> = Ref<T> | ComputedRef<T> | { value: T }
 
@@ -19,6 +19,11 @@ export function applyEditorPrefs(raw: unknown, prefs: EditorPrefsDto | undefined
   const wf = next.wireframeMode!
   if (prefs?.wireframeLineColor) wf.overlayColor = prefs.wireframeLineColor
   if (prefs?.wireframeModeColor) wf.color        = prefs.wireframeModeColor
+  if (prefs?.wireframeLineWidth) {
+    const width = Number(prefs.wireframeLineWidth)
+    if (Number.isFinite(width) && width > 0) wf.overlayLineWidth = width
+    else console.warn(`[applyEditorPrefs] malformed editor3d_wireframe_line_width pref "${prefs.wireframeLineWidth}", ignored`)
+  }
   if (prefs?.wireframeMaterial) {
     try {
       wf.material = JSON.parse(prefs.wireframeMaterial)
@@ -34,7 +39,7 @@ export function applyEditorPrefs(raw: unknown, prefs: EditorPrefsDto | undefined
 export function viewerSettingsFor(model: Model3dDto, viewName: string, prefs: EditorPrefsDto | undefined): ViewerSettings {
   const settings = applyEditorPrefs(model.viewerSettings, prefs)
   const view = viewName ? model.views.find((v) => v.name === viewName) : undefined
-  settings.startView = view ? { pos: view.position, target: view.target } : null
+  settings.startView = view ? { pos: view.position, target: view.target, aspect: view.aspect } : null
   return settings
 }
 

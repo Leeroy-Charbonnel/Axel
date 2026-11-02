@@ -7,6 +7,7 @@ import {
   Vector3,
   type WebGLProgramParametersWithUniforms,
 } from "three"
+import { VIEWER_DEFAULTS } from "../lib/viewer-defaults"
 import type { MaterialState } from "./types"
 
 //WIREFRAME SWEEP MATERIALS. Each mesh renders with a copy of its source
@@ -40,17 +41,18 @@ interface SweepUniformSet {
 }
 
 function freshUniformSet(boost: number): SweepUniformSet {
+  const wf = VIEWER_DEFAULTS.wireframeMaterial
   return {
     uWfProgress:      { value: 0 },
-    uWfTint:          { value: new Color("#808080") },
+    uWfTint:          { value: new Color(wf.color) },
     uWfAxis:          { value: new Vector3(1, 0, 0) },
     uWfMin:           { value: 0 },
     uWfRange:         { value: 1 },
-    uWfMetalness:     { value: 0 },
-    uWfRoughness:     { value: 0.5 },
-    uWfEnvScale:      { value: 1 },
-    uWfSpecScale:     { value: 1 },
-    uWfEmissive:      { value: new Color("#14b8a6") },
+    uWfMetalness:     { value: wf.metalness },
+    uWfRoughness:     { value: wf.roughness },
+    uWfEnvScale:      { value: wf.envMapIntensity },
+    uWfSpecScale:     { value: wf.specularIntensity },
+    uWfEmissive:      { value: new Color(VIEWER_DEFAULTS.wireframeModeColor) },
     uWfEmissiveBoost: { value: boost },
   }
 }
@@ -273,6 +275,24 @@ export function applyMaterialState(mat: SweepMaterial, spec: MaterialState): voi
       mat.emissive.setHex(0x000000)
       mat.emissiveIntensity = 0
     }
+  }
+}
+
+//The panel values of a material as loaded, before any override.
+export function readMaterialState(mat: SweepMaterial): MaterialState {
+  const color = `#${mat.color.getHexString()}`
+  if (!(mat instanceof MeshPhysicalMaterial)) {
+    return { color, emissive: "#000000", emissiveEnabled: false, emissiveIntensity: 1, metalness: 0, roughness: 1, envMapIntensity: 1, specularIntensity: 1 }
+  }
+  return {
+    color,
+    emissive:          `#${mat.emissive.getHexString()}`,
+    emissiveEnabled:   mat.emissive.getHex() !== 0 && mat.emissiveIntensity > 0,
+    emissiveIntensity: mat.emissiveIntensity,
+    metalness:         mat.metalness,
+    roughness:         mat.roughness,
+    envMapIntensity:   mat.envMapIntensity,
+    specularIntensity: mat.specularIntensity,
   }
 }
 

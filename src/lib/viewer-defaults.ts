@@ -9,7 +9,7 @@
 //them back through useEffectiveViewerSettings, and a typo in either half is a
 //preference that silently stops applying.
 export const VIEWER_DEFAULTS = {
-  //tints the emissive picks and every new wireframe light
+  //tints the emissive picks
   wireframeModeColor: "#14b8a6",
   //the lines drawn over the model in wireframe mode
   wireframeLineColor: "#000000",
@@ -18,16 +18,15 @@ export const VIEWER_DEFAULTS = {
   wireframeOverlayOn: true,
   //pixels
   wireframeLineWidth: 1,
-  //ORBIT LIMITS, SHARED WITH THE EDITOR ON PURPOSE. They used to be declared in
-  //both files and had drifted: the editor clamped to 0.5 / 20 while the viewer
-  //allowed 0.05 / 200, so a view authored beyond 20 played in production and
-  //could not be reached again in the editor.
-  orbitMinDistance:   0.05,
-  orbitMaxDistance:   200,
+  //what the swept part of the model turns into
+  wireframeMaterial:  { color: "#808080", metalness: 0, roughness: 0.5, envMapIntensity: 1, specularIntensity: 1 },
+  //the ground under the model only shows its shadow, at this opacity
+  shadowOpacity:      0.35,
 } as const
 
 export const VIEWER_PREF_KEYS = {
   modeColor:      "editor3d_wireframe_mode_color",
   lineColor:      "editor3d_wireframe_line_color",
   materialParams: "editor3d_wireframe_material",
+  lineWidth:      "editor3d_wireframe_line_width",
 } as const

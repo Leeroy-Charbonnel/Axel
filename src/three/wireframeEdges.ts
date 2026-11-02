@@ -1,5 +1,5 @@
-import { BufferAttribute, BufferGeometry } from "three"
-import { computeEdgeSegments, type EdgeJob, type EdgeRequest, type EdgeResponse } from "./edgeSegments"
+import type { BufferGeometry } from "three"
+import type { EdgeJob, EdgeRequest, EdgeResponse } from "./edgeSegments"
 
 //Plain xyz floats, whatever the attribute's storage: interleaved, quantized
 //(KHR_mesh_quantization) or normalized.
@@ -12,15 +12,6 @@ export function readPositions(geometry: BufferGeometry): Float32Array {
     out[3 * i + 2] = attr.getZ(i)
   }
   return out
-}
-
-//On the calling thread. The viewer uses computeEdgesInWorker instead.
-export function buildWireframeWithoutDiagonals(geometry: BufferGeometry): BufferGeometry {
-  const index = geometry.getIndex()
-  const segments = computeEdgeSegments(readPositions(geometry), index ? index.array : null)
-  const result = new BufferGeometry()
-  result.setAttribute("position", new BufferAttribute(segments, 3))
-  return result
 }
 
 //Every mesh of a model in one worker run, off the main thread. The worker is

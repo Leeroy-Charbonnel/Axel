@@ -33,8 +33,8 @@ function tweenValue(tw: Tween, now: number): { value: number; done: boolean } {
 
 export interface WireframeHooks {
   materials:     Set<SweepMaterial>
-  //meshes that get edge lines (emissive picks excluded)
-  overlayMeshes: Mesh[]
+  //every mesh of the model; setExcluded() hides the lines of some
+  meshes:        Mesh[]
   //0 normal, 1 wireframe
   setLightMix(t: number): void
   //the sweep has covered the model: switch to the wireframe environment
@@ -60,6 +60,8 @@ export class WireframeSweep {
   private style: OverlayStyle = { on: true, color: "#000000", width: 1 }
   private readonly lineMaterial: LineMaterial
   private overlays: LineSegments2[] | null = null
+  //emissive picks glow instead of showing lines
+  private excluded = new Set<Mesh>()
   private edges: Promise<void> | null = null
   private disposed = false
   private readonly hooks: WireframeHooks
@@ -88,7 +90,7 @@ export class WireframeSweep {
     this.style = style
     this.lineMaterial.color.set(style.color)
     this.lineMaterial.linewidth = style.width
-    if (this.overlays) for (const o of this.overlays) o.visible = style.on && this.opacity > 0
+    this.syncVisibility()
     //lines switched on while the model already sits in wireframe mode
     if (style.on && this.on && !this.sweep && this.opacity === 0) {
       this.ensureEdges()
@@ -99,6 +101,17 @@ export class WireframeSweep {
       })
     }
     this.hooks.requestRender()
+  }
+
+  setExcluded(meshes: Set<Mesh>): void {
+    this.excluded = meshes
+    this.syncVisibility()
+    this.hooks.requestRender()
+  }
+
+  //pushes the current progress again, to materials created since
+  resync(): void {
+    this.setProgress(this.progress)
   }
 
   setResolution(width: number, height: number): void {
@@ -188,12 +201,18 @@ export class WireframeSweep {
   private setOpacity(v: number): void {
     this.opacity = v
     this.lineMaterial.opacity = LINE_OPACITY * v
-    if (this.overlays) for (const o of this.overlays) o.visible = this.style.on && v > 0
+    this.syncVisibility()
+  }
+
+  private syncVisibility(): void {
+    if (!this.overlays) return
+    const shown = this.style.on && this.opacity > 0
+    for (const o of this.overlays) o.visible = shown && !this.excluded.has(o.parent as Mesh)
   }
 
   private ensureEdges(): void {
     if (this.edges) return
-    const meshes = this.hooks.overlayMeshes
+    const meshes = this.hooks.meshes
     this.edges = computeEdgesInWorker(meshes.map((m) => m.geometry)).then(
       (segments) => {
         if (this.disposed) return
@@ -205,6 +224,7 @@ export class WireframeSweep {
           mesh.add(line)
           return line
         })
+        this.syncVisibility()
       },
       (err) => {
         //the model stays usable without its lines; the failure is reported

@@ -50,6 +50,14 @@ export interface EmissiveSpec {
 export interface StartView {
   pos:    Vec3
   target: Vec3
+  //width / height of the frame it was authored in; 16:9 when missing
+  aspect?: number
+}
+
+//A camera bookmark picked as the start view of one kind of screen, used when
+//the project names no view. name is the bookmark it was taken from.
+export interface DefaultView extends StartView {
+  name: string
 }
 
 export interface WireframeMaterialParams {
@@ -61,8 +69,18 @@ export interface WireframeMaterialParams {
 }
 
 export interface ViewerSettings {
-  //null = frame the model automatically
+  //null = the default view for the screen, else frame the model automatically
   startView?: StartView | null
+  //phone = a frame taller than wide
+  defaultViews?: { desktop?: DefaultView; phone?: DefaultView }
+  //missing fields follow the auto setup
+  stage?: {
+    //zoom limits, in multiples of the model radius
+    orbitMin?:      number
+    orbitMax?:      number
+    ground?:        boolean
+    shadowOpacity?: number
+  }
   materials?: MaterialState[]
   lights?:    SharedLight[]
   normalMode?: {

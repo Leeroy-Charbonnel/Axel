@@ -6,6 +6,7 @@ import {
   type MeshStandardMaterial,
   type Object3D,
   PlaneGeometry,
+  Raycaster,
   ShadowMaterial,
   Spherical,
   Vector2,
@@ -18,15 +19,24 @@ import { disposeObject } from "./dispose"
 import { EnvironmentManager } from "./environment"
 import { LightRig } from "./lights"
 import { type ProgressFn, loadGltf } from "./loaders"
-import { applyMaterialState, createClayMaterial, createSweepMaterial, pushSweepUniforms, type SweepMaterial } from "./materials"
-import type { MaterialState, ViewerMode, ViewerSettings } from "./types"
+import {
+  applyMaterialState,
+  createClayMaterial,
+  createSweepMaterial,
+  type CustomEmissiveMaterial,
+  pushSweepUniforms,
+  readMaterialState,
+  type SweepBasicMaterial,
+  type SweepMaterial,
+} from "./materials"
+import type { MaterialState, StartView, Vec3, ViewerMode, ViewerSettings } from "./types"
 import { WireframeSweep } from "./wireframe"
 
 //THE PUBLIC VIEWER'S SCENE LOGIC, framework free: load a GLB, apply the saved
 //settings, frame it, and switch between render, wireframe and clay. The Vue
 //component owns the states around it (poster, progress, errors, toolbar).
+//The admin editor drives the same class, so it renders what visitors see.
 
-const GROUND_OPACITY = 0.35
 const INTRO_MS = 2800
 const INTRO_RADIUS_SCALE = 2.5
 const INTRO_AZIMUTH_OFFSET = Math.PI / 4
@@ -53,7 +63,19 @@ interface Flight {
   duration: number
 }
 
+//one material of the model as the editor lists it: matched by name, or by
+//glTF index when it has none
+export interface MaterialSlot {
+  name:     string
+  index:    number | undefined
+  defaults: MaterialState
+}
+
+type MaterialKey = { name: string; index: number | undefined }
+type EmissivePick = CustomEmissiveMaterial | SweepBasicMaterial
+
 const ease = (t: number) => 1 - Math.pow(1 - t, 3)
+const tuple = (v: Vector3): Vec3 => [v.x, v.y, v.z]
 
 export class ModelViewer {
   readonly core: ViewerCore
@@ -65,7 +87,14 @@ export class ModelViewer {
   private model: Object3D | null = null
   private meshes: Mesh[] = []
   private readonly materials = new Set<SweepMaterial>()
-  private readonly materialKeys = new Map<SweepMaterial, { name: string; index: number | undefined }>()
+  private readonly materialKeys = new Map<SweepMaterial, MaterialKey>()
+  //values as loaded, restored when an override goes away
+  private readonly materialDefaults = new Map<SweepMaterial, MaterialState>()
+  //the shared normal copies of each mesh, and the emissive copies of the picked ones
+  private readonly normalOf = new Map<Mesh, SweepMaterial | SweepMaterial[]>()
+  private readonly picked = new Map<Mesh, EmissivePick[]>()
+  private pickKey = ""
+  private lightKey = ""
   private rig: LightRig | null = null
   private lightMix = 0
   private sweep: WireframeSweep | null = null
@@ -83,7 +112,7 @@ export class ModelViewer {
     this.opts = opts
     this.core = createViewerCore(opts.canvas, { maxPixelRatio: opts.maxPixelRatio })
     this.env  = new EnvironmentManager(this.core.scene, this.core.renderer, this.core.requestRender)
-    this.ground = new Mesh(new PlaneGeometry(1, 1), new ShadowMaterial({ opacity: GROUND_OPACITY }))
+    this.ground = new Mesh(new PlaneGeometry(1, 1), new ShadowMaterial({ opacity: VIEWER_DEFAULTS.shadowOpacity }))
     this.ground.rotation.x = -Math.PI / 2
     this.ground.receiveShadow = true
     this.ground.visible = false
@@ -97,6 +126,21 @@ export class ModelViewer {
 
   get autoSetup(): AutoSetup | null {
     return this.setup
+  }
+
+  //unique by name, in the order the model lists them
+  get materialSlots(): MaterialSlot[] {
+    const slots = new Map<string, MaterialSlot>()
+    for (const [mat, key] of this.materialKeys) {
+      if (!key.name && key.index === undefined) continue
+      const id = key.name ? `n:${key.name}` : `i:${key.index}`
+      if (!slots.has(id)) slots.set(id, { name: key.name, index: key.index, defaults: this.materialDefaults.get(mat)! })
+    }
+    return [...slots.values()]
+  }
+
+  get meshNames(): string[] {
+    return [...new Set(this.meshes.map((m) => m.name).filter(Boolean))]
   }
 
   //Rejects with the reason when the model cannot be shown.
@@ -128,43 +172,39 @@ export class ModelViewer {
     this.setup = setup
     for (const w of setup.warnings) console.warn(`[three] ${url}: ${w}`)
 
-    //MATERIALS - one sweep copy per source material, its own copy per emissive pick
-    const emissive = new Map<string, number>()
-    for (const e of settings.wireframeMode?.emissiveMeshes ?? []) if (e.name) emissive.set(e.name, e.intensity)
+    //MATERIALS - one sweep copy per source material; the emissive picks get
+    //their own copy of it
     const copies = new Map<Material, SweepMaterial>()
-    const sources = new Set<Material>()
-    const overlayMeshes: Mesh[] = []
     root.traverse((obj) => {
       const mesh = obj as Mesh
       if (!mesh.isMesh) return
       mesh.castShadow = true
       mesh.receiveShadow = true
       this.meshes.push(mesh)
-      const boost = emissive.get(mesh.name) ?? null
-      if (boost === null) overlayMeshes.push(mesh)
       const convert = (source: Material): SweepMaterial => {
-        sources.add(source)
-        if (boost === null) {
-          const shared = copies.get(source)
-          if (shared) return shared
-        }
-        const copy = createSweepMaterial(source, boost)
-        if (boost === null) copies.set(source, copy)
+        const shared = copies.get(source)
+        if (shared) return shared
+        const copy = createSweepMaterial(source, null)
+        copies.set(source, copy)
         this.materials.add(copy)
         this.materialKeys.set(copy, { name: source.name, index: gltf.parser.associations.get(source)?.materials })
+        this.materialDefaults.set(copy, readMaterialState(copy))
         return copy
       }
-      mesh.material = Array.isArray(mesh.material) ? mesh.material.map(convert) : convert(mesh.material)
+      const normal = Array.isArray(mesh.material) ? mesh.material.map(convert) : convert(mesh.material)
+      this.normalOf.set(mesh, normal)
+      mesh.material = normal
     })
     //the copies hold the textures now; only the source programs go
-    for (const s of sources) s.dispose()
+    for (const s of copies.keys()) s.dispose()
 
+    this.applyEmissivePicks()
     this.applyMaterialOverrides()
     this.buildLights(false)
 
     this.ground.scale.setScalar(setup.ground.size)
     this.ground.position.y = setup.ground.y
-    this.ground.visible = true
+    this.applyStage()
 
     const cam = this.core.camera
     cam.near = setup.clip.near
@@ -173,7 +213,7 @@ export class ModelViewer {
 
     this.sweep = new WireframeSweep({
       materials: this.materials,
-      overlayMeshes,
+      meshes:    this.meshes,
       setLightMix: (t) => {
         this.lightMix = t
         this.rig?.setModeMix(t)
@@ -184,6 +224,7 @@ export class ModelViewer {
     })
     const size = this.core.renderer.getSize(new Vector2())
     this.sweep.setResolution(size.x, size.y)
+    this.sweep.setExcluded(new Set(this.picked.keys()))
     this.configureSweep()
 
     if (gltf.animations.length > 0) {
@@ -206,10 +247,14 @@ export class ModelViewer {
   //Live edits from the admin. The camera stays where the visitor put it.
   applySettings(settings: ViewerSettings): void {
     this.settings = settings
-    if (!this.model) return
+    if (!this.model || !this.setup) return
+    this.applyEmissivePicks()
     this.applyMaterialOverrides()
     this.configureSweep()
+    this.sweep?.resync()
     this.applyLighting()
+    this.applyStage()
+    this.applyOrbitLimits(this.restPose())
     this.core.requestRender()
   }
 
@@ -244,17 +289,20 @@ export class ModelViewer {
   }
 
   resetView(): void {
+    this.flyTo(this.restPose())
+  }
+
+  flyTo(view: CameraView): void {
     this.introPending = false
-    const rest = this.restPose()
-    const target = new Vector3(...rest.target)
+    const target = new Vector3(...view.target)
     if (this.opts.reducedMotion) {
       this.flight = null
-      this.snapCamera(rest)
+      this.snapCamera(view)
       return
     }
     const cam = this.core.camera
     const from = new Spherical().setFromVector3(cam.position.clone().sub(this.core.controls.target))
-    const to = new Spherical().setFromVector3(new Vector3(...rest.position).sub(target))
+    const to = new Spherical().setFromVector3(new Vector3(...view.position).sub(target))
     //turn the short way round
     const turn = to.theta - from.theta
     from.theta += Math.round(turn / (2 * Math.PI)) * 2 * Math.PI
@@ -275,31 +323,89 @@ export class ModelViewer {
     //clay swaps out the originals: put them back so the scene disposal reaches them
     this.setClay(false)
     this.clay?.dispose()
+    //picked meshes get their normal copies back so the scene disposal frees their textures
+    for (const [mesh, list] of this.picked) {
+      for (const m of list) m.dispose()
+      mesh.material = this.normalOf.get(mesh)!
+    }
     this.core.dispose(loseContext)
+  }
+
+  //EDITOR ACCESS
+
+  cameraView(): CameraView {
+    return { position: tuple(this.core.camera.position), target: tuple(this.core.controls.target) }
+  }
+
+  //no flight: the editor puts the camera where it was asked, at once
+  setCameraView(view: CameraView): void {
+    this.introPending = false
+    this.flight = null
+    this.snapCamera(view)
+  }
+
+  //the automatic framing for the current frame
+  autoView(): CameraView {
+    return fitCameraView(this.box(), this.core.camera.aspect)
+  }
+
+  //a saved view as this frame shows it
+  fitView(view: StartView): CameraView {
+    return fitViewToAspect({ position: view.pos, target: view.target }, this.box(), this.core.camera.aspect, undefined, view.aspect)
+  }
+
+  //the mesh under a pointer position, null over the background
+  meshAt(clientX: number, clientY: number): Mesh | null {
+    const rect = this.core.renderer.domElement.getBoundingClientRect()
+    const ndc = new Vector2(((clientX - rect.left) / rect.width) * 2 - 1, -((clientY - rect.top) / rect.height) * 2 + 1)
+    const ray = new Raycaster()
+    ray.setFromCamera(ndc, this.core.camera)
+    const hit = ray.intersectObjects(this.meshes, false).find((h) => h.object.visible)
+    return hit ? hit.object as Mesh : null
   }
 
   //CAMERA
 
+  private box(): Box3 {
+    const b = this.setup!.bounds.box
+    return new Box3(new Vector3(...b.min), new Vector3(...b.max))
+  }
+
+  //the project's view, else the default view of this kind of screen, else the auto framing
   private restPose(): CameraView {
-    const setup = this.setup!
-    const box = new Box3(new Vector3(...setup.bounds.box.min), new Vector3(...setup.bounds.box.max))
     const aspect = this.core.camera.aspect
-    const sv = this.settings.startView
-    return sv
-      ? fitViewToAspect({ position: sv.pos, target: sv.target }, box, aspect)
-      : fitCameraView(box, aspect)
+    const defaults = this.settings.defaultViews
+    const sv = this.settings.startView ?? (aspect < 1 ? defaults?.phone : defaults?.desktop)
+    return sv ? this.fitView(sv) : fitCameraView(this.box(), aspect)
+  }
+
+  //the saved limits, widened so the rest pose stays reachable
+  private applyOrbitLimits(rest: CameraView): void {
+    const controls = this.core.controls
+    const setup = this.setup!
+    const radius = setup.bounds.radius
+    const stage = this.settings.stage
+    const min = stage?.orbitMin !== undefined ? stage.orbitMin * radius : setup.orbit.minDistance
+    const max = stage?.orbitMax !== undefined ? stage.orbitMax * radius : setup.orbit.maxDistance
+    const distance = new Vector3(...rest.position).distanceTo(new Vector3(...rest.target))
+    controls.minDistance = Math.min(min, distance)
+    controls.maxDistance = Math.max(max, distance)
+    const cam = this.core.camera
+    cam.far = Math.max(setup.clip.far, controls.maxDistance + radius * 4)
+    cam.updateProjectionMatrix()
+  }
+
+  private applyStage(): void {
+    const stage = this.settings.stage
+    this.ground.visible = stage?.ground ?? true
+    ;(this.ground.material as ShadowMaterial).opacity = stage?.shadowOpacity ?? VIEWER_DEFAULTS.shadowOpacity
   }
 
   private placeCamera(): void {
     const rest = this.restPose()
     const controls = this.core.controls
-    const setup = this.setup!
-    const distance = new Vector3(...rest.position).distanceTo(new Vector3(...rest.target))
-    controls.minDistance = Math.min(setup.orbit.minDistance, distance)
-    controls.maxDistance = Math.max(setup.orbit.maxDistance, distance * 2.5)
+    this.applyOrbitLimits(rest)
     const cam = this.core.camera
-    cam.far = Math.max(cam.far, controls.maxDistance + setup.bounds.radius * 4)
-    cam.updateProjectionMatrix()
     controls.autoRotateSpeed = AUTO_ROTATE_SPEED
     if (this.opts.reducedMotion) {
       this.snapCamera(rest)
@@ -384,8 +490,57 @@ export class ModelViewer {
     }
     for (const [mat, key] of this.materialKeys) {
       const spec = key.name ? byName.get(key.name) : key.index !== undefined ? byIndex.get(key.index) : undefined
-      if (spec) applyMaterialState(mat, spec)
+      applyMaterialState(mat, spec ?? this.materialDefaults.get(mat)!)
     }
+  }
+
+  //A picked mesh swaps its normal copies for emissive copies of them, which
+  //share their key and defaults; unpicking puts the normal copies back.
+  private applyEmissivePicks(): void {
+    const specs = this.settings.wireframeMode?.emissiveMeshes ?? []
+    const key = JSON.stringify(specs)
+    if (key === this.pickKey) return
+    this.pickKey = key
+    const boost = new Map<string, number>()
+    for (const e of specs) if (e.name) boost.set(e.name, e.intensity)
+    for (const mesh of this.meshes) {
+      const b = boost.get(mesh.name)
+      const current = this.picked.get(mesh)
+      const normal = this.normalOf.get(mesh)!
+      if (b === undefined) {
+        if (!current) continue
+        for (const m of current) {
+          this.materials.delete(m)
+          this.materialKeys.delete(m)
+          this.materialDefaults.delete(m)
+          //the textures belong to the normal copy
+          m.dispose()
+        }
+        this.picked.delete(mesh)
+        this.setMeshMaterial(mesh, normal)
+        continue
+      }
+      if (current) {
+        for (const m of current) m.setEmissiveBoost(b)
+        continue
+      }
+      const list = (Array.isArray(normal) ? normal : [normal]).map((n) => {
+        const copy = createSweepMaterial(n, b) as EmissivePick
+        this.materials.add(copy)
+        this.materialKeys.set(copy, this.materialKeys.get(n)!)
+        this.materialDefaults.set(copy, this.materialDefaults.get(n)!)
+        return copy
+      })
+      this.picked.set(mesh, list)
+      this.setMeshMaterial(mesh, Array.isArray(normal) ? list : list[0]!)
+    }
+    this.sweep?.setExcluded(new Set(this.picked.keys()))
+  }
+
+  //under clay the mesh shows the clay material; its own one waits in the backup
+  private setMeshMaterial(mesh: Mesh, material: Material | Material[]): void {
+    if (this.clayBackup.has(mesh)) this.clayBackup.set(mesh, material)
+    else mesh.material = material
   }
 
   //Clay is a neutral breakdown: the auto rig and the studio environment, the
@@ -404,6 +559,10 @@ export class ModelViewer {
 
   private buildLights(auto: boolean): void {
     const setup = this.setup!
+    const key = auto ? "auto" : JSON.stringify(this.settings.lights ?? [])
+    //a live edit that did not touch the lights keeps the rig and its shadow maps
+    if (this.rig && key === this.lightKey) return
+    this.lightKey = key
     if (this.rig) {
       this.core.scene.remove(this.rig.group)
       this.rig.dispose()
@@ -423,19 +582,17 @@ export class ModelViewer {
     axis.normalize()
     const start = wf.sweepStart ?? setup.sweep.start
     const end   = wf.sweepEnd   ?? setup.sweep.end
-    const mat = wf.material
+    const mat = wf.material ?? VIEWER_DEFAULTS.wireframeMaterial
     pushSweepUniforms(this.materials, {
       axis,
       min:   start,
       range: Math.max(1e-4, end - start),
-      emissiveColor: wf.color ?? VIEWER_DEFAULTS.wireframeModeColor,
-      ...(mat ? {
-        tintColor:         mat.color,
-        metalness:         mat.metalness,
-        roughness:         mat.roughness,
-        envIntensity:      mat.envMapIntensity,
-        specularIntensity: mat.specularIntensity,
-      } : {}),
+      emissiveColor:     wf.color ?? VIEWER_DEFAULTS.wireframeModeColor,
+      tintColor:         mat.color,
+      metalness:         mat.metalness,
+      roughness:         mat.roughness,
+      envIntensity:      mat.envMapIntensity,
+      specularIntensity: mat.specularIntensity,
     })
     this.sweep!.setDuration(wf.sweepDurationMs ?? setup.sweep.durationMs)
     this.sweep!.setStyle({
