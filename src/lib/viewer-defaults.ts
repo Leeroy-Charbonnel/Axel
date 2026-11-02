@@ -33,7 +33,7 @@ export const VIEWER_DEFAULTS = {
 //edges, to sit beside a technical plan drawn the same way
 export const BLUEPRINT_LOOK = {
   lineColor: "#ffffff",
-  material:  { color: "#000000", metalness: 0, roughness: 1, envMapIntensity: 0, specularIntensity: 0 },
+  material:  { color: "#000000", metalness: 0, roughness: 1, envMapIntensity: 0, specularIntensity: 0, emission: 0 },
 } as const
 
 export const VIEWER_PREF_KEYS = {

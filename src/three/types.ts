@@ -66,6 +66,8 @@ export interface WireframeMaterialParams {
   roughness:         number
   envMapIntensity:   number
   specularIntensity: number
+  //share of a material's own glow kept once swept, 1 when absent
+  emission?:         number
 }
 
 export interface ViewerSettings {

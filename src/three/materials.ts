@@ -36,6 +36,7 @@ interface SweepUniformSet {
   uWfRoughness:     { value: number }
   uWfEnvScale:      { value: number }
   uWfSpecScale:     { value: number }
+  uWfEmission:      { value: number }
   uWfEmissive:      { value: Color }
   uWfEmissiveBoost: { value: number }
 }
@@ -52,6 +53,7 @@ function freshUniformSet(boost: number): SweepUniformSet {
     uWfRoughness:     { value: wf.roughness },
     uWfEnvScale:      { value: wf.envMapIntensity },
     uWfSpecScale:     { value: wf.specularIntensity },
+    uWfEmission:      { value: 1 },
     uWfEmissive:      { value: new Color(VIEWER_DEFAULTS.wireframeModeColor) },
     uWfEmissiveBoost: { value: boost },
   }
@@ -80,7 +82,7 @@ const FRAGMENT_COMMON =
   WF_FRONT_GLSL +
   "uniform vec3 uWfTint;\n" +
   "uniform float uWfMetalness;\nuniform float uWfRoughness;\n" +
-  "uniform float uWfEnvScale;\nuniform float uWfSpecScale;\n" +
+  "uniform float uWfEnvScale;\nuniform float uWfSpecScale;\nuniform float uWfEmission;\n" +
   "uniform vec3 uWfEmissive;\nuniform float uWfEmissiveBoost;\n"
 
 //step() keeps the front a hard line
@@ -115,6 +117,10 @@ const FRAGMENT_ENV =
   "radiance      *= wfEnvK;\n" +
   "#endif\n"
 
+//a material's own glow (the arch tubes) dimmed where swept
+const FRAGMENT_EMISSION =
+  "#include <emissivemap_fragment>\ntotalEmissiveRadiance *= mix(1.0, uWfEmission, wfMask);\n"
+
 const FRAGMENT_EMISSIVE_ALPHA = "diffuseColor.a = 1.0;\n#include <alphatest_fragment>"
 const FRAGMENT_EMISSIVE_OUT =
   "outgoingLight = mix(outgoingLight, uWfEmissive * uWfEmissiveBoost, uWfProgress);\n" +
@@ -142,6 +148,7 @@ function patchShader(shader: WebGLProgramParametersWithUniforms, uniforms: Sweep
         .replace("#include <metalnessmap_fragment>", FRAGMENT_METALNESS)
         .replace("#include <lights_physical_fragment>", FRAGMENT_SPECULAR)
         .replace("#include <lights_fragment_maps>", FRAGMENT_ENV)
+        .replace("#include <emissivemap_fragment>", FRAGMENT_EMISSION)
     }
   }
   shader.fragmentShader = frag
@@ -265,6 +272,7 @@ export interface WfSweepPatch {
   roughness?:         number
   envIntensity?:      number
   specularIntensity?: number
+  emission?:          number
   emissiveColor?:     Color | string
 }
 
@@ -280,6 +288,7 @@ export function pushSweepUniforms(materials: Iterable<SweepMaterial>, patch: WfS
     if (patch.roughness !== undefined)         u.uWfRoughness.value = patch.roughness
     if (patch.envIntensity !== undefined)      u.uWfEnvScale.value = patch.envIntensity
     if (patch.specularIntensity !== undefined) u.uWfSpecScale.value = patch.specularIntensity
+    if (patch.emission !== undefined)          u.uWfEmission.value = patch.emission
     if (patch.emissiveColor !== undefined)     u.uWfEmissive.value.set(patch.emissiveColor)
   }
 }

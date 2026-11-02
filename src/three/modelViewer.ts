@@ -626,6 +626,7 @@ export class ModelViewer {
       roughness:         mat.roughness,
       envIntensity:      mat.envMapIntensity,
       specularIntensity: mat.specularIntensity,
+      emission:          mat.emission ?? 1,
     })
     this.sweep!.setDuration(wf.sweepDurationMs ?? setup.sweep.durationMs)
     this.sweep!.setStyle({

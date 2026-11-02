@@ -258,8 +258,8 @@ function goBack() {
 .case__step:hover { color: var(--site-accent); }
 .case__step:focus-visible { outline: var(--border-width-md) solid hsl(var(--ring)); outline-offset: calc(-1 * var(--border-width-md)); }
 
-/*CREDITS*/
-.case__credits {
+/*CREDITS - the hairline on the list, inside the gutters*/
+.case__credits .case__facts {
   padding-top: var(--spacing-lg);
   border-top: var(--border-width) solid var(--site-line);
 }
