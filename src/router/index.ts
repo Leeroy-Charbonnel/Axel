@@ -1,11 +1,5 @@
 import { createRouter, createWebHistory } from "vue-router"
 import HomePage              from "../pages/HomePage.vue"
-import SettingsPage          from "../pages/SettingsPage.vue"
-import ModelEditorPage       from "../pages/ModelEditorPage.vue"
-import ProjectDetailPage     from "../pages/ProjectDetailPage.vue"
-import LoginPage          from "../pages/LoginPage.vue"
-import ForgotPasswordPage from "../pages/ForgotPasswordPage.vue"
-import ResetPasswordPage  from "../pages/ResetPasswordPage.vue"
 import { authClient, type SessionUser } from "../lib/authClient"
 
 const router = createRouter({
@@ -18,17 +12,17 @@ const router = createRouter({
     //stops the screen from drawing at all, which the previous guard did not do:
     //no route carried a meta flag, so it returned true on its second line every
     //time and these pages opened for anyone who typed the address.
-    { path: "/settings",        component: SettingsPage, meta: { requiresAdmin: true } },
+    { path: "/settings",        component: () => import("../pages/SettingsPage.vue"), meta: { requiresAdmin: true } },
 
     //Three.js model editor - per-model edit page. model_3d rows use uuid
     //primary keys since the uuid migration, so the param accepts hex+dashes
     //(the old \d+ constraint silently 404'd every model after the migration).
-    { path: "/edit-3d/:id([0-9a-fA-F-]+)", component: ModelEditorPage, meta: { requiresAdmin: true } },
+    { path: "/edit-3d/:id([0-9a-fA-F-]+)", component: () => import("../pages/ModelEditorPage.vue"), meta: { requiresAdmin: true } },
 
     //Project detail page - serves BOTH the public read-only render and
     //the bento-grid editor. Flipping useAdmin().editMode swaps the page
     //between view and edit modes (no separate /edit-detail route).
-    { path: "/project/:id(\\d+)", component: ProjectDetailPage },
+    { path: "/project/:id(\\d+)", component: () => import("../pages/ProjectDetailPage.vue") },
 
     //Legacy /edit-detail/:id from before the merge - redirect any
     //existing bookmarks to the unified /project/:id route.
@@ -36,9 +30,9 @@ const router = createRouter({
 
     //Auth pages, now in this repo: the template is copied, never linked.
     //Nothing in the interface links to /login - it is reached by typing it.
-    { path: "/login",           component: LoginPage },
-    { path: "/forgot-password", component: ForgotPasswordPage },
-    { path: "/reset-password",  component: ResetPasswordPage },
+    { path: "/login",           component: () => import("../pages/LoginPage.vue") },
+    { path: "/forgot-password", component: () => import("../pages/ForgotPasswordPage.vue") },
+    { path: "/reset-password",  component: () => import("../pages/ResetPasswordPage.vue") },
   ],
 })
 
