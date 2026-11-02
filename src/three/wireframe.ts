@@ -1,4 +1,4 @@
-import { Color, type Mesh, Vector3, type WebGLProgramParametersWithUniforms } from "three"
+import { Color, type LineSegments, type Mesh, Vector3, type WebGLProgramParametersWithUniforms } from "three"
 import { LineMaterial } from "three/examples/jsm/lines/LineMaterial.js"
 import { LineSegments2 } from "three/examples/jsm/lines/LineSegments2.js"
 import { LineSegmentsGeometry } from "three/examples/jsm/lines/LineSegmentsGeometry.js"
@@ -10,7 +10,9 @@ import { computeEdgesInWorker } from "./wireframeEdges"
 //blue along the front (lights blend on the same curve). Leaving runs the same
 //sweep back.
 //
-//The edge geometry is built the first time the lines are needed, in a worker.
+//The lines are the file's own edges when it carries them (loose edges exported
+//from Blender, the exact wireframe); otherwise they are rebuilt from the
+//triangles, in a worker, the first time they are needed.
 
 const LINE_OPACITY      = 0.9
 const OVERLAY_RENDER_ORDER = 998
@@ -53,6 +55,8 @@ export interface WireframeHooks {
   materials:     Set<SweepMaterial>
   //every mesh of the model; setExcluded() hides the lines of some
   meshes:        Mesh[]
+  //the file's own edge lines, hidden; empty when the file has none
+  authoredEdges: LineSegments[]
   //0 normal, 1 wireframe
   setLightMix(t: number): void
   //the sweep has covered the model: switch to the wireframe environment
@@ -216,6 +220,31 @@ export class WireframeSweep {
 
   private ensureEdges(): void {
     if (this.edges) return
+    if (this.hooks.authoredEdges.length) {
+      this.overlays = this.hooks.authoredEdges.map((source) => {
+        const flat = source.geometry.index ? source.geometry.toNonIndexed() : source.geometry
+        //read through getX: an optimized file stores quantized integers
+        const attr = flat.getAttribute("position")
+        const positions = new Float32Array(attr.count * 3)
+        for (let i = 0; i < attr.count; i++) {
+          positions[3 * i] = attr.getX(i)
+          positions[3 * i + 1] = attr.getY(i)
+          positions[3 * i + 2] = attr.getZ(i)
+        }
+        const line = new LineSegments2(new LineSegmentsGeometry().setPositions(positions), this.lineMaterial)
+        if (flat !== source.geometry) flat.dispose()
+        line.position.copy(source.position)
+        line.quaternion.copy(source.quaternion)
+        line.scale.copy(source.scale)
+        line.renderOrder = OVERLAY_RENDER_ORDER
+        line.visible = false
+        source.parent!.add(line)
+        return line
+      })
+      this.edges = Promise.resolve()
+      this.syncVisibility()
+      return
+    }
     const meshes = this.hooks.meshes
     this.edges = computeEdgesInWorker(meshes.map((m) => m.geometry)).then(
       (segments) => {

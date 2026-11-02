@@ -232,12 +232,15 @@ export class SweepBasicMaterial extends MeshBasicMaterial {
 export type SweepMaterial = CustomNormalMaterial | CustomEmissiveMaterial | SweepBasicMaterial
 
 //emissiveBoost null = a normal mesh, a number = an emissive pick at that brightness
-//the surfaces sit a little behind their depth, so the wireframe lines drawn
-//on them win the depth test instead of breaking up against them
+//Opaque surfaces sit a little behind their depth, so the wireframe lines
+//drawn on them win the depth test instead of breaking up against them. Glass
+//and other see-through surfaces sit a little in front instead: a pane laid
+//against its frame or its backing always wins over it, rather than flickering.
 function pushBack<T extends Material>(m: T): T {
+  const seeThrough = m.transparent || ((m as unknown as MeshPhysicalMaterial).transmission ?? 0) > 0
   m.polygonOffset = true
-  m.polygonOffsetFactor = 1
-  m.polygonOffsetUnits = 1
+  m.polygonOffsetFactor = seeThrough ? -1 : 1
+  m.polygonOffsetUnits = seeThrough ? -1 : 1
   return m
 }
 

@@ -1,6 +1,7 @@
 import {
   AnimationMixer,
   Box3,
+  type LineSegments,
   type Material,
   Mesh,
   type MeshStandardMaterial,
@@ -162,6 +163,12 @@ export class ModelViewer {
       return
     }
     this.model = root
+    //BLENDER'S OWN EDGES - line objects in the file (loose edges exported next
+    //to each mesh) are the wireframe, drawn instead of edges rebuilt from
+    //triangles; hidden here, the sweep draws them in wireframe mode
+    const authoredEdges: LineSegments[] = []
+    root.traverse((obj) => { if ((obj as LineSegments).isLineSegments) authoredEdges.push(obj as LineSegments) })
+    for (const line of authoredEdges) line.visible = false
     //in the scene from here on, so the scene disposal frees it whatever happens next
     root.visible = false
     this.core.scene.add(root)
@@ -222,6 +229,7 @@ export class ModelViewer {
     this.sweep = new WireframeSweep({
       materials: this.materials,
       meshes:    this.meshes,
+      authoredEdges,
       setLightMix: (t) => {
         this.lightMix = t
         this.rig?.setModeMix(t)
