@@ -2,54 +2,36 @@
 import { useLanguage } from "../../composables/useLanguage"
 import AnimatedReveal from "./AnimatedReveal.vue"
 import ExperienceItem from "./ExperienceItem.vue"
-import About from "./About.vue"
+import SectionHeader from "./SectionHeader.vue"
 import SectionAddButton from "../admin/SectionAddButton.vue"
-import type { ExperienceDto, ProfileDto } from "../../types/portfolio"
+import type { ExperienceDto } from "../../types/portfolio"
 
-defineProps<{
-  experiences: ExperienceDto[]
-  profile:     ProfileDto
-}>()
+defineProps<{ experiences: ExperienceDto[] }>()
 
 const { t } = useLanguage()
 </script>
 
 <template>
-  <section id="experience" class="experience-section">
-    <div class="container">
-      <AnimatedReveal direction="bottom" :distance="50" :duration="0.8" :threshold="0.1">
-        <h2 class="section-title">{{ t("experienceTitle") }}</h2>
-      </AnimatedReveal>
+  <section id="experience" class="site-section" aria-labelledby="experience-title">
+    <div class="site-container">
+      <SectionHeader id="experience-title" :title="t('experienceTitle')" />
 
-      <div class="experience-section__content">
-        <div class="experience-section__timeline">
-          <ExperienceItem
-            v-for="(exp, idx) in experiences"
-            :key="exp.id"
-            :experience="exp"
-            :index="idx"
-          />
+      <ol class="timeline">
+        <AnimatedReveal v-for="exp in experiences" :key="exp.id" tag="li">
+          <ExperienceItem :experience="exp" />
+        </AnimatedReveal>
+      </ol>
 
-          <SectionAddButton kind="experience" />
-        </div>
-
-        <About :profile="profile" />
-      </div>
+      <SectionAddButton kind="experience" class="timeline__add" />
     </div>
   </section>
 </template>
 
 <style scoped>
-.experience-section {
-  background: linear-gradient(to bottom, var(--color-background), var(--color-background-secondary));
-  padding-top: var(--spacing-5xl);
-  padding-bottom: var(--spacing-6xl);
+.timeline {
+  list-style: none;
+  border-bottom: var(--border-width-sm) solid var(--site-line);
 }
 
-.experience-section__content { margin-top: var(--spacing-3xl); }
-.experience-section__timeline { margin-bottom: var(--spacing-3xl); }
-
-@media (max-width: 768px) {
-  .experience-section__content { margin-top: var(--spacing-xl); }
-}
+.timeline__add { margin-top: var(--site-col-gap); }
 </style>

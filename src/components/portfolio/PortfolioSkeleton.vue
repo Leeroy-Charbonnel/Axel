@@ -1,112 +1,109 @@
 <script setup lang="ts">
 import { lastSectionCounts } from "../../composables/usePortfolio"
 
-//WHAT THE PAGE LOOKS LIKE WHILE /api/portfolio IS IN FLIGHT.
-//
-//It reuses the real section classes, so the titles and the outer spacing are
-//already the right size, and each placeholder carries the shape of the thing it
-//stands in for: a project card is a stage at --mp-viewer-aspect, a gallery card
-//is one cell of the same grid. Nothing shifts when the data lands except the
-//text filling in.
-//
-//The counts are the ones the page drew last time, kept by usePortfolio, so a
-//returning visitor sees the right number of cards rather than a guess.
+//THE PAGE WHILE /api/portfolio IS IN FLIGHT, in the shapes of what is coming:
+//the hero's name and frame, a project still, the gallery cells. The counts are
+//the ones this browser drew last time (see usePortfolio).
 const counts = lastSectionCounts()
 </script>
 
 <template>
   <div class="skeleton" aria-hidden="true">
-    <section class="main-projects-section">
-      <div class="skeleton__title"></div>
-      <div class="main-projects-section__list">
-        <div v-for="i in counts.projects" :key="i" class="skeleton__project">
-          <div class="skeleton__project-head"></div>
-          <div class="skeleton__stage"></div>
+    <section class="site-section skeleton__hero">
+      <div class="site-container skeleton__hero-grid">
+        <div class="skeleton__stack">
+          <div class="skeleton__block skeleton__name"></div>
+          <div class="skeleton__block skeleton__name skeleton__name--short"></div>
+          <div class="skeleton__block skeleton__line"></div>
+          <div class="skeleton__block skeleton__button"></div>
         </div>
+        <div class="skeleton__block skeleton__frame"></div>
       </div>
     </section>
 
-    <section class="gallery-section">
-      <div class="skeleton__title"></div>
-      <div class="skeleton__gallery">
-        <div v-for="i in counts.gallery" :key="i" class="skeleton__card"></div>
+    <section class="site-section">
+      <div class="site-container skeleton__stack">
+        <div class="skeleton__block skeleton__title"></div>
+        <div v-for="i in Math.min(counts.projects, 2)" :key="i" class="skeleton__block skeleton__frame"></div>
       </div>
     </section>
 
-    <section class="experience-section">
-      <div class="skeleton__title"></div>
-      <div class="skeleton__timeline">
-        <div v-for="i in counts.experiences" :key="i" class="skeleton__row"></div>
+    <section class="site-section">
+      <div class="site-container skeleton__stack">
+        <div class="skeleton__block skeleton__title"></div>
+        <div class="skeleton__gallery">
+          <div v-for="i in counts.gallery" :key="i" class="skeleton__block skeleton__card"></div>
+        </div>
       </div>
     </section>
   </div>
 </template>
 
 <style scoped>
-/*one surface for every placeholder, faint enough to read as "not content yet"*/
-.skeleton__title,
-.skeleton__project-head,
-.skeleton__stage,
-.skeleton__card,
-.skeleton__row {
-  background-color: var(--tag-bg);
-  border-radius: var(--radius);
+.skeleton__block { background-color: var(--site-surface-hover); }
+
+.skeleton__hero {
+  display: flex;
+  align-items: center;
+  min-height: var(--site-hero-min-height);
+}
+
+.skeleton__hero-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+  align-items: center;
+  gap: var(--site-col-gap);
+}
+
+.skeleton__stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-lg);
+}
+
+.skeleton__name {
+  width: var(--site-skeleton-long);
+  height: var(--site-fs-display);
+}
+
+.skeleton__name--short { width: var(--site-skeleton-mid); }
+
+.skeleton__line {
+  width: var(--site-skeleton-short);
+  height: var(--site-fs-h3);
+}
+
+.skeleton__button {
+  width: var(--site-skeleton-button);
+  height: var(--site-touch-target);
+}
+
+.skeleton__frame {
+  width: 100%;
+  aspect-ratio: var(--site-still-aspect);
 }
 
 .skeleton__title {
-  width: 14rem;
-  height: var(--font-size-2xl);
-  margin: 0 auto var(--spacing-xl);
-}
-
-.skeleton__project {
-  display: flex;
-  flex-direction: column;
-  gap: var(--spacing-md);
-  margin-bottom: var(--spacing-4xl);
-}
-
-.skeleton__project-head {
-  width: 40%;
-  height: var(--font-size-xl);
-}
-
-/*the same ratio the real stage uses, so the page height is already correct*/
-.skeleton__stage {
-  width: 100%;
-  aspect-ratio: var(--mp-viewer-aspect);
+  width: var(--site-skeleton-title);
+  height: var(--site-fs-h2);
 }
 
 .skeleton__gallery {
   display: grid;
-  grid-template-columns: repeat(var(--gallery-columns), 1fr);
-  gap: var(--spacing-lg);
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, var(--site-gallery-min)), 1fr));
+  gap: var(--site-col-gap);
 }
 
-.skeleton__card {
-  aspect-ratio: var(--gallery-card-aspect, 4 / 3);
+.skeleton__card { aspect-ratio: var(--site-gallery-aspect); }
+
+@media (max-width: 1024px) {
+  .skeleton__hero { min-height: 0; }
+  .skeleton__hero-grid { grid-template-columns: minmax(0, 1fr); }
 }
 
-.skeleton__timeline {
-  display: flex;
-  flex-direction: column;
-  gap: var(--spacing-lg);
-}
-
-.skeleton__row {
-  height: var(--spacing-5xl);
-}
-
-/*the placeholders breathe rather than sit still, so a slow network reads as
-loading instead of broken. Off for anyone who asked for less motion.*/
+/*the placeholders breathe, so a slow network reads as loading, not broken*/
 @media (prefers-reduced-motion: no-preference) {
-  .skeleton__title,
-  .skeleton__project-head,
-  .skeleton__stage,
-  .skeleton__card,
-  .skeleton__row {
-    animation: skeleton-pulse 1.6s ease-in-out infinite;
-  }
+  .skeleton__block { animation: skeleton-pulse 1.6s ease-in-out infinite; }
 }
 
 @keyframes skeleton-pulse {

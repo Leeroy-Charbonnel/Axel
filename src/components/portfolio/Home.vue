@@ -1,291 +1,179 @@
 <script setup lang="ts">
-import { computed, onMounted, onBeforeUnmount, ref } from "vue"
-import { ChevronDown } from "lucide-vue-next"
+import { computed } from "vue"
+import { ArrowDown } from "lucide-vue-next"
 import { useLanguage } from "../../composables/useLanguage"
-import AnimatedReveal from "./AnimatedReveal.vue"
+import { useSectionNav } from "../../composables/useSectionNav"
+import EditableRegion from "../admin/EditableRegion.vue"
+import Availability from "./Availability.vue"
+import SocialLinks from "./SocialLinks.vue"
+import type { MainProjectDto, ProfileDto } from "../../types/portfolio"
 
-const { t } = useLanguage()
+//HERO - the person is the title: name, headline, availability, pitch, the two
+//ways forward, the links, and the featured render in its viewfinder frame.
+const props = defineProps<{ profile: ProfileDto; featured: MainProjectDto | null }>()
 
+const { t, lang } = useLanguage()
+const { go } = useSectionNav()
+
+//the last word carries the accent, as the original title did
 const nameParts = computed(() => {
-  const parts = t("homeName").split(" ")
-  return {
-    head: parts.slice(0, parts.length - 1).join(" "),
-    tail: parts[parts.length - 1] ?? "",
-  }
+  const words = props.profile.name.trim().split(/\s+/)
+  return { first: words.slice(0, -1).join(" "), last: words[words.length - 1] ?? "" }
 })
-
-//SCROLL HINT - chevron-down fades in after --home-arrow-delay (1.5s by
-//default), bounces gently, hides as soon as the user has scrolled past the
-//first viewport so it never lingers over the projects section.
-const arrowShown    = ref(false)
-const arrowDismissed = ref(false)
-let arrowTimer: number | null = null
-
-function onScroll() {
-  if (window.scrollY > window.innerHeight * 0.25) arrowDismissed.value = true
-}
-
-function jumpToProjects() {
-  const el = document.getElementById("projects")
-  if (el) window.scrollTo({ top: el.offsetTop, behavior: "smooth" })
-  arrowDismissed.value = true
-}
-
-function readArrowDelayMs(): number {
-  const raw = getComputedStyle(document.documentElement).getPropertyValue("--home-arrow-delay").trim()
-  //value is stored as "1.5s" or "1500ms" - both convertible to ms
-  const parsed = raw.endsWith("ms") ? parseFloat(raw) : parseFloat(raw) * 1000
-  if (Number.isFinite(parsed)) return parsed
-  console.warn(`[Home] --home-arrow-delay is missing or unparseable ("${raw}"), falling back to 1500ms`)
-  return 1500
-}
-
-onMounted(() => {
-  arrowTimer = window.setTimeout(() => { arrowShown.value = true }, readArrowDelayMs())
-  window.addEventListener("scroll", onScroll, { passive: true })
-})
-
-onBeforeUnmount(() => {
-  if (arrowTimer !== null) window.clearTimeout(arrowTimer)
-  window.removeEventListener("scroll", onScroll)
-})
+const headline = computed(() => props.profile.headline[lang.value])
+const pitch    = computed(() => props.profile.pitch[lang.value])
 </script>
 
 <template>
-  <section id="home" class="home-section">
-    <div class="home-section__gradient home-section__gradient--top"></div>
-    <div class="home-section__gradient home-section__gradient--bottom"></div>
+  <section id="home" class="hero site-section" aria-labelledby="hero-name">
+    <div class="site-container hero__grid">
+      <EditableRegion kind="profile" :label="t('editorKindProfile')">
+        <div class="hero__text">
+        <Availability :profile="profile" class="hero__availability" />
 
-    <div class="home-section__container border-sm">
-      <div class="home-section__content">
-        <AnimatedReveal
-          direction="bottom"
-          :distance="50"
-          :duration="0.8"
-          :once="true"
-          :threshold="0.1"
-          class="home-section__title-wrap"
-        >
-          <h1 class="home-section__title">{{ t("homeTitle") }}</h1>
-        </AnimatedReveal>
+        <h1 id="hero-name" class="hero__name">
+          <span v-if="nameParts.first" class="hero__name-first">{{ nameParts.first }}</span>
+          <span class="hero__name-last">{{ nameParts.last }}</span>
+        </h1>
 
-        <div class="home-section__grid-overlay"></div>
+        <p v-if="headline" class="hero__headline">{{ headline }}</p>
+        <p v-if="pitch" class="hero__pitch">{{ pitch }}</p>
 
-        <AnimatedReveal
-          direction="bottom"
-          :distance="0"
-          :duration="1"
-          :delay="0.5"
-          :once="true"
-          :initial-opacity="0"
-          :final-opacity="1"
-          class="home-section__info-wrap"
-        >
-          <div class="home-section__subtitle">
-            <span class="home-section__name-head">{{ nameParts.head }}</span>
-            <span class="home-section__name-tail">{{ nameParts.tail }}</span>
-          </div>
-          <p class="home-section__role">{{ t("homeSubtitle") }}</p>
-        </AnimatedReveal>
-      </div>
+        <div class="hero__ctas">
+          <a href="#projects" class="site-button site-button--primary" @click.prevent="go('projects')">
+            {{ t("heroCtaProjects") }}
+            <ArrowDown aria-hidden="true" />
+          </a>
+          <a href="#contact" class="site-button" @click.prevent="go('contact')">{{ t("heroCtaContact") }}</a>
+        </div>
+
+        <SocialLinks :links="profile.links" />
+        </div>
+      </EditableRegion>
+
+      <figure v-if="featured?.mainImageUrl" class="hero__visual">
+        <div class="hero__frame site-frame">
+          <img
+            :src="featured.mainImageUrl"
+            :alt="featured.title[lang]"
+            width="1920"
+            height="1080"
+            fetchpriority="high"
+            decoding="async"
+            class="hero__image"
+          />
+        </div>
+        <figcaption class="hero__caption">
+          <span class="site-eyebrow">{{ t("heroFeatured") }}</span>
+          <RouterLink :to="`/project/${featured.id}`" class="hero__caption-link">{{ featured.title[lang] }}</RouterLink>
+          <span v-if="featured.year" class="hero__caption-year">{{ featured.year }}</span>
+        </figcaption>
+      </figure>
     </div>
-
-    <button
-      type="button"
-      class="home-section__scroll-hint"
-      :class="{
-        'home-section__scroll-hint--visible':  arrowShown && !arrowDismissed,
-      }"
-      aria-label="Scroll to projects"
-      @click="jumpToProjects"
-    >
-      <ChevronDown :size="28" />
-    </button>
   </section>
 </template>
 
 <style scoped>
-.home-section {
-  position: relative;
+.hero {
   display: flex;
   align-items: center;
-  justify-content: center;
-  height: 100vh;
+  min-height: var(--site-hero-min-height);
 }
 
-.home-section::after {
-  content: "";
-  height: var(--border-width-md);
-  background: var(--color-background-gray-200);
-  width: 80%;
-  position: absolute;
-  bottom: 0;
+.hero__grid {
+  display: grid;
+  grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+  align-items: center;
+  gap: var(--site-col-gap);
 }
 
-.home-section__gradient {
-  position: absolute;
-  pointer-events: none;
-  background-size: 100% 100%;
-  background-position: 0 0;
-  background-image: radial-gradient(circle, hsl(var(--foreground) / 0.2) 0%, hsl(var(--background) / 0) 25%);
-  width: var(--gradient-size);
-  height: var(--gradient-size);
-}
-
-.home-section__gradient--top {
-  --gradient-size: 300vw;
-  top:   calc(-1 * var(--gradient-size) / 2);
-  right: calc(-1 * var(--gradient-size) / 2);
-}
-
-.home-section__gradient--bottom {
-  --gradient-size: 250vw;
-  bottom: calc(-1 * var(--gradient-size) / 2);
-  left:   calc(-1 * var(--gradient-size) / 2);
-}
-
-.home-section__container {
-  position: relative;
-  height: calc(100% - var(--home-container-margin));
-  width:  calc(100% - var(--home-container-margin));
-}
-
-.home-section__content {
+.hero__text {
+  container-type: inline-size;
   display: flex;
   flex-direction: column;
-  justify-content: center;
-  align-items: center;
-  text-align: center;
-  height: 100%;
-  gap: var(--home-content-gap);
+  align-items: flex-start;
+  gap: var(--spacing-lg);
 }
 
-/*Title wrap spans the full content width and flex-centers its h1 so the
-title stays horizontally anchored to the middle no matter how big it gets.
-Without this the old max-width:800px cap let very large fonts spill off
-to one side as soon as a line outgrew the cap.*/
-.home-section__title-wrap {
-  position: relative;
-  width: 100%;
+.hero__name {
   display: flex;
-  justify-content: center;
-  align-items: center;
-}
-
-.home-section__title {
-  font-size: var(--home-title-size);
-  font-weight: var(--font-weight-black);
-  letter-spacing: var(--letter-spacing-wide);
+  flex-direction: column;
+  /*never wider than its column: a six-letter word fits in --site-name-fit*/
+  font-size: min(var(--site-fs-display), var(--site-name-fit));
+  font-weight: var(--site-fw-display);
+  line-height: var(--site-lh-tight);
+  letter-spacing: var(--site-tracking-display);
   text-transform: uppercase;
-  color: var(--color-text-hover);
-  text-align: center;
-  white-space: nowrap;
+  color: var(--site-text-heading);
+  overflow-wrap: break-word;
 }
 
-.home-section__info-wrap {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--spacing-md);
+.hero__name-last { color: var(--site-accent); }
+
+.hero__headline {
+  font-size: var(--site-fs-h3);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: var(--site-tracking-heading);
+  text-transform: uppercase;
+  color: var(--site-text-heading);
 }
 
-.home-section__subtitle {
+.hero__pitch {
+  max-width: var(--site-text-width);
+  color: var(--site-text-body);
+}
+
+.hero__ctas {
   display: flex;
-  flex-direction: row;
+  flex-wrap: wrap;
   gap: var(--spacing-sm);
-  font-size: var(--home-subtitle-size);
-  font-weight: var(--font-weight-bold);
-  letter-spacing: var(--letter-spacing-normal);
+  margin-top: var(--spacing-xs);
 }
 
-.home-section__name-tail {
-  color: var(--color-accent);
+.hero__visual {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
 }
 
-.home-section__role {
-  font-size: var(--home-role-size);
-  letter-spacing: var(--letter-spacing-normal);
-  text-transform: uppercase;
+.hero__frame {
+  aspect-ratio: var(--site-still-aspect);
+  background-color: var(--site-surface);
 }
 
-/*GRID OVERLAY - the lattice behind the title. background-position drifts on a
-slow loop so the grid feels alive instead of frozen. The drift speed is
-exposed as --home-grid-drift-speed for tuning from the panel.*/
-.home-section__grid-overlay {
-  position: absolute;
-  inset: 0;
-  background-image:
-    linear-gradient(hsl(var(--foreground) / 0.1) var(--home-grid-line-width), transparent var(--home-grid-line-width)),
-    linear-gradient(90deg, hsl(var(--foreground) / 0.1) var(--home-grid-line-width), transparent var(--home-grid-line-width));
-  background-size: var(--home-grid-size) var(--home-grid-size);
-  pointer-events: none;
-  animation: home-grid-drift var(--home-grid-drift-speed) linear infinite;
+.hero__image {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
 }
 
-@keyframes home-grid-drift {
-  from { background-position: 0 0; }
-  to   { background-position: var(--home-grid-size) var(--home-grid-size); }
+.hero__caption {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  column-gap: var(--spacing-sm);
+  font-size: var(--site-fs-small);
+  color: var(--site-text-caption);
 }
 
-/*SCROLL HINT - chevron centered at the bottom of the home section. Hidden
-until --home-arrow-delay has elapsed, fades + slides in, then bounces. Click
-jumps to #projects.*/
-.home-section__scroll-hint {
-  position: absolute;
-  bottom: var(--spacing-xl);
-  left: 50%;
-  transform: translateX(-50%) translateY(8px);
+.hero__caption-link {
   display: inline-flex;
   align-items: center;
-  justify-content: center;
-  width:  var(--spacing-2xl);
-  height: var(--spacing-2xl);
-  background-color: transparent;
-  border: none;
-  color: var(--color-text-secondary);
-  cursor: pointer;
-  opacity: 0;
-  transition: opacity 0.5s ease, transform 0.5s ease;
-  z-index: 5;
+  min-height: var(--site-touch-target);
+  color: var(--site-text-body);
+  text-decoration: underline;
+  text-decoration-color: var(--site-line-strong);
+  text-underline-offset: var(--border-width-lg);
+  transition: color var(--site-duration-fast) ease;
 }
 
-.home-section__scroll-hint--visible {
-  opacity: 1;
-  transform: translateX(-50%) translateY(0);
-  animation: home-scroll-bounce 1.6s ease-in-out infinite;
-}
+.hero__caption-link:hover { color: var(--site-accent); }
 
-.home-section__scroll-hint:hover { color: var(--color-accent); }
+.hero__caption-year { font-variant-numeric: tabular-nums; }
 
-@keyframes home-scroll-bounce {
-  0%, 100% { transform: translateX(-50%) translateY(0); }
-  50%      { transform: translateX(-50%) translateY(6px); }
-}
-
-@media (pointer: none), (pointer: coarse) {
-  .home-section__container {
-    --home-container-margin: 20px;
-  }
-}
-
-@media (max-width: 768px) {
-  .home-section__title    { font-size: var(--font-size-3xl); }
-  .home-section__subtitle { font-size: var(--font-size-lg); }
-  .home-section__title-wrap { margin-bottom: var(--spacing-xl); padding: var(--spacing-lg); }
-}
-
-@media (max-width: 480px) {
-  .home-section__title    { font-size: var(--font-size-xl); }
-  .home-section__subtitle { font-size: var(--font-size-md); }
-  .home-section__role     { font-size: var(--font-size-base); }
-}
-
-/*simulate-phone mirror (for the CssVarsPanel preview).*/
-html.simulate-phone .home-section__title    { font-size: var(--font-size-xl); }
-html.simulate-phone .home-section__subtitle { font-size: var(--font-size-md); }
-html.simulate-phone .home-section__role     { font-size: var(--font-size-base); }
-html.simulate-phone .home-section__title-wrap {
-  margin-bottom: var(--spacing-xl);
-  padding: var(--spacing-lg);
+@media (max-width: 1024px) {
+  .hero { min-height: 0; }
+  .hero__grid { grid-template-columns: minmax(0, 1fr); }
 }
 </style>

@@ -1,316 +1,168 @@
 <script setup lang="ts">
 import { computed } from "vue"
 import { useLanguage } from "../../composables/useLanguage"
-import { useEditor } from "../../composables/useEditor"
-import { usePortfolio } from "../../composables/usePortfolio"
 import AnimatedReveal from "./AnimatedReveal.vue"
-import EditableText from "./EditableText.vue"
-import ReplaceImageButton from "./ReplaceImageButton.vue"
-import type { ProfileDto } from "../../types/portfolio"
+import SectionHeader from "./SectionHeader.vue"
+import EditableRegion from "../admin/EditableRegion.vue"
+import type { ProfileDto, SoftwareDto } from "../../types/portfolio"
 
-const props = defineProps<{ profile: ProfileDto }>()
+//ABOUT - portrait and bio on one side, the tools and the interests on the other.
+const props = defineProps<{ profile: ProfileDto; software: SoftwareDto[] }>()
 
 const { t, lang } = useLanguage()
-const { editMode } = useEditor()
-const { replaceImage, updateProfile } = usePortfolio()
 
-//arrays editing: one line per item, save splits on newlines, joins back for view
-const gamesJoined = computed(() => props.profile.interests.games.join("\n"))
-const artJoined   = computed(() => props.profile.interests.art.join("\n"))
-
-async function onAboutSave(newVal: string) {
-  await updateProfile({ about: { ...props.profile.about, [lang.value]: newVal } })
-}
-
-async function onContactSave(field: "phone" | "email", newVal: string) {
-  await updateProfile({ contact: { ...props.profile.contact, [field]: newVal } })
-}
-
-async function onInstagramSave(newVal: string) {
-  await updateProfile({ links: { ...props.profile.links, instagram: newVal } })
-}
-
-async function onInterestSave(field: "games" | "art", newVal: string) {
-  const items = newVal.split("\n").map((s) => s.trim()).filter(Boolean)
-  await updateProfile({ interests: { ...props.profile.interests, [field]: items } })
-}
-
-function onReplaceAvatar() {
-  return replaceImage("avatar", async (_id, url) => {
-    await updateProfile({ avatarUrl: url })
-  })
-}
+const interestGroups = computed(() => [
+  { key: "games", title: t("experienceGames"), items: props.profile.interests.games },
+  { key: "art",   title: t("experienceArt"),   items: props.profile.interests.art },
+].filter((group) => group.items.length > 0))
 </script>
 
 <template>
-  <div class="about">
-    <AnimatedReveal
-      direction="bottom"
-      :distance="30"
-      :duration="0.6"
-      :initial-opacity="0"
-      :final-opacity="1"
-      class="about__section"
-    >
-      <h3 class="about__heading">{{ t("experienceAbout") }}</h3>
-      <div class="about__content">
-        <div v-if="profile.avatarUrl || editMode" class="about__avatar">
-          <component
-            :is="editMode ? 'div' : 'a'"
-            :href="editMode ? undefined : 'https://sketchfab.com/Obambulatesart'"
-            target="_blank"
-            rel="noopener noreferrer"
-            class="about__avatar-link"
-          >
-            <img
-              v-if="profile.avatarUrl"
-              :src="profile.avatarUrl"
-              alt="Profile avatar"
-              width="100"
-              height="100"
-            />
-            <div v-else class="about__avatar-placeholder">No avatar</div>
-            <ReplaceImageButton v-if="editMode" @click="onReplaceAvatar" />
-          </component>
-        </div>
+  <section id="about" class="site-section" aria-labelledby="about-title">
+    <div class="site-container">
+      <SectionHeader id="about-title" :title="t('experienceAbout')" />
 
-        <EditableText
-          tag="p"
-          class="about__text"
-          :multiline="true"
-          :value="profile.about[lang]"
-          placeholder="Write a short bio..."
-          @save="onAboutSave"
-        />
-      </div>
-    </AnimatedReveal>
+      <AnimatedReveal>
+        <EditableRegion kind="profile" :label="t('editorKindProfile')">
+          <div class="about">
+            <div class="about__intro">
+              <img
+                v-if="profile.avatarUrl"
+                :src="profile.avatarUrl"
+                :alt="profile.name"
+                width="224"
+                height="224"
+                loading="lazy"
+                decoding="async"
+                class="about__avatar"
+              />
+              <p class="about__bio">{{ profile.about[lang] }}</p>
+            </div>
 
-    <div class="about__columns">
-      <AnimatedReveal
-        direction="bottom"
-        :distance="30"
-        :duration="0.6"
-        :delay="0.2"
-        :initial-opacity="0"
-        :final-opacity="1"
-      >
-        <h3 class="about__heading">{{ t("experienceContact") }}</h3>
-        <ul class="about__contact-list">
-          <li class="about__contact-item">
-            <span class="about__contact-label">{{ t("experiencePhone") }}</span>
-            <EditableText
-              tag="span"
-              :value="profile.contact.phone"
-              placeholder="+33 …"
-              @save="(v) => onContactSave('phone', v)"
-            />
-          </li>
-          <li class="about__contact-item">
-            <span class="about__contact-label">{{ t("experienceMail") }}</span>
-            <EditableText
-              tag="span"
-              :value="profile.contact.email"
-              placeholder="you@example.com"
-              @save="(v) => onContactSave('email', v)"
-            />
-          </li>
-          <li class="about__contact-item">
-            <span class="about__contact-label">{{ t("experienceInsta") }}</span>
-            <EditableText
-              tag="span"
-              :value="profile.links.instagram"
-              placeholder="@handle"
-              @save="onInstagramSave"
-            />
-          </li>
-        </ul>
-      </AnimatedReveal>
+            <div class="about__side">
+              <div v-if="software.length" class="about__group">
+                <h3 class="site-eyebrow">{{ t("aboutSoftware") }}</h3>
+                <ul class="about__software">
+                  <li v-for="sw in software" :key="sw.id" class="about__chip">
+                    <img v-if="sw.logoUrl" :src="sw.logoUrl" alt="" width="20" height="20" loading="lazy" />
+                    {{ sw.key }}
+                  </li>
+                </ul>
+              </div>
 
-      <AnimatedReveal
-        direction="bottom"
-        :distance="30"
-        :duration="0.6"
-        :delay="0.3"
-        :initial-opacity="0"
-        :final-opacity="1"
-      >
-        <h3 class="about__heading">{{ t("experienceInterest") }}</h3>
-        <div class="about__interests-columns">
-          <div>
-            <h4 class="about__interest-title">{{ t("experienceGames") }}</h4>
-            <ul v-if="!editMode" class="about__interest-list">
-              <li v-for="(game, idx) in profile.interests.games" :key="idx">{{ game }}</li>
-            </ul>
-            <EditableText
-              v-else
-              tag="div"
-              class="about__interest-edit"
-              :multiline="true"
-              :value="gamesJoined"
-              placeholder="One game per line..."
-              @save="(v) => onInterestSave('games', v)"
-            />
+              <div v-if="interestGroups.length" class="about__group">
+                <h3 class="site-eyebrow">{{ t("experienceInterest") }}</h3>
+                <div class="about__interests">
+                  <div v-for="group in interestGroups" :key="group.key">
+                    <h4 class="about__interest-title">{{ group.title }}</h4>
+                    <ul class="about__interest-list">
+                      <li v-for="(item, i) in group.items" :key="i">{{ item }}</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
-          <div>
-            <h4 class="about__interest-title">{{ t("experienceArt") }}</h4>
-            <ul v-if="!editMode" class="about__interest-list">
-              <li v-for="(art, idx) in profile.interests.art" :key="idx">{{ art }}</li>
-            </ul>
-            <EditableText
-              v-else
-              tag="div"
-              class="about__interest-edit"
-              :multiline="true"
-              :value="artJoined"
-              placeholder="One art form per line..."
-              @save="(v) => onInterestSave('art', v)"
-            />
-          </div>
-        </div>
+        </EditableRegion>
       </AnimatedReveal>
     </div>
-  </div>
+  </section>
 </template>
 
 <style scoped>
 .about {
-  background-color: hsl(var(--card) / 0.7);
-  border: var(--border-width-sm) solid hsl(var(--foreground) / 0.1);
-  padding: var(--spacing-xl);
-  margin-top: var(--spacing-2xl);
+  display: grid;
+  grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+  gap: var(--site-col-gap);
 }
 
-.about__section { margin-bottom: var(--spacing-xl); }
-
-.about__heading {
-  font-size: var(--font-size-lg);
-  font-weight: var(--font-weight-bold);
-  letter-spacing: var(--letter-spacing-normal);
-  margin-bottom: var(--font-size-lg);
-  text-transform: uppercase;
-  position: relative;
-  display: inline-block;
-}
-
-.about__heading::after {
-  content: "";
-  position: absolute;
-  width: 40%;
-  height: var(--border-width-md);
-  background-color: var(--color-border-primary);
-  bottom: calc(-1 * var(--spacing-xs));
-  left: 0;
-}
-
-.about__content {
+.about__intro {
   display: flex;
   align-items: flex-start;
-  gap: var(--font-size-lg);
+  gap: var(--spacing-xl);
 }
 
 .about__avatar {
   flex-shrink: 0;
-  position: relative;
-  overflow: hidden;
-  aspect-ratio: 1;
-  width: 100px;
-  transition: box-shadow var(--transition-slow) ease;
-}
-
-.about__avatar-link {
-  position: relative;
-  display: block;
-  width: 100%;
-  height: 100%;
-}
-
-.about__avatar img {
-  display: block;
-  width: 100%;
-  height: 100%;
+  width: var(--site-avatar);
+  height: var(--site-avatar);
   object-fit: cover;
+  border: var(--border-width-sm) solid var(--site-line);
 }
 
-.about__avatar-placeholder {
+.about__bio {
+  max-width: var(--site-text-width);
+  white-space: pre-line;
+  font-size: var(--site-fs-h3);
+  font-weight: var(--font-weight-medium);
+  line-height: var(--site-lh-body);
+  color: var(--site-text-body);
+}
+
+.about__side {
   display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 100%;
-  height: 100%;
-  background-color: var(--color-background-gray-100);
-  color: var(--color-text-tertiary);
-  font-size: var(--font-size-xs);
-  text-transform: uppercase;
-}
-
-.about__avatar:hover {
-  box-shadow: 0 0 0 var(--border-width-md) var(--color-border-muted);
-}
-
-.about__text { line-height: 1.8; white-space: pre-line; }
-
-.about__columns {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
+  flex-direction: column;
   gap: var(--spacing-xl);
 }
 
-.about__contact-list,
-.about__interest-list {
-  list-style: none;
-  padding: 0;
-}
-
-.about__contact-item {
-  margin-bottom: var(--spacing-md);
+.about__group {
   display: flex;
   flex-direction: column;
+  gap: var(--spacing-sm);
 }
 
-.about__contact-label {
-  font-weight: var(--font-weight-bold);
-  font-size: var(--font-size-md);
-  color: var(--color-text-secondary);
-  letter-spacing: var(--letter-spacing-wide);
+.about__software {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-xs);
+  list-style: none;
+}
+
+.about__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  padding: var(--spacing-xxs) var(--spacing-sm);
+  border: var(--border-width-sm) solid var(--site-line);
+  font-size: var(--site-fs-label);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: var(--letter-spacing-tight);
   text-transform: uppercase;
+  color: var(--site-text-body);
 }
 
-.about__interests-columns {
+.about__chip img {
+  width: var(--site-icon);
+  height: var(--site-icon);
+  object-fit: contain;
+}
+
+.about__interests {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: var(--font-size-base);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--spacing-lg);
 }
 
 .about__interest-title {
+  margin-bottom: var(--spacing-xxs);
+  font-size: var(--site-fs-small);
   font-weight: var(--font-weight-bold);
   text-transform: uppercase;
-  font-size: var(--font-size-xs);
-  letter-spacing: var(--letter-spacing-normal);
-  color: var(--color-text-secondary);
+  letter-spacing: var(--letter-spacing-tight);
+  color: var(--site-text-heading);
 }
 
-.about__interest-edit {
-  white-space: pre-wrap;
-  line-height: 1.6;
-  padding: var(--spacing-sm);
-  background-color: hsl(var(--background) / 0.5);
-  border-left: var(--border-width-md) solid var(--color-gray-medium);
-  font-size: var(--font-size-sm);
+.about__interest-list {
+  list-style: none;
+  font-size: var(--site-fs-small);
+  color: var(--site-text-body);
 }
 
 @media (max-width: 1024px) {
-  .about__content {
-    flex-direction: column;
-    align-items: center;
-    text-align: center;
-  }
-  .about__section { text-align: center; }
-  .about__heading::after { left: 30%; }
+  .about { grid-template-columns: minmax(0, 1fr); }
 }
 
-@media (max-width: 768px) {
-  .about__columns,
-  .about__interests-columns { grid-template-columns: 1fr; }
-  .about { padding: var(--spacing-lg); }
+@media (max-width: 640px) {
+  .about__intro { flex-direction: column; }
 }
 </style>

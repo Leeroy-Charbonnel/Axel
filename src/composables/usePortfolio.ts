@@ -1,7 +1,6 @@
 import { ref } from "vue"
 import { useToast } from "./useToast"
 import type { PortfolioDto } from "../types/portfolio"
-import { useMediaLibrary } from "../components/admin/media/useMediaLibrary"
 
 //SHARED portfolio state - one fetch per page load, cached in module scope so
 //every section component reads the same ref. No silent fallback: on error we
@@ -140,30 +139,8 @@ export async function uploadFile(file: File, path = "/api/files"): Promise<Uploa
   return res.json()
 }
 
-//REPLACE-IMAGE flow of the remaining inline home editing: media library, then
-//apply the patch. Cancelling is a no-op; failures have already toasted.
-async function replaceImage(label: string, apply: (fileId: string, url: string) => Promise<void>): Promise<void> {
-  const [picked] = await useMediaLibrary().pickMedia({ accept: "image" })
-  if (!picked) return
-  try {
-    await apply(picked.id, picked.url)
-  } catch (e) {
-    console.error(`[usePortfolio] replace ${label} failed:`, e)
-  }
-}
-
 //MAIN PROJECT mutations
 async function updateMainProject(id: number, patch: Record<string, unknown>) { await apiJson("PUT", `/api/main-project/${id}`, patch); await reload() }
-async function deleteMainProject(id: number) { await apiJson("DELETE", `/api/main-project/${id}`); await reload() }
-async function setMainProjectSoftware(id: number, softwareIds: number[]) { await apiJson("PUT", `/api/main-project/${id}/software`, { softwareIds }); await reload() }
-
-//GALLERY PROJECT mutations
-async function updateGalleryProject(id: number, patch: Record<string, unknown>) { await apiJson("PUT", `/api/gallery-project/${id}`, patch); await reload() }
-async function deleteGalleryProject(id: number) { await apiJson("DELETE", `/api/gallery-project/${id}`); await reload() }
-
-//EXPERIENCE mutations
-async function updateExperience(id: number, patch: Record<string, unknown>) { await apiJson("PUT", `/api/experience/${id}`, patch); await reload() }
-async function deleteExperience(id: number) { await apiJson("DELETE", `/api/experience/${id}`); await reload() }
 
 //SOFTWARE mutations - create is multipart (logo + key + url in one request)
 async function createSoftware(logo: File, key: string, url: string) {
@@ -203,21 +180,14 @@ async function createModel(name: string, glbFileId: string, thumbnailFileId: str
 }
 async function deleteModel(id: string) { await apiJson("DELETE", `/api/models/${id}`); await reload() }
 
-//PROFILE mutation (singleton)
-async function updateProfile(patch: Record<string, unknown>) { await apiJson("PUT", "/api/profile", patch); await reload() }
-
 export function usePortfolio() {
   if (typeof window !== "undefined" && !loaded.value && !loading.value) {
     void fetchPortfolio()
   }
   return {
     data, loading, loaded, error, reload,
-    replaceImage,
-    updateMainProject, deleteMainProject, setMainProjectSoftware,
-    updateGalleryProject, deleteGalleryProject,
-    updateExperience, deleteExperience,
+    updateMainProject,
     createSoftware, updateSoftware, deleteSoftware,
     createModel, deleteModel,
-    updateProfile,
   }
 }
