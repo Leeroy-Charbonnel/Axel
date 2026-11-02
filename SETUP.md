@@ -18,12 +18,19 @@ Fill `DATABASE_URL` (the dev database, through the SSH tunnel) and
 `BETTER_AUTH_SECRET` (`openssl rand -base64 32`). Then:
 
 ```bash
-bun run db:push        # create the tables in the dev database
+bun run db:migrate     # apply drizzle/ to the dev database, as the entrypoint does in prod
 bun run seed:i18n      # interface labels, inserts the missing keys only
 bun run dev            # vite on 5173, express on 3001
+bun test               # unit tests: 3D auto setup, viewer, editor drafts, block validation
 ```
 
-Vite proxies `/api` and `/media` to the Express server on 3001.
+Vite proxies `/api` and `/media` to the Express server on 3001. The dev server
+serves and writes files in the local `storage/files`, so a dev database copied
+from prod also needs the prod files copied there (see "Refreshing dev from prod").
+
+`bun scripts/seed-showcase.ts` creates three unpublished "Showcase" projects in
+the dev database whose detail pages use every block type; re-running it replaces
+them. `/styleguide` (admin) shows the tokens, the fields and every block.
 
 There is no `GITHUB_TOKEN` and no `.npmrc`. The shared package this used to
 install from a private registry is gone: the template is copied into the repo,
@@ -36,6 +43,8 @@ never linked.
 This site has exactly one account and it is the admin.
 
 1. Open `/login` and register. Nothing links to that address; you type it.
+   Google sign-in on the same page only opens an existing account with the
+   same email: it never creates one.
 2. Promote the row by hand, which is the only way in:
    ```sql
    UPDATE "user" SET role = 'admin' WHERE email = 'you@example.com';
@@ -58,13 +67,18 @@ refused at boot, since it only ever delivers to the Resend account owner.
 
 Everything on the page is a row: `main_project`, `gallery_project`,
 `experience`, `software`, `model_3d`, `profile`. There is no JSON file to edit -
-sign in, switch on edit mode from the gear, and change the page directly.
+sign in, switch on edit mode from the edit bar, click an item on the page and
+change it in the inspector, then Save. Projects, gallery items and experiences
+can be unpublished: visitors, the sitemap and llms.txt no longer see them.
 
-Images, models and HDRIs are uploaded through the same screens, stored at
-`storage/files/{uuid}{ext}` and served from `/media`. Rows in the `file` table
-can be removed; the bytes on disk stay.
+Images, models and HDRIs go through the media library, stored at
+`storage/files/{uuid}{ext}` and served from `/media`. Resized WebP/JPEG copies
+are made on demand under `storage/files/.cache` (never served raw, safe to
+delete). An uploaded `.glb` is optimized (meshopt + WebP textures) and the
+original is kept. Rows in the `file` table can be removed; the bytes stay.
 
-Uploads accept raster images, video, `.glb` / `.gltf` and `.hdr` / `.exr` only.
+Uploads accept raster images, video, `.glb` / `.gltf`, `.hdr` / `.exr`, and a
+PDF for the CV only.
 `.svg` and `.html` are refused on purpose: `/media` serves from the site's own
 origin, so either one would run its script as if the site had written it.
 
@@ -98,9 +112,10 @@ The `storage` volume holds the uploads at `/app/storage/files`. Dokploy's manage
 database backups only cover its own database service type, so set up a Volume
 Backup on this compose service instead.
 
-Local commands go through the tunnel: `db:push` and `db:studio` reach `db-dev`
-via `DATABASE_URL`, `db:push:prod` and `db:studio:prod` reach `db` via
-`PROD_DATABASE_URL`.
+Take a `pg_dump` of prod before deploying a migration that drops columns.
+
+Local commands go through the tunnel: `db:migrate` and `db:studio` reach `db-dev`
+via `DATABASE_URL`, `db:studio:prod` reaches `db` via `PROD_DATABASE_URL`.
 
 ### Refreshing dev from prod
 
@@ -112,3 +127,7 @@ ssh vps "docker exec axel-stack-<suffix>-db-dev-1 pg_restore -U axel -d axel_dev
 
 Run these from PowerShell: the ssh in Git Bash does not see the Windows key
 agent, and the failed attempts get the IP banned by fail2ban.
+
+Then copy the files the rows point at into the local `storage/files`, keeping
+each `stored_filename` path: download every row of the `file` table from
+`https://<domain>/media/<stored_filename>` (a missing file answers 404).

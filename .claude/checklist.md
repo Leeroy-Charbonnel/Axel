@@ -1,17 +1,17 @@
 # Checklist
-Maj 07:20 - 22/26
+Maj 08:05 - 26/26
 
 ## En cours
-- [~] W8 correctifs de l'audit de code : modeles des projets non publies exposes, blocs malformes -> 500, cache vidable anonymement, optimisation GLB bloquante, encodages d'images, CSRF (agent)
 
 ## A faire
-- [ ] Tester une vraie sauvegarde admin (inspecteur, bento, editeur 3D)
-- [ ] Mettre a jour CLAUDE.md / SETUP.md (etat constate)
 
 ## Bloque
 - [!] Contenu a reecrire par Axel : textes humoristiques, lorem du projet 1, stats copiees de 6 cartes galerie, SOFTWARE 6, interets en anglais (contenu, pas du code)
 
 ## Fait
+- [x] W8 correctifs : modeles des projets non publies masques, schema strict par type de bloc, cache protege, optimisation GLB en worker, encodages limites et caches sur le volume, CSRF par Origin, brouillons orphelins, course a l'optimisation
+- [x] Sauvegardes admin testees par les agents (inspecteur, bento, editeur 3D) sur leurs ports
+- [x] SETUP.md et CLAUDE.md decrivent l'etat actuel
 - [x] W7 corrections design : blocs qui grandissent avec leur contenu, blocs vides caches au public, pages projet sans blocs illustrees, vrai 404, pied de page partout, email sur une ligne, rythme des sections, cartes alignees, rail lisible
 - [x] Passe visuelle 375 / 768 / 1024 / 1440 (captures CDP relues)
 - [x] Audit de code et securite a froid (1 haute, 4 moyennes, 7 basses ; traversal, injection HTML, filtrage publication et auth tiennent)

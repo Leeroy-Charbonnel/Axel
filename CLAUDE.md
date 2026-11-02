@@ -48,7 +48,8 @@ These rules apply to this project and every project that descends from this temp
 - Better Auth (email + password, and Google sign-in for the existing account), configured in `auth.ts`
 - Resend for transactional email
 - Tailwind + shadcn-vue (HSL color tokens)
-- Shipped in-repo: useToast, useAuth, useTheme, useLang, useSettings, useTranslations, ToastHost, Login/Forgot/Reset/Settings pages, structural CSS variables in `src/tokens.css`
+- Shipped in-repo: useToast, useAuth, useLang, useSettings, useTranslations, ToastHost, Login/Forgot/Reset/Settings pages, structural CSS variables in `src/tokens.css`. The site is dark only: there is no theme toggle and no accent setting, the palette lives in `src/style.css`.
+- Editing: `useEditor` (drafts, save, undo, guards) drives the edit bar and the inspector in `src/components/admin/`; pages with their own state register through `registerPageActions`. The 3D core shared by the public viewer and `/edit-3d` is `src/three/`.
 
 ## Anti-patterns spotted in past work
 
