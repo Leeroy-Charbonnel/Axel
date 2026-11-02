@@ -1,4 +1,4 @@
-import { computed, ref, shallowRef, type Ref } from "vue"
+import { computed, ref, shallowRef, watch, type Ref } from "vue"
 import { usePortfolio, apiJson } from "./usePortfolio"
 import { useToast } from "./useToast"
 import { useConfirm } from "./useConfirm"
@@ -79,6 +79,32 @@ function resetHistory() {
   past.value = []
   future.value = []
   lastPatch = { key: "", fields: "", at: 0 }
+}
+
+//out of the drafts and out of every snapshot: an undo must not bring back a
+//draft whose entity is gone, its save would 404 forever
+function forget(key: string) {
+  delete drafts.value[key]
+  const strip = (list: Drafts[]) => list.map((snapshot) => {
+    if (!(key in snapshot)) return snapshot
+    const copy = { ...snapshot }
+    delete copy[key]
+    return copy
+  })
+  past.value = strip(past.value)
+  future.value = strip(future.value)
+}
+
+//every draft, current or in the history, whose entity the fresh data lacks
+function forgetMissing() {
+  if (!portfolio.data.value) return
+  const entries = new Map<string, DraftEntry>()
+  for (const snapshot of [drafts.value, ...past.value, ...future.value]) {
+    for (const [key, entry] of Object.entries(snapshot)) entries.set(key, entry)
+  }
+  for (const [key, entry] of entries) {
+    if (!find(entry.kind, entry.id)) forget(key)
+  }
 }
 
 //drop the fields that equal the saved entity, and the draft once it is empty
@@ -247,7 +273,7 @@ async function createItem(kind: EntityKind) {
 
 async function removeItem(kind: EntityKind, id: number) {
   await apiJson("DELETE", `${collectionBase(kind)}/${id}`)
-  delete drafts.value[entityKey(kind, id)]
+  forget(entityKey(kind, id))
   if (isSelected(kind, id)) clear()
   await portfolio.reload()
 }
@@ -314,6 +340,9 @@ function onBeforeUnload(e: BeforeUnloadEvent) {
   //older engines still need the legacy property set to show the prompt
   e.returnValue = ""
 }
+
+//a reload can lose an entity, deleted here or in another tab: its drafts go too
+watch(portfolio.data, forgetMissing)
 
 if (typeof window !== "undefined") {
   window.addEventListener("keydown", onKeydown)
