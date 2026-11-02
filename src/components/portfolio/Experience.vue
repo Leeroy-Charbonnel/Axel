@@ -2,11 +2,13 @@
 import { useLanguage } from "../../composables/useLanguage"
 import AnimatedReveal from "./AnimatedReveal.vue"
 import ExperienceItem from "./ExperienceItem.vue"
+import About from "./About.vue"
 import SectionAddButton from "../admin/SectionAddButton.vue"
-import type { ExperienceDto } from "../../types/portfolio"
+import type { ExperienceDto, ProfileDto } from "../../types/portfolio"
 
-//THE TIMELINE under a centered, underlined title, on a darkening background
-defineProps<{ experiences: ExperienceDto[] }>()
+//THE TIMELINE under a centered, underlined title, then the about card, on a
+//darkening background
+defineProps<{ experiences: ExperienceDto[]; profile: ProfileDto }>()
 
 const { t } = useLanguage()
 </script>
@@ -23,6 +25,8 @@ const { t } = useLanguage()
       </ol>
 
       <SectionAddButton kind="experience" class="experience__add" />
+
+      <About :profile="profile" />
     </div>
   </section>
 </template>

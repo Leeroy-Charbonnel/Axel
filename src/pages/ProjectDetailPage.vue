@@ -9,7 +9,6 @@ import { useSnapshotHistory } from "../composables/useSnapshotHistory"
 import { pickBilingual } from "../lib/markdown"
 import type { Lang } from "../lib/lang"
 import EditableRegion from "../components/admin/EditableRegion.vue"
-import Contact from "../components/portfolio/Contact.vue"
 import DetailGrid from "../components/portfolio/detail/DetailGrid.vue"
 import BentoEditor from "../components/portfolio/detail/BentoEditor.vue"
 import ProjectMedia from "../components/portfolio/ProjectMedia.vue"
@@ -21,8 +20,8 @@ import type { DetailBlock, DetailPage } from "../types/portfolio"
 
 //PROJECT DETAIL PAGE - a case study: header (title, year, role, summary, spec
 //strip, software), the content blocks (or, while there are none, the still,
-//its thumbnails and the 3D model), the previous / next published project and
-//the contact section shared with the home page. For the admin in edit
+//its thumbnails and the 3D model) and the previous / next published project.
+//For the admin in edit
 //mode the header is an editable region (inspector) and the blocks become the
 //bento editor; the blocks are this page's own state, saved through the edit
 //bar.
@@ -53,7 +52,6 @@ const indexLabel = computed(() => t("detailIndex")
   .replace("{n}", String(position.value + 1).padStart(2, "0"))
   .replace("{total}", String(published.value.length).padStart(2, "0")))
 
-const profile = computed(() => data.value?.profile ?? null)
 
 watchEffect(() => {
   if (title.value) document.title = `${title.value} | ${t("siteTitle")}`
@@ -187,8 +185,6 @@ function goBack() {
           <span class="case__pager-title">{{ pickBilingual(next.title, shownLang) }}</span>
         </RouterLink>
       </nav>
-
-      <Contact v-if="profile" :profile="profile" />
     </template>
   </article>
 </template>
@@ -198,8 +194,8 @@ function goBack() {
   display: flex;
   flex-direction: column;
   gap: var(--site-section-gap);
-  /*no bottom padding: the contact section ends with its own, as on the home page*/
   padding-top: var(--spacing-3xl);
+  padding-bottom: var(--site-section-gap);
   font-family: var(--site-font);
   color: var(--site-text-body);
 }

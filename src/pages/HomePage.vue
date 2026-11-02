@@ -10,8 +10,6 @@ import Home           from "../components/portfolio/Home.vue"
 import MainProjects   from "../components/portfolio/MainProjects.vue"
 import ProjectGallery from "../components/portfolio/ProjectGallery.vue"
 import Experience     from "../components/portfolio/Experience.vue"
-import About          from "../components/portfolio/About.vue"
-import Contact        from "../components/portfolio/Contact.vue"
 import PortfolioSkeleton from "../components/portfolio/PortfolioSkeleton.vue"
 
 const { data, loading, error, reload } = usePortfolio()
@@ -44,9 +42,7 @@ watch(data, async (loaded) => {
       <Home :profile="profile" />
       <MainProjects :projects="mainProjects" />
       <ProjectGallery :projects="gallery" />
-      <Experience :experiences="experiences" />
-      <About :profile="profile" :software="data.software" />
-      <Contact :profile="profile" />
+      <Experience :experiences="experiences" :profile="profile" />
     </template>
 
     <div v-else-if="error" class="site-container portfolio__error" role="alert">

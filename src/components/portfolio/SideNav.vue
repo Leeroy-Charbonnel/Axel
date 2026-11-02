@@ -101,17 +101,17 @@ watch(() => route.fullPath, closeMenu)
 </template>
 
 <style scoped>
-/*RAIL - fixed to the left edge, labels turned to read bottom to top*/
+/*RAIL - floats over the page at the left edge, no background, labels turned
+to read bottom to top*/
 .rail {
   position: fixed;
   top: 0;
   bottom: var(--editor-bar-offset);
-  left: 0;
+  left: var(--spacing-xs);
   z-index: var(--site-z-chrome);
   display: flex;
   flex-direction: column;
   align-items: center;
-  width: var(--site-rail-width);
   padding-block: var(--spacing-md);
   overflow-y: auto;
   scrollbar-width: none;
@@ -130,8 +130,7 @@ watch(() => route.fullPath, closeMenu)
   display: flex;
   align-items: center;
   justify-content: center;
-  min-width: var(--site-touch-target);
-  padding: var(--spacing-sm) 0;
+  padding: var(--spacing-sm) var(--spacing-xs);
   writing-mode: vertical-rl;
   transform: rotate(180deg);
   font-size: var(--site-fs-rail);

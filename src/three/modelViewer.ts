@@ -601,10 +601,8 @@ export class ModelViewer {
     const start = wf.sweepStart ?? setup.sweep.start
     const end   = wf.sweepEnd   ?? setup.sweep.end
     const mat = wf.material ?? VIEWER_DEFAULTS.wireframeMaterial
+    this.sweep!.setFrame({ axis, min: start, range: Math.max(1e-4, end - start) })
     pushSweepUniforms(this.materials, {
-      axis,
-      min:   start,
-      range: Math.max(1e-4, end - start),
       emissiveColor:     wf.color ?? VIEWER_DEFAULTS.wireframeModeColor,
       tintColor:         mat.color,
       metalness:         mat.metalness,

@@ -73,13 +73,8 @@ bottom of a short page*/
   flex-direction: column;
 }
 
-/*room for the rail on desktop, for the top bar below*/
-.portfolio-app--chrome .portfolio-app__main { padding-left: var(--site-rail-width); }
-
+/*the rail floats over the page on desktop; the top bar takes its height below*/
 @media (max-width: 1024px) {
-  .portfolio-app--chrome .portfolio-app__main {
-    padding-left: 0;
-    padding-top: var(--site-topbar-height);
-  }
+  .portfolio-app--chrome .portfolio-app__main { padding-top: var(--site-topbar-height); }
 }
 </style>

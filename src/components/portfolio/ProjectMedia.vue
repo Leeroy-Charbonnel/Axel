@@ -1,16 +1,16 @@
 <script setup lang="ts">
-import { ref, toRef } from "vue"
-import { Box, Image as ImageIcon, Layers } from "lucide-vue-next"
+import { toRef } from "vue"
+import { Layers } from "lucide-vue-next"
 import { useProjectCard } from "../../composables/useProjectCard"
 import { IMAGE_SIZES } from "../../lib/media"
 import SiteImage from "../SiteImage.vue"
 import ThreeViewer from "./ThreeViewer.vue"
 import type { MainProjectDto } from "../../types/portfolio"
 
-//A PROJECT'S MEDIA: the 3D model first when the project has one, the render in
-//its viewfinder frame otherwise or on request (the wireframe on hover or on
-//request), and the thumbnails opening the lightbox. The home card and the page
-//of a project without blocks show the same.
+//A PROJECT'S MEDIA: the 3D model, floating on the page with no frame. The render
+//is only the fallback of a project without a model (its wireframe on hover or on
+//request). The thumbnails open the lightbox. The home card and the page of a
+//project without blocks show the same.
 const props = defineProps<{ project: MainProjectDto }>()
 
 const {
@@ -18,14 +18,13 @@ const {
   showWireframe, hasWireframe, stillUrl, openStill, openThumbnail,
 } = useProjectCard(toRef(props, "project"))
 
-const viewerOpen = ref(true)
 </script>
 
 <template>
   <div class="media">
-    <div class="media__stage site-frame">
+    <div class="media__stage" :class="{ 'media__stage--still': !glbUrl }">
       <ThreeViewer
-        v-if="viewerOpen && glbUrl"
+        v-if="glbUrl"
         :glb-url="glbUrl"
         :settings="viewerSettings"
         :poster="project.mainImageUrl"
@@ -75,7 +74,7 @@ const viewerOpen = ref(true)
 
       <div class="media__actions">
         <button
-          v-if="hasWireframe && !viewerOpen"
+          v-if="hasWireframe && !glbUrl"
           type="button"
           class="site-button"
           :aria-pressed="showWireframe"
@@ -83,16 +82,6 @@ const viewerOpen = ref(true)
         >
           <Layers aria-hidden="true" />
           {{ t("projectWireframe") }}
-        </button>
-        <button v-if="glbUrl" type="button" class="site-button" @click="viewerOpen = !viewerOpen">
-          <template v-if="viewerOpen">
-            <ImageIcon aria-hidden="true" />
-            {{ t("projectBackToImage") }}
-          </template>
-          <template v-else>
-            <Box aria-hidden="true" />
-            {{ t("projectView3d") }}
-          </template>
         </button>
       </div>
     </div>
@@ -107,9 +96,11 @@ const viewerOpen = ref(true)
 }
 
 .media__stage {
+  position: relative;
   aspect-ratio: var(--site-still-aspect);
-  background-color: var(--site-surface);
 }
+
+.media__stage--still { background-color: var(--site-surface); }
 
 .media__viewer,
 .media__still {

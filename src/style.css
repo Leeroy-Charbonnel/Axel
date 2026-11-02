@@ -46,6 +46,7 @@ named token below derives from these, so the accent_color setting (written to
   --site-line-strong:  hsl(var(--ink) / 0.32);
   --site-surface:      hsl(var(--ink) / 0.04);
   --site-surface-hover: hsl(var(--ink) / 0.08);
+  --site-card:         hsl(var(--card) / 0.7);
   --site-accent:       hsl(var(--primary));
   --site-on-accent:    hsl(var(--background));
   --site-backdrop:     hsl(var(--background) / 0.82);
@@ -55,10 +56,7 @@ named token below derives from these, so the accent_color setting (written to
 
   /*SITE CHROME AND DETAILS*/
   --site-topbar-height: 60px;
-  --site-rail-width:    72px;
   --site-chrome-top:    0px;
-  --site-frame-mark:    14px;
-  --site-frame-offset:  6px;
   --site-dot:           8px;
   --site-dot-halo:      4px;
   --site-icon:          18px;
@@ -403,32 +401,6 @@ button {
   width: var(--site-icon-sm);
   height: var(--site-icon-sm);
   flex-shrink: 0;
-}
-
-/*VIEWFINDER FRAME - a hairline box with corner marks, the frame of a render.
-The marks are eight gradients on one pseudo-element.*/
-.site-frame {
-  position: relative;
-  border: var(--border-width-sm) solid var(--site-line);
-}
-
-.site-frame::before {
-  content: "";
-  position: absolute;
-  inset: calc(-1 * var(--site-frame-offset));
-  z-index: 3;
-  pointer-events: none;
-  --mark: linear-gradient(var(--site-line-strong), var(--site-line-strong));
-  background:
-    var(--mark) top left / var(--site-frame-mark) var(--border-width-sm),
-    var(--mark) top left / var(--border-width-sm) var(--site-frame-mark),
-    var(--mark) top right / var(--site-frame-mark) var(--border-width-sm),
-    var(--mark) top right / var(--border-width-sm) var(--site-frame-mark),
-    var(--mark) bottom left / var(--site-frame-mark) var(--border-width-sm),
-    var(--mark) bottom left / var(--border-width-sm) var(--site-frame-mark),
-    var(--mark) bottom right / var(--site-frame-mark) var(--border-width-sm),
-    var(--mark) bottom right / var(--border-width-sm) var(--site-frame-mark);
-  background-repeat: no-repeat;
 }
 
 /*an unpublished item in edit mode: dimmed, with its badge on top*/

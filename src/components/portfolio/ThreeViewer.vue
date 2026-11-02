@@ -6,29 +6,30 @@ import SiteImage from "../SiteImage.vue"
 import type { ModelViewer } from "../../three/modelViewer"
 import type { ViewerMode, ViewerSettings } from "../../three/types"
 
-//PUBLIC 3D VIEWER. Shows the poster until the model is ready, and only fetches
-//three.js and the GLB when the viewer comes near the viewport, on every device.
-//Rendering pauses offscreen and in a hidden tab. The scene itself lives in src/three/modelViewer.ts.
+//PUBLIC 3D VIEWER, transparent so the model floats on the page. Fetches three.js
+//and the GLB when the viewer comes near the viewport, on every device, and flies
+//the camera in once a good part of it is on screen. The poster only shows when
+//the model cannot be. Rendering pauses offscreen and in a hidden tab. The scene itself lives in src/three/modelViewer.ts.
 
 const props = withDefaults(defineProps<{
   glbUrl:      string
   settings:    ViewerSettings | null
   //driven by the project card's wireframe button
   wireframe?:  boolean
-  //the intro flight waits for the parent to say the section is on screen
-  isInView?:   boolean
-  //image shown until the model is ready, and how wide the viewer is drawn
+  //image shown when the model cannot be, and how wide the viewer is drawn
   poster?:      string | null
   posterSizes?: string
   //what the model is, for screen readers
   alt?:         string
   autoRotate?:  boolean
-}>(), { wireframe: false, isInView: true, poster: null, posterSizes: "100vw", alt: "", autoRotate: false })
+}>(), { wireframe: false, poster: null, posterSizes: "100vw", alt: "", autoRotate: false })
 
 const { t } = useLanguage()
 
 //start loading this far before the viewer scrolls into view
 const PRELOAD_MARGIN = "200px"
+//share of the viewer on screen before the intro flight starts
+const INTRO_THRESHOLD = 0.3
 const DESKTOP_MAX_DPR = 2
 const TOUCH_MAX_DPR   = 1.5
 
@@ -45,6 +46,7 @@ const isFullscreen = ref(false)
 const canFullscreen = ref(false)
 const near    = ref(false)
 const visible = ref(false)
+const onScreen = ref(false)
 const pageHidden = ref(false)
 const viewer = shallowRef<ModelViewer | null>(null)
 
@@ -90,7 +92,7 @@ async function start() {
     if (run !== generation) return
     v.setMode(mode.value)
     phase.value = "ready"
-    if (props.isInView) v.playIntro()
+    if (onScreen.value) v.playIntro()
   } catch (err) {
     if (run !== generation) return
     console.error(`[ThreeViewer] ${props.glbUrl} could not be shown:`, err)
@@ -160,9 +162,11 @@ onMounted(() => {
   const el = root.value!
   const nearObserver = new IntersectionObserver(([entry]) => { near.value = entry!.isIntersecting }, { rootMargin: PRELOAD_MARGIN })
   const seenObserver = new IntersectionObserver(([entry]) => { visible.value = entry!.isIntersecting })
+  const introObserver = new IntersectionObserver(([entry]) => { onScreen.value = entry!.isIntersecting }, { threshold: INTRO_THRESHOLD })
   nearObserver.observe(el)
   seenObserver.observe(el)
-  observers.push(nearObserver, seenObserver)
+  introObserver.observe(el)
+  observers.push(nearObserver, seenObserver, introObserver)
   canvas.value!.addEventListener("webglcontextlost", onContextLost)
   canvas.value!.addEventListener("webglcontextrestored", onContextRestored)
   document.addEventListener("visibilitychange", onVisibilityChange)
@@ -182,8 +186,8 @@ watch(near, (isNear) => {
   if (isNear && phase.value === "idle") void start()
 })
 watch([visible, pageHidden], syncActive)
-watch(() => props.isInView, (inView) => {
-  if (inView && phase.value === "ready") viewer.value?.playIntro()
+watch(onScreen, (seen) => {
+  if (seen && phase.value === "ready") viewer.value?.playIntro()
 })
 watch(() => props.wireframe, (on) => {
   if (on) mode.value = "wireframe"
@@ -212,7 +216,7 @@ watch(() => props.glbUrl, () => {
     <canvas ref="canvas" class="three-viewer__canvas" :class="{ 'three-viewer__canvas--ready': phase === 'ready' }" />
 
     <SiteImage
-      v-if="poster && phase !== 'ready'"
+      v-if="poster && (phase === 'error' || phase === 'lost')"
       :src="poster"
       :sizes="posterSizes"
       class="three-viewer__poster"
@@ -303,13 +307,13 @@ watch(() => props.glbUrl, () => {
   opacity: 1;
 }
 
-/*fills the same box as the canvas, so the swap moves nothing*/
+/*the fallback when the model cannot be shown, under the message*/
 .three-viewer__poster {
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
   pointer-events: none;
 }
 

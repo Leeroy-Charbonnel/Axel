@@ -1,19 +1,33 @@
-import { Color, type Mesh } from "three"
+import { Color, type Mesh, Vector3, type WebGLProgramParametersWithUniforms } from "three"
 import { LineMaterial } from "three/examples/jsm/lines/LineMaterial.js"
 import { LineSegments2 } from "three/examples/jsm/lines/LineSegments2.js"
 import { LineSegmentsGeometry } from "three/examples/jsm/lines/LineSegmentsGeometry.js"
-import { pushSweepUniforms, type SweepMaterial } from "./materials"
+import { VIEWER_DEFAULTS } from "../lib/viewer-defaults"
+import { pushSweepUniforms, type SweepMaterial, WF_SWEEP_GLSL } from "./materials"
 import { computeEdgesInWorker } from "./wireframeEdges"
 
-//WIREFRAME MODE. Entering: the sweep plane crosses the model (lights blend on
-//the same curve), then the edge lines fade in. Leaving: the lines fade out,
-//then the sweep runs back. The two never animate together.
+//WIREFRAME MODE. One sweep plane crosses the model: behind it the surface turns
+//to the wireframe look and the edge lines appear, together, with a blue light
+//along the front (lights blend on the same curve). Leaving runs the same sweep
+//back.
 //
 //The edge geometry is built the first time the lines are needed, in a worker.
 
 const LINE_OPACITY      = 0.9
-const OVERLAY_FADE_MS   = 600
 const OVERLAY_RENDER_ORDER = 998
+
+//LINE SHADER PATCH - the line material reads the same front as the surfaces:
+//a line shows once swept and takes the glow colour near the front
+const LINE_VERTEX_COMMON = "#include <common>\nvarying vec3 vWfWorldPos;"
+const LINE_VERTEX_POS =
+  "vec4 end = modelViewMatrix * vec4( instanceEnd, 1.0 );\n" +
+  "vWfWorldPos = (modelMatrix * vec4(position.y < 0.5 ? instanceStart : instanceEnd, 1.0)).xyz;"
+const LINE_FRAGMENT_COMMON = "#include <common>\nvarying vec3 vWfWorldPos;\n" + WF_SWEEP_GLSL
+const LINE_FRAGMENT_OUT =
+  "gl_FragColor = vec4( diffuseColor.rgb, alpha );\n" +
+  "float wfD = wfFront(vWfWorldPos);\n" +
+  "gl_FragColor.rgb = mix(gl_FragColor.rgb, uWfGlow, clamp(wfGlow(wfD), 0.0, 1.0));\n" +
+  "gl_FragColor.a *= step(0.0, wfD);"
 
 interface Tween {
   from:     number
@@ -50,15 +64,26 @@ export interface OverlayStyle {
   width: number
 }
 
+export interface SweepFrame {
+  axis:  Vector3
+  min:   number
+  range: number
+}
+
 export class WireframeSweep {
   private on = false
   private progress = 0
   private sweep: Tween | null = null
-  private fade:  Tween | null = null
-  private opacity = 0
   private durationMs = 1500
   private style: OverlayStyle = { on: true, color: "#000000", width: 1 }
   private readonly lineMaterial: LineMaterial
+  private readonly lineUniforms = {
+    uWfProgress: { value: 0 },
+    uWfAxis:     { value: new Vector3(1, 0, 0) },
+    uWfMin:      { value: 0 },
+    uWfRange:    { value: 1 },
+    uWfGlow:     { value: new Color(VIEWER_DEFAULTS.wireframeGlowColor) },
+  }
   private overlays: LineSegments2[] | null = null
   //emissive picks glow instead of showing lines
   private excluded = new Set<Mesh>()
@@ -72,10 +97,20 @@ export class WireframeSweep {
       color: new Color(this.style.color).getHex(),
       linewidth: this.style.width,
       transparent: true,
-      opacity: 0,
+      opacity: LINE_OPACITY,
       depthWrite: false,
       worldUnits: false,
     })
+    this.lineMaterial.onBeforeCompile = (shader: WebGLProgramParametersWithUniforms) => {
+      Object.assign(shader.uniforms, this.lineUniforms)
+      shader.vertexShader = shader.vertexShader
+        .replace("#include <common>", LINE_VERTEX_COMMON)
+        .replace("vec4 end = modelViewMatrix * vec4( instanceEnd, 1.0 );", LINE_VERTEX_POS)
+      shader.fragmentShader = shader.fragmentShader
+        .replace("#include <common>", LINE_FRAGMENT_COMMON)
+        .replace("gl_FragColor = vec4( diffuseColor.rgb, alpha );", LINE_FRAGMENT_OUT)
+    }
+    this.lineMaterial.customProgramCacheKey = () => "wireframe-sweep-line"
   }
 
   get active(): boolean {
@@ -86,20 +121,20 @@ export class WireframeSweep {
     this.durationMs = ms
   }
 
+  setFrame(frame: SweepFrame): void {
+    this.lineUniforms.uWfAxis.value.copy(frame.axis)
+    this.lineUniforms.uWfMin.value = frame.min
+    this.lineUniforms.uWfRange.value = frame.range
+    pushSweepUniforms(this.hooks.materials, frame)
+  }
+
   setStyle(style: OverlayStyle): void {
     this.style = style
     this.lineMaterial.color.set(style.color)
     this.lineMaterial.linewidth = style.width
-    this.syncVisibility()
     //lines switched on while the model already sits in wireframe mode
-    if (style.on && this.on && !this.sweep && this.opacity === 0) {
-      this.ensureEdges()
-      void this.edges!.then(() => {
-        if (this.disposed || !this.on || !this.style.on) return
-        this.setOpacity(1)
-        this.hooks.requestRender()
-      })
-    }
+    if (style.on && this.progress > 0) this.ensureEdges()
+    this.syncVisibility()
     this.hooks.requestRender()
   }
 
@@ -121,92 +156,52 @@ export class WireframeSweep {
   enter(animate: boolean): void {
     if (this.on) return
     this.on = true
-    this.fade = null
     if (this.style.on) this.ensureEdges()
-    if (animate) {
-      this.sweep = { from: this.progress, to: 1, start: performance.now(), duration: this.durationMs * (1 - this.progress) }
-    } else {
-      this.sweep = null
-      this.setProgress(1)
-      this.entered(false)
-    }
-    this.hooks.requestRender()
+    this.run(1, animate)
   }
 
   leave(animate: boolean): void {
     if (!this.on) return
     this.on = false
     this.hooks.onLeaving()
-    if (animate && this.opacity > 0) {
-      this.sweep = null
-      this.fade = { from: this.opacity, to: 0, start: performance.now(), duration: OVERLAY_FADE_MS * this.opacity }
-    } else {
-      this.fade = null
-      this.setOpacity(0)
-      this.startLeaveSweep(animate)
-    }
-    this.hooks.requestRender()
+    this.run(0, animate)
   }
 
   //frame callback: true while something is animating
   update(now: number): boolean {
-    let busy = false
-    if (this.sweep) {
-      const { value, done } = tweenValue(this.sweep, now)
-      this.setProgress(value)
-      busy = true
-      if (done) {
-        this.sweep = null
-        if (this.on) this.entered(true)
-      }
+    if (!this.sweep) return false
+    const { value, done } = tweenValue(this.sweep, now)
+    this.setProgress(value)
+    if (done) {
+      this.sweep = null
+      if (this.on) this.hooks.onEntered()
     }
-    if (this.fade) {
-      const { value, done } = tweenValue(this.fade, now)
-      this.setOpacity(value)
-      busy = true
-      if (done) {
-        this.fade = null
-        if (!this.on) this.startLeaveSweep(true)
-      }
-    }
-    return busy
+    return true
   }
 
-  private startLeaveSweep(animate: boolean): void {
-    if (animate) {
-      this.sweep = { from: this.progress, to: 0, start: performance.now(), duration: this.durationMs * this.progress }
+  private run(to: number, animate: boolean): void {
+    const distance = Math.abs(to - this.progress)
+    if (animate && distance > 0) {
+      this.sweep = { from: this.progress, to, start: performance.now(), duration: this.durationMs * distance }
     } else {
       this.sweep = null
-      this.setProgress(0)
+      this.setProgress(to)
+      if (this.on) this.hooks.onEntered()
     }
-  }
-
-  private entered(animate: boolean): void {
-    this.hooks.onEntered()
-    if (!this.style.on || !this.edges) return
-    this.edges.then(() => {
-      if (this.disposed || !this.on || this.sweep) return
-      if (animate) this.fade = { from: this.opacity, to: 1, start: performance.now(), duration: OVERLAY_FADE_MS }
-      else this.setOpacity(1)
-      this.hooks.requestRender()
-    })
+    this.hooks.requestRender()
   }
 
   private setProgress(v: number): void {
     this.progress = v
+    this.lineUniforms.uWfProgress.value = v
     pushSweepUniforms(this.hooks.materials, { progress: v })
     this.hooks.setLightMix(v)
-  }
-
-  private setOpacity(v: number): void {
-    this.opacity = v
-    this.lineMaterial.opacity = LINE_OPACITY * v
     this.syncVisibility()
   }
 
   private syncVisibility(): void {
     if (!this.overlays) return
-    const shown = this.style.on && this.opacity > 0
+    const shown = this.style.on && this.progress > 0
     for (const o of this.overlays) o.visible = shown && !this.excluded.has(o.parent as Mesh)
   }
 
@@ -225,6 +220,7 @@ export class WireframeSweep {
           return line
         })
         this.syncVisibility()
+        this.hooks.requestRender()
       },
       (err) => {
         //the model stays usable without its lines; the failure is reported
