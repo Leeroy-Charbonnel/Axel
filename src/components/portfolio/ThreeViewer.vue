@@ -104,7 +104,8 @@ async function start() {
       return created
     })
     if (!v || run !== generation) return
-    v.setMode(mode.value)
+    //the starting mode is there from the first frame, never swept in
+    v.setMode(mode.value, false)
     phase.value = "ready"
     if (onScreen.value) v.playIntro()
   } catch (err) {

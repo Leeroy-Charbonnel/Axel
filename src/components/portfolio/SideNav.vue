@@ -59,8 +59,10 @@ watch(() => route.fullPath, closeMenu)
         >{{ t(section.labelKey) }}</a>
       </li>
     </ul>
-    <LangSwitch class="rail__lang" />
   </nav>
+
+  <!--DESKTOP LANGUAGE - the top right corner, as on the first site-->
+  <LangSwitch class="corner-lang" />
 
   <!--TABLET AND PHONE TOP BAR-->
   <header class="topbar">
@@ -117,7 +119,7 @@ to read bottom to top*/
   scrollbar-width: none;
 }
 
-/*centred in the rail; the language switch keeps the foot, never overlapping*/
+/*centred in the rail*/
 .rail__list {
   margin-block: auto;
   display: flex;
@@ -144,7 +146,12 @@ to read bottom to top*/
 .rail__link:hover { color: var(--site-text-heading); }
 .rail__link[aria-current="true"] { color: var(--site-accent); }
 
-.rail__lang { flex-direction: column; }
+.corner-lang {
+  position: fixed;
+  top: var(--spacing-xs);
+  right: var(--spacing-md);
+  z-index: var(--site-z-chrome);
+}
 
 /*a laptop-short window: the labels sit closer, and below that the rail scrolls
 rather than hiding its last links*/
@@ -240,7 +247,8 @@ rather than hiding its last links*/
 }
 
 @media (max-width: 1024px) {
-  .rail { display: none; }
+  .rail,
+  .corner-lang { display: none; }
 
   .topbar {
     position: fixed;

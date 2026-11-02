@@ -281,9 +281,9 @@ export class ModelViewer {
   }
 
   //Ignored until the model is loaded; the caller applies its mode after load().
-  setMode(mode: ViewerMode): void {
+  //animate false: the mode a viewer opens in, shown at once
+  setMode(mode: ViewerMode, animate = !this.opts.reducedMotion): void {
     if (!this.sweep || mode === this.mode) return
-    const animate = !this.opts.reducedMotion
     const previous = this.mode
     this.mode = mode
     if (previous === "clay") {
