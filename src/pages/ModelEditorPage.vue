@@ -56,12 +56,12 @@ import { LineSegments2 }     from "three/examples/jsm/lines/LineSegments2.js"
 import { LineMaterial }      from "three/examples/jsm/lines/LineMaterial.js"
 import { LineSegmentsGeometry } from "three/examples/jsm/lines/LineSegmentsGeometry.js"
 import {
-  buildWireframeWithoutDiagonals,
   CustomEmissiveMaterial,
   CustomNormalMaterial,
   pushSweepUniforms,
   type WfSweepPatch,
-} from "../composables/wfMaterials"
+} from "../three/materials"
+import { buildWireframeWithoutDiagonals } from "../three/wireframeEdges"
 import { VIEWER_DEFAULTS, VIEWER_PREF_KEYS } from "../lib/viewer-defaults"
 import { useConfirm } from "../composables/useConfirm"
 
