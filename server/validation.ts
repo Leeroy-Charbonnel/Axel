@@ -77,7 +77,7 @@ const BLOCK_CONTENT = {
                model3dId:   fileId.nullable(),
                desktopView: z.string(),
                mobileView:  z.string(),
-               look:        z.enum(["render", "blueprint"]).optional(),
+               look:        z.enum(["render", "blueprint", "exploded"]).optional(),
              }),
   legend:    z.strictObject({ marker: z.enum(["number", "letter"]), items: z.array(bilingual) }),
   sequence:  z.strictObject({ numbered: z.boolean(), items: z.array(imageItem.extend({ caption: bilingual })) }),
