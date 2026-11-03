@@ -32,7 +32,9 @@ const props = withDefaults(defineProps<{
   labels?:      boolean
 }>(), { labels: false, wireframe: false, poster: null, posterSizes: "100vw", alt: "", autoRotate: false, toolbar: true, toolbarSide: "bottom" })
 
-const emit = defineEmits<{ "update:wireframe": [on: boolean] }>()
+//plain: the model shown without its materials (wireframe or clay), for the
+//thumbnails beside it to turn to their clay renders
+const emit = defineEmits<{ "update:wireframe": [on: boolean]; "update:plain": [on: boolean] }>()
 
 const { t } = useLanguage()
 
@@ -266,6 +268,7 @@ watch(() => props.wireframe, (on) => {
 watch(mode, (m) => {
   viewer.value?.setMode(m)
   emit("update:wireframe", m === "wireframe")
+  emit("update:plain", m !== "render")
 })
 watch(() => props.settings, (s) => {
   if (phase.value === "ready" && s) viewer.value?.applySettings(s)

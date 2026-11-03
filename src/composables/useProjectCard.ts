@@ -10,7 +10,8 @@ import type { MainProjectDto, ThumbnailDto } from "../types/portfolio"
 //WHAT A PROJECT CARD KNOWS BEYOND ITS MARKUP: the 3D model it can open, the
 //still it shows (lit or wireframe) and the slides it hands the lightbox.
 //showWireframe is passed in when another component shares the same mode
-export function useProjectCard(project: Ref<MainProjectDto>, showWireframe: Ref<boolean> = ref(false)) {
+//plain: wireframe or clay, when the thumbnails show their clay renders
+export function useProjectCard(project: Ref<MainProjectDto>, showWireframe: Ref<boolean> = ref(false), plain: Ref<boolean> = showWireframe) {
   const { lang, t } = useLanguage()
   const { data: portfolioData } = usePortfolio()
   const { open: openLightbox } = useLightbox()
@@ -33,7 +34,7 @@ export function useProjectCard(project: Ref<MainProjectDto>, showWireframe: Ref<
   const description = computed(() => pickBilingual(project.value.description, lang.value))
 
   //a thumbnail as shown: its wireframe render in wireframe mode, when it has one
-  const thumbUrl = (thumb: ThumbnailDto) => (showWireframe.value && thumb.wireframeUrl ? thumb.wireframeUrl : thumb.url)
+  const thumbUrl = (thumb: ThumbnailDto) => ((plain.value || showWireframe.value) && thumb.wireframeUrl ? thumb.wireframeUrl : thumb.url)
 
   const slides = computed(() => {
     const list: { url: string; alt: string }[] = []

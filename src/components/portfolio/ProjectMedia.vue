@@ -23,19 +23,22 @@ const props = withDefaults(defineProps<{
 }>(), { thumbsSide: "right", thumbs: true, toolbar: true, toolbarSide: "bottom" })
 
 const showWireframe = defineModel<boolean>("wireframe", { default: false })
+//wireframe or clay: the thumbnails show their clay renders
+const plain = defineModel<boolean>("plain", { default: false })
 
 const {
   lang, t, title, viewerSettings, glbUrl,
   hasWireframe, stillUrl, openStill, openThumbnail,
-} = useProjectCard(toRef(props, "project"), showWireframe)
+} = useProjectCard(toRef(props, "project"), showWireframe, plain)
 </script>
 
 <template>
-  <div class="media" :class="[`media--thumbs-${thumbsSide}`, { 'media--wireframe': showWireframe, 'media--with-thumbs': thumbs }]">
+  <div class="media" :class="[`media--thumbs-${thumbsSide}`, { 'media--wireframe': plain || showWireframe, 'media--with-thumbs': thumbs }]">
     <div class="media__stage" :class="{ 'media__stage--still': !glbUrl }">
       <ThreeViewer
         v-if="glbUrl"
         v-model:wireframe="showWireframe"
+        v-model:plain="plain"
         :glb-url="glbUrl"
         :settings="viewerSettings"
         :poster="project.mainImageUrl"

@@ -25,7 +25,9 @@ const props = withDefaults(defineProps<{ project: MainProjectDto; number: number
 })
 
 const wireframe = ref(false)
-const { lang, t, title, description, openThumbnail } = useProjectCard(toRef(props, "project"), wireframe)
+//wireframe or clay: the thumbnails turn to their clay renders in both
+const plain = ref(false)
+const { lang, t, title, description, openThumbnail } = useProjectCard(toRef(props, "project"), wireframe, plain)
 
 //S F A T: vertices, faces, edges, triangles, each with the initial of its label
 const STAT_ORDER = ["vertices", "faces", "edges", "triangles"]
@@ -48,7 +50,7 @@ const titleId = `project-${props.project.id}-title`
   <EditableRegion kind="mainProject" :id="project.id" :label="t('editorKindMainProject')">
     <article
       class="case"
-      :class="{ 'case--flipped': flipped, 'case--detail': detail, 'case--wireframe': wireframe, 'site-unpublished': !project.published }"
+      :class="{ 'case--flipped': flipped, 'case--detail': detail, 'case--wireframe': plain, 'site-unpublished': !project.published }"
       :aria-labelledby="titleId"
     >
       <UnpublishedBadge :published="project.published" />
@@ -89,6 +91,7 @@ const titleId = `project-${props.project.id}-title`
 
       <ProjectMedia
         v-model:wireframe="wireframe"
+        v-model:plain="plain"
         :project="project"
         :thumbs="false"
         toolbar-side="right"
