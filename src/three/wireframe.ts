@@ -28,12 +28,14 @@ const LINE_FRAGMENT_COMMON =
   "#include <common>\nvarying vec3 vWfWorldPos;\n" + WF_FRONT_GLSL +
   "uniform vec3 uWfGlow;\n" +
   "float wfGlow(float d) {\n" +
-  "  return exp(-max(d, 0.0) / 0.15) * sin(PI * uWfProgress);\n" +
+  "  float envelope = smoothstep(0.0, 0.06, uWfProgress) * (1.0 - smoothstep(0.94, 1.0, uWfProgress));\n" +
+  "  return exp(-max(d, 0.0) / 0.25) * envelope;\n" +
   "}\n"
+//the glow is saturated blue, well above the white of the settled lines
 const LINE_FRAGMENT_OUT =
   "float wfD = wfFront(vWfWorldPos);\n" +
   "float wfG = clamp(wfGlow(wfD), 0.0, 1.0);\n" +
-  "gl_FragColor = vec4( mix(diffuseColor.rgb, uWfGlow * 1.6, wfG), max(alpha, wfG) * step(0.0, wfD) );"
+  "gl_FragColor = vec4( mix(diffuseColor.rgb, uWfGlow * 2.4, wfG), max(alpha, wfG) * step(0.0, wfD) );"
 
 interface Tween {
   from:     number
