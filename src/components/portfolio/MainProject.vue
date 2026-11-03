@@ -48,6 +48,9 @@ const titleId = `project-${props.project.id}-title`
 
 <template>
   <EditableRegion kind="mainProject" :id="project.id" :label="t('editorKindMainProject')">
+    <!--the card lays itself out by the width it gets, not the window's: an
+    open inspector narrows the page without the window changing-->
+    <div class="case-frame">
     <article
       class="case"
       :class="{ 'case--flipped': flipped, 'case--detail': detail, 'case--wireframe': plain, 'site-unpublished': !project.published }"
@@ -98,6 +101,7 @@ const titleId = `project-${props.project.id}-title`
         class="case__media"
       />
     </article>
+    </div>
   </EditableRegion>
 </template>
 
@@ -273,7 +277,10 @@ the line x + y = t, t growing over the column's width plus height.*/
   color: var(--site-text-caption);
 }
 
-@media (max-width: 1024px) {
+.case-frame { container: case-frame / inline-size; }
+
+/*the three columns need a laptop's width: below it, stacked*/
+@container case-frame (max-width: 960px) {
   .case,
   .case--flipped,
   .case--detail {
@@ -283,7 +290,7 @@ the line x + y = t, t growing over the column's width plus height.*/
 
   /*a row: the same line crosses it from left to right*/
   .case__thumbs {
-    --s: calc((100vw - 2 * var(--site-gutter) - (var(--n) - 1) * var(--g)) / var(--n));
+    --s: calc((100cqi - (var(--n) - 1) * var(--g)) / var(--n));
     display: grid;
     grid-template-columns: repeat(var(--n), minmax(0, 1fr));
   }

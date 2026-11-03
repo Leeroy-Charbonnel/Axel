@@ -12,7 +12,7 @@ export const VIEWER_DEFAULTS = {
   //tints the emissive picks
   wireframeModeColor: "#14b8a6",
   //the lines drawn over the model in wireframe mode
-  wireframeLineColor: "#000000",
+  wireframeLineColor: "#ffffff",
   //an unlit material with no colour of its own
   normalColor:        "#ffffff",
   wireframeOverlayOn: true,

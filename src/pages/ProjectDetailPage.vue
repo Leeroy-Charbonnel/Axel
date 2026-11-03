@@ -205,8 +205,11 @@ const ALL_PROJECTS = "/#projects"
   margin-inline: auto;
   padding-inline: var(--site-gutter);
 }
-/*the panel sits on the right edge (bottom sheet below 1025px)*/
+/*the block panel sits on the right edge (bottom sheet below 1025px); while
+the inspector is open it takes that edge and reserves its own width, so the
+page does not reserve both*/
 .case--editing { padding-right: var(--detail-panel-width); }
+:global(html.editor-inspector-open) .case--editing { padding-right: 0; }
 @media (max-width: 1024px) {
   .case--editing { padding-right: 0; padding-bottom: calc(var(--detail-sheet-height) + var(--spacing-xl)); }
 }
