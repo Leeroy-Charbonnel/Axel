@@ -11,7 +11,10 @@
 //--retire unpublishes every other main project and gallery card.
 //DATABASE_URL only, never the production database.
 //
-//Usage: bun scripts/import-renders.ts <root> --main=a,b,c [--retire]
+//--only imports the folders named in --main and nothing else: the order and the
+//gallery stay as they are, for a project re-rendered on its own.
+//
+//Usage: bun scripts/import-renders.ts <root> --main=a,b,c [--retire] [--only]
 
 import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, statSync } from "node:fs"
 import { createHash, randomUUID } from "node:crypto"
@@ -370,7 +373,7 @@ async function main() {
   refuseProduction()
   const root = process.argv[2]
   const mains = process.argv.find((a) => a.startsWith("--main="))?.slice("--main=".length).split(",")
-  if (!root || !mains) throw new Error("usage: bun scripts/import-renders.ts <root> --main=a,b,c [--retire]")
+  if (!root || !mains) throw new Error("usage: bun scripts/import-renders.ts <root> --main=a,b,c [--retire] [--only]")
   const retire = process.argv.includes("--retire")
   const uploader = await adminId()
 
@@ -383,6 +386,7 @@ async function main() {
     mainIds.push(await importMain(dir, uploader, mainIds.length % 2 === 1))
     console.log(`main project ${name} -> #${mainIds.at(-1)}`)
   }
+  if (process.argv.includes("--only")) return
   const galleryIds: number[] = []
   for (const name of readdirSync(root).sort()) {
     const dir = join(root, name)
