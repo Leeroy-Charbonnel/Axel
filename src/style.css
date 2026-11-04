@@ -65,6 +65,7 @@ named token below derives from these, so the accent_color setting (written to
   --site-thumb-row:     calc((100vw - 2 * var(--site-gutter) - 2 * var(--spacing-xs)) / 3);
   --site-wire-wipe:     0.8s;
   --site-number-size:   clamp(2.5rem, 1rem + 5vw, 6rem);
+  --site-title-glyph:   0.78;
   --site-thumb-col:     clamp(96px, 9vw, 140px);
   --site-case-aspect:   4 / 3;
   --site-stat-badge:    1.6rem;

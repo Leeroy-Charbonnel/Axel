@@ -44,6 +44,8 @@ const thumbs = computed(() => {
 
 
 const titleId = `project-${props.project.id}-title`
+//the page title shrinks only as far as its longest word needs to fit the column
+const longestWord = computed(() => Math.max(...title.value.split(/\s+/).map((word) => word.length)))
 </script>
 
 <template>
@@ -74,7 +76,7 @@ const titleId = `project-${props.project.id}-title`
 
       <div class="case__info">
         <span class="case__number" aria-hidden="true">{{ String(number).padStart(2, "0") }}</span>
-        <h1 v-if="detail" :id="titleId" class="case__title case__title--page">{{ title }}</h1>
+        <h1 v-if="detail" :id="titleId" class="case__title case__title--page" :style="{ '--title-word': longestWord }">{{ title }}</h1>
         <h3 v-else :id="titleId" class="case__title">
           <RouterLink :to="`/project/${project.id}`">{{ title }}</RouterLink>
         </h3>
@@ -224,7 +226,9 @@ the line x + y = t, t growing over the column's width plus height.*/
   overflow-wrap: anywhere;
 }
 
-.case__title--page { font-size: var(--site-fs-h1); }
+.case--detail .case__info { container-type: inline-size; }
+
+.case__title--page { font-size: min(var(--site-fs-h1), calc(100cqi / (var(--title-word) * var(--site-title-glyph)))); }
 
 .case__title a { transition: color var(--site-duration-fast) ease; }
 .case__title a:hover { color: var(--site-accent); }
