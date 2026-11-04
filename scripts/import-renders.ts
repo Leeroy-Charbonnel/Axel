@@ -267,7 +267,7 @@ async function importMain(dir: string, uploader: string, startRight: boolean): P
   const thumbnails = detailIds.map((fileId, i) => ({ fileId, wireframeFileId: detailWireIds[i] ?? null, description: m.title }))
   //the technical plan when the folder has one, else the making-of
   const sheet = has("sheet/sheet.json")
-    ? await importSheet(sheetManifest.parse(JSON.parse(readFileSync(join(dir, "sheet", "sheet.json"), "utf8"))), (name) => put(`sheet/${name}`), model!.id, m.title.en)
+    ? await importSheet(sheetManifest.parse(JSON.parse(readFileSync(join(dir, "sheet", "sheet.json"), "utf8"))), join(dir, "sheet"), (name) => put(`sheet/${name}`), model!.id, m.title.en)
     : null
   const values = mainProjectPatch.required().parse({
     title: m.title, description: m.description, published: true, role: m.role, year: m.year,
@@ -300,16 +300,17 @@ async function importMain(dir: string, uploader: string, startRight: boolean): P
 
 //the exploded model: its own row, optimized once, its marks in its settings
 async function explodedModel(
-  glbId: string, name: string, labels: Vec3[], camera: { position: Vec3; target: Vec3; fov: number } | null,
+  glbId: string, name: string, labels: Vec3[], camera: { position: Vec3; target: Vec3; fov: number } | null, aspect: number,
 ): Promise<string> {
   let [row] = await db.select().from(model3d).where(eq(model3d.sourceGlbFileId, glbId))
   if (!row) [row] = await db.select().from(model3d).where(eq(model3d.glbFileId, glbId))
   if (!row) [row] = await db.insert(model3d).values({ name, glbFileId: glbId, views: [] }).returning()
-  //the drawing's camera as the model's view, when the sheet gives it
+  //the drawing's camera and frame as the model's view, when the sheet gives it:
+  //a narrower viewer steps back to keep the drawing's width
   const [source] = await db.select().from(file).where(eq(file.id, row!.sourceGlbFileId ?? row!.glbFileId))
   if (!source) throw new Error(`${name}: its GLB file row is missing`)
   const views = camera
-    ? [{ name: VIEW, ...viewerView(await glbBounds(join(STORAGE_DIR, source.storedFilename)), camera), wireframe: false }]
+    ? [{ name: VIEW, ...viewerView(await glbBounds(join(STORAGE_DIR, source.storedFilename)), camera), wireframe: false, aspect }]
     : []
   const settings = { ...(row!.viewerSettings ?? {}), labels }
   await db.update(model3d).set({ name, views, viewerSettings: settings, updatedAt: new Date() }).where(eq(model3d.id, row!.id))
@@ -319,7 +320,7 @@ async function explodedModel(
 
 //the files of sheet/sheet.json stored, and the page they lay out
 async function importSheet(
-  s: z.infer<typeof sheetManifest>, put: (name: string) => Promise<string>, modelId: string, title: string,
+  s: z.infer<typeof sheetManifest>, sheetDir: string, put: (name: string) => Promise<string>, modelId: string, title: string,
 ) {
   const images = async (list: z.infer<typeof labelled>[]): Promise<SheetImage[]> => {
     const out: SheetImage[] = []
@@ -341,7 +342,7 @@ async function importSheet(
       ? {
         fileId:  await put(s.exploded.image),
         modelId: s.exploded.glb
-          ? await explodedModel(await put(s.exploded.glb), `${title} (exploded)`, s.exploded.labels ?? [], s.exploded.camera ?? null)
+          ? await explodedModel(await put(s.exploded.glb), `${title} (exploded)`, s.exploded.labels ?? [], s.exploded.camera ?? null, await imageAspect(join(sheetDir, s.exploded.image)))
           : null,
         legend:  s.exploded.legend,
       }
