@@ -77,8 +77,9 @@ function load(): void {
     shown.value = props.src
     return
   }
-  const drawn = sizesWidth(props.sizes)
-  const step = stepFor(props.full ? drawn * window.devicePixelRatio : drawn, size.value?.[0] ?? null)
+  //full fills the screen, whatever width the window reports
+  const drawn = props.full ? Math.max(sizesWidth(props.sizes), window.screen.width) * window.devicePixelRatio : sizesWidth(props.sizes)
+  const step = stepFor(drawn, size.value?.[0] ?? null)
   const have = loadedStep(stored)
   if (have !== undefined && have >= step) return show(stored, have)
   if (props.full) {
