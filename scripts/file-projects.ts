@@ -13,7 +13,12 @@ if (process.argv.includes("--plan")) {
   for (const f of plan) console.log(`${f.from} -> ${f.to}`)
   console.log(`[file-projects] ${plan.length} file(s) to move`)
 } else {
-  const moved = await fileIntoProjects(console.log)
-  console.log(`[file-projects] ${moved} file(s) filed`)
+  //Filing never stops the boot: a file left in place is still served
+  try {
+    const moved = await fileIntoProjects(console.log)
+    console.log(`[file-projects] ${moved} file(s) filed`)
+  } catch (e) {
+    console.error("[file-projects] filing skipped:", e)
+  }
 }
 process.exit(0)

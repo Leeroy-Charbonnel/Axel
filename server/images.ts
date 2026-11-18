@@ -51,14 +51,16 @@ async function limited<T>(job: () => Promise<T>): Promise<T> {
 //sharp failed on the source bytes, as opposed to the storage failing on ours
 class DecodeError extends Error {}
 
+//The source is read inside the limit: at most MAX_ENCODES sources in memory
 async function encode(stored: string, target: string, format: ImageFormat, width: number): Promise<void> {
-  const source = await readObject(stored)
-  let bytes: Buffer
-  try {
-    bytes = await limited(() => ENCODE[format](sharp(source).autoOrient().resize({ width, withoutEnlargement: true })).toBuffer())
-  } catch (e) {
-    throw new DecodeError(e instanceof Error ? e.message : String(e))
-  }
+  const bytes = await limited(async () => {
+    const source = await readObject(stored)
+    try {
+      return await ENCODE[format](sharp(source).autoOrient().resize({ width, withoutEnlargement: true })).toBuffer()
+    } catch (e) {
+      throw new DecodeError(e instanceof Error ? e.message : String(e))
+    }
+  })
   await writeObject(target, bytes)
 }
 

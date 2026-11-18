@@ -78,8 +78,12 @@ export async function planFiling(): Promise<Filing[]> {
   const plan: Filing[] = []
   for (const r of rows) {
     const parts = r.stored_filename.split("/")
-    const name = parts.at(-1)!
-    const subdir = parts.at(-2)!
+    const name = parts.at(-1)
+    const subdir = parts.at(-2)
+    if (!name || !subdir) {
+      console.error(`[file-projects] ${r.stored_filename} has no subdir/name shape, left in place`)
+      continue
+    }
     const owner = r.owner === null ? null : Number(r.owner)
     const to = `${folderFor(owner)}/${subdir}/${name}`
     if (to !== r.stored_filename || owner !== r.main_project_id) {
@@ -112,13 +116,22 @@ async function move(f: Filing): Promise<void> {
   }
 }
 
+const LOG_EVERY = 25
+
+//A file that cannot move stays where it is: /media still serves its old key
 export async function fileIntoProjects(log: (line: string) => void): Promise<number> {
   const plan = await planFiling()
   let done = 0
+  let failed = 0
   for (const f of plan) {
-    await move(f)
+    try {
+      await move(f)
+    } catch (e) {
+      failed++
+      console.error(`[file-projects] ${f.from} -> ${f.to} failed, left in place:`, e)
+    }
     done++
-    if (done % 25 === 0 || done === plan.length) log(`[file-projects] ${done}/${plan.length}`)
+    if (done % LOG_EVERY === 0 || done === plan.length) log(`[file-projects] ${done}/${plan.length}, ${failed} failed`)
   }
-  return plan.length
+  return plan.length - failed
 }
