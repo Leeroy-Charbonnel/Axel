@@ -89,9 +89,9 @@ async function add() {
 </script>
 
 <template>
-  <section class="software">
+  <section class="software ed-ui">
     <form class="software__new" @submit.prevent="add">
-      <h2 class="ed-form__title">{{ t('softwareAddTitle') }}</h2>
+      <h2 class="ed-form__title software__title">{{ t('softwareAddTitle') }}</h2>
       <div class="software__fields">
         <TextField :label="t('softwareName')" :model-value="draft.key" @update:model-value="(v) => (draft.key = v)" />
         <UrlField :label="t('softwareUrl')" :model-value="draft.url" @update:model-value="(v) => (draft.url = v)" />
@@ -104,7 +104,7 @@ async function add() {
         @clear="draft.logo = null"
       />
       <button type="submit" class="ed-btn ed-btn--primary software__submit" :disabled="!canAdd">
-        <Plus :size="16" />
+        <Plus :size="16" aria-hidden="true" />
         <span>{{ adding ? t('mediaUploading') : t('softwareAdd') }}</span>
       </button>
     </form>
@@ -126,22 +126,25 @@ async function add() {
           <UrlField :label="t('softwareUrl')" :model-value="rowOf(sw).url" @update:model-value="(v) => edit(sw, { url: v })" />
         </div>
         <div class="software__actions">
+          <!--primary only while the row has unsaved edits-->
           <button
             type="button"
-            class="ed-btn ed-btn--primary"
+            class="ed-btn"
+            :class="{ 'ed-btn--primary': Boolean(edits[sw.id]) }"
             :disabled="!edits[sw.id] || savingId === sw.id"
             @click="save(sw)"
           >
-            <Save :size="16" />
+            <Save :size="16" aria-hidden="true" />
             <span>{{ t('editorSave') }}</span>
           </button>
           <button
             type="button"
-            class="ed-btn ed-btn--icon ed-btn--danger"
+            class="ed-btn ed-btn--ghost ed-btn--icon ed-btn--danger"
             :aria-label="`${t('softwareDeleteAction')} ${sw.key}`"
+            :title="`${t('softwareDeleteAction')} ${sw.key}`"
             @click="remove(sw)"
           >
-            <Trash2 :size="16" />
+            <Trash2 :size="16" aria-hidden="true" />
           </button>
         </div>
       </li>
@@ -153,42 +156,63 @@ async function add() {
 .software {
   display: flex;
   flex-direction: column;
-  gap: var(--spacing-lg);
+  gap: var(--vsui-space-md);
   container: editor / inline-size;
 }
 
-.software__new,
-.software__row {
+/*NARROW - each entry is a column: logo, fields, actions*/
+.software__new {
   display: flex;
   flex-direction: column;
-  gap: var(--spacing-md);
-  padding: var(--spacing-lg);
+  gap: var(--vsui-space-sm);
+  padding: var(--vsui-space-md);
   background-color: var(--editor-surface);
-  border: var(--border-width) solid var(--editor-line);
+  border: var(--border-width) solid var(--editor-line-soft);
+  border-radius: var(--editor-radius);
 }
-
-.software__fields {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: var(--spacing-sm);
-}
-
-@container editor (min-width: 36rem) {
-  .software__fields { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-}
-
-.software__submit { align-self: flex-start; }
 
 .software__list {
   list-style: none;
   display: flex;
   flex-direction: column;
-  gap: var(--spacing-sm);
+  background-color: var(--editor-surface);
+  border: var(--border-width) solid var(--editor-line-soft);
+  border-radius: var(--editor-radius);
 }
+
+.software__row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--vsui-space-sm);
+  padding: var(--vsui-space-md);
+}
+.software__row + .software__row { border-top: var(--border-width) solid var(--editor-line-soft); }
+
+.software__fields {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--vsui-space-sm);
+}
+
+.software__submit { align-self: flex-start; }
 
 .software__actions {
   display: flex;
   justify-content: flex-end;
-  gap: var(--spacing-xxs);
+  gap: var(--vsui-space-2xs);
+}
+
+/*WIDE - one line per entry, the controls aligned on their bottom edge*/
+@container editor (min-width: 40rem) {
+  .software__new,
+  .software__row {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr)) auto;
+    align-items: end;
+    column-gap: var(--vsui-space-md);
+  }
+  .software__fields { display: contents; }
+  .software__title { grid-column: 1 / -1; }
+  .software__submit { align-self: end; }
 }
 </style>

@@ -28,9 +28,10 @@ const { t } = useTranslations()
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: var(--me-dot-target);
-  height: var(--me-dot-target);
+  width: var(--editor-icon);
+  height: var(--editor-icon);
   flex-shrink: 0;
+  border-radius: var(--editor-radius);
   cursor: pointer;
 }
 

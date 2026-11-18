@@ -186,16 +186,16 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="me">
+  <div class="ed-ui me">
     <header class="me__head">
       <RouterLink class="ed-btn ed-btn--ghost ed-btn--icon" :to="{ path: '/settings', query: { tab: 'models' } }" :aria-label="t('modelEditorBack')" :title="t('modelEditorBack')">
-        <ArrowLeft :size="18" />
+        <ArrowLeft :size="16" />
       </RouterLink>
       <div class="me__title">
         <p class="me__eyebrow">{{ t('modelEditorTitle') }}</p>
         <h1 class="me__name">{{ ed.model.value?.name ?? '' }}</h1>
       </div>
-      <button type="button" class="ed-btn ed-btn--primary me__auto" :disabled="!ed.setup.value" :title="t('modelEditorAutoHint')" @click="runAuto(false)">
+      <button type="button" class="ed-btn ed-btn--primary" :disabled="!ed.setup.value" :title="t('modelEditorAutoHint')" @click="runAuto(false)">
         <Sparkles :size="16" aria-hidden="true" />
         <span>{{ t('modelEditorAuto') }}</span>
       </button>
@@ -219,7 +219,7 @@ onBeforeUnmount(() => {
             <aside v-if="summary" class="me__summary" role="status" :aria-label="t('modelEditorSummaryTitle')">
               <div class="me__summary-head">
                 <Sparkles :size="16" aria-hidden="true" />
-                <p class="ed-label">{{ t('modelEditorSummaryTitle') }}</p>
+                <p class="me__summary-title">{{ t('modelEditorSummaryTitle') }}</p>
                 <button type="button" class="ed-btn ed-btn--ghost ed-btn--icon me__summary-close" :aria-label="t('modelEditorClose')" @click="summary = null">
                   <X :size="16" />
                 </button>
@@ -251,7 +251,7 @@ onBeforeUnmount(() => {
             :title="`${t(TABS[key].label)} (${i + 1})`"
             @click="ed.panel.value = key"
           >
-            <component :is="TABS[key].icon" :size="16" aria-hidden="true" />
+            <component :is="TABS[key].icon" :size="14" class="me__tab-icon" aria-hidden="true" />
             <span class="me__tab-label">{{ t(TABS[key].label) }}</span>
           </button>
           <button type="button" class="ed-btn ed-btn--ghost ed-btn--icon me__panel-close" :aria-label="t('modelEditorClose')" @click="drawer = false">
@@ -281,37 +281,36 @@ onBeforeUnmount(() => {
   grid-template-rows: auto minmax(0, 1fr);
   grid-template-columns: minmax(0, 1fr);
   height: calc(100dvh - var(--editor-bar-offset));
-  color: var(--editor-text);
-  background-color: var(--me-page-bg);
+  background-color: var(--editor-surface);
 }
 
-/*HEADER*/
+/*HEADER - one control tall*/
 .me__head {
   display: flex;
   align-items: center;
-  gap: var(--spacing-sm);
-  min-height: var(--me-head-height);
-  padding: 0 var(--spacing-sm);
+  gap: var(--vsui-space-sm);
+  padding: var(--vsui-space-xs) var(--vsui-space-sm);
   border-bottom: var(--border-width) solid var(--editor-line);
 }
 
 .me__title {
+  display: flex;
   flex: 1;
+  align-items: baseline;
+  gap: var(--vsui-space-sm);
   min-width: 0;
 }
 
 .me__eyebrow {
-  font-size: var(--font-size-xs);
-  text-transform: uppercase;
-  letter-spacing: var(--site-tracking-label);
+  flex-shrink: 0;
+  font-size: var(--editor-fs-sm);
   color: var(--editor-text-muted);
 }
 
 .me__name {
-  font-size: var(--font-size-md);
-  font-weight: var(--font-weight-bold);
-  text-transform: uppercase;
-  letter-spacing: var(--letter-spacing-tight);
+  min-width: 0;
+  font-size: var(--editor-fs);
+  font-weight: var(--font-weight-semibold);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -322,7 +321,7 @@ onBeforeUnmount(() => {
 /*BODY*/
 .me__body {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) var(--me-panel-width);
+  grid-template-columns: minmax(0, 1fr) var(--editor-inspector-width);
   min-height: 0;
 }
 
@@ -342,33 +341,36 @@ onBeforeUnmount(() => {
 /*AUTO SETUP SUMMARY - over the viewport, bottom left*/
 .me__summary {
   position: absolute;
-  left: var(--spacing-sm);
-  bottom: var(--spacing-sm);
+  left: var(--vsui-space-sm);
+  bottom: var(--vsui-space-sm);
   display: flex;
   flex-direction: column;
-  gap: var(--spacing-xs);
-  width: min(var(--vsui-panel-lg), calc(100% - 2 * var(--spacing-sm)));
-  padding: var(--spacing-sm) var(--spacing-md);
-  background-color: var(--me-chrome-bg);
+  gap: var(--vsui-space-xs);
+  width: min(var(--vsui-panel-lg), calc(100% - 2 * var(--vsui-space-sm)));
+  padding: var(--vsui-space-sm) var(--vsui-space-md);
+  background-color: var(--editor-surface-raised);
   border: var(--border-width) solid var(--editor-accent-line);
-  box-shadow: var(--vsui-shadow-lg);
+  border-radius: var(--editor-radius);
+  box-shadow: var(--editor-shadow);
 }
 
 .me__summary-head {
   display: flex;
   align-items: center;
-  gap: var(--spacing-xs);
+  gap: var(--vsui-space-xs);
   color: var(--editor-accent);
 }
+
+.me__summary-title { font-weight: var(--font-weight-semibold); }
 
 .me__summary-close { margin-left: auto; }
 
 .me__summary-list {
   display: flex;
   flex-direction: column;
-  gap: var(--spacing-xxs);
-  padding-left: var(--spacing-md);
-  font-size: var(--font-size-sm);
+  gap: var(--vsui-space-2xs);
+  padding-left: var(--vsui-space-lg);
+  font-size: var(--editor-fs-sm);
 }
 
 /*PANEL*/
@@ -380,40 +382,43 @@ onBeforeUnmount(() => {
   border-left: var(--border-width) solid var(--editor-line);
 }
 
+/*TABS - a compact row, the open one raised*/
 .me__tabs {
   display: flex;
+  align-items: center;
+  gap: var(--vsui-space-2xs);
+  padding: var(--vsui-space-xs);
   border-bottom: var(--border-width) solid var(--editor-line);
 }
 
 .me__tab {
   display: flex;
-  flex: 1;
-  flex-direction: column;
+  flex: 1 1 auto;
   align-items: center;
   justify-content: center;
-  gap: var(--spacing-xxs);
+  gap: var(--vsui-space-xs);
   min-width: 0;
-  min-height: var(--me-tab-height);
-  padding: var(--spacing-xxs);
-  font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-medium);
-  letter-spacing: var(--letter-spacing-tight);
-  text-transform: uppercase;
+  min-height: var(--editor-control);
+  padding: 0 var(--vsui-space-xs);
+  font-size: var(--editor-fs-sm);
   color: var(--editor-text-muted);
-  box-shadow: inset 0 calc(-1 * var(--editor-outline-width)) 0 transparent;
+  border-radius: var(--editor-radius);
   cursor: pointer;
-  transition: color var(--transition-fast) ease, box-shadow var(--transition-fast) ease;
+  transition: color var(--transition-fast) ease, background-color var(--transition-fast) ease;
 }
 
 .me__tab:hover { color: var(--editor-text); }
 .me__tab--on {
-  color: var(--editor-accent);
-  box-shadow: inset 0 calc(-1 * var(--editor-outline-width)) 0 var(--editor-accent);
+  color: var(--editor-text);
+  background-color: var(--editor-surface-raised);
 }
-.me__tab:focus-visible { outline: none; box-shadow: inset var(--editor-focus); }
+.me__tab--on .me__tab-icon { color: var(--editor-accent); }
+.me__tab:focus-visible { outline: none; box-shadow: var(--editor-focus); }
+
+.me__tab-icon { flex-shrink: 0; }
 
 .me__tab-label {
-  max-width: 100%;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -424,9 +429,10 @@ onBeforeUnmount(() => {
 .me__panel-body {
   flex: 1;
   min-height: 0;
-  padding: var(--spacing-md);
+  padding: var(--vsui-space-md);
   overflow-y: auto;
   overscroll-behavior: contain;
+  scrollbar-width: thin;
 }
 
 .me__scrim { display: none; }
@@ -437,21 +443,21 @@ onBeforeUnmount(() => {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: var(--spacing-sm);
-  padding: var(--spacing-xl);
+  gap: var(--vsui-space-sm);
+  padding: var(--vsui-space-xl);
   text-align: center;
   color: var(--editor-danger);
 }
 
 .me__loading {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) var(--me-panel-width);
+  grid-template-columns: minmax(0, 1fr) var(--editor-inspector-width);
   gap: var(--border-width);
 }
 
 .me__skeleton {
   display: block;
-  background-color: var(--editor-surface);
+  background-color: var(--editor-surface-raised);
   animation: me-pulse var(--me-indeterminate-duration) ease-in-out infinite alternate;
 }
 
@@ -466,7 +472,7 @@ onBeforeUnmount(() => {
   .me__loading { grid-template-columns: minmax(0, 1fr); }
   .me__skeleton--panel { display: none; }
   .me__drawer-btn { display: inline-flex; }
-  .me__panel-close { display: inline-flex; align-self: center; }
+  .me__panel-close { display: inline-flex; flex-shrink: 0; }
 
   .me__panel {
     position: fixed;
@@ -475,16 +481,16 @@ onBeforeUnmount(() => {
     bottom: var(--editor-bar-offset);
     z-index: var(--editor-z-inspector);
     width: var(--me-drawer-width);
-    box-shadow: var(--vsui-shadow-lg);
+    box-shadow: var(--editor-shadow);
     transform: translateX(100%);
     visibility: hidden;
-    transition: transform var(--transition-slow) var(--site-ease), visibility 0s linear var(--transition-slow);
+    transition: transform var(--transition-slow) ease-out, visibility 0s linear var(--transition-slow);
   }
 
   .me__panel--open {
     transform: none;
     visibility: visible;
-    transition: transform var(--transition-slow) var(--site-ease);
+    transition: transform var(--transition-slow) ease-out;
   }
 
   .me__scrim {
@@ -492,14 +498,18 @@ onBeforeUnmount(() => {
     inset: 0 0 var(--editor-bar-offset);
     z-index: var(--editor-z-inspector);
     display: block;
-    background-color: var(--me-scrim);
+    background-color: var(--overlay-bg);
   }
 }
 
+/*PHONE - only the open tab spells its name; the others keep their icon and title*/
 @media (max-width: 640px) {
   .me__drawer-label,
   .me__eyebrow { display: none; }
-  .me__head { gap: var(--spacing-xs); }
+  .me__head { gap: var(--vsui-space-xs); }
+  .me__tab { flex: 0 0 auto; min-width: var(--editor-control); }
+  .me__tab--on { flex: 1 1 auto; }
+  .me__tab:not(.me__tab--on) .me__tab-label { display: none; }
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -16,8 +16,13 @@ async function pick() {
 </script>
 
 <template>
-  <button type="button" class="ed-btn" @click="pick">
+  <button type="button" class="ed-btn add-images" @click="pick">
     <Images :size="16" aria-hidden="true" />
     {{ t('blockAddImages') }}
   </button>
 </template>
+
+<style scoped>
+/*sized to its label, like the list's own add button*/
+.add-images { align-self: flex-start; }
+</style>

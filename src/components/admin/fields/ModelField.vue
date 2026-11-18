@@ -87,17 +87,18 @@ function pick(id: string | null) {
 .ed-models {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(var(--editor-media-preview), 1fr));
-  gap: var(--spacing-xs);
+  gap: var(--vsui-space-xs);
 }
 
 .ed-models__tile {
   display: flex;
   flex-direction: column;
-  gap: var(--spacing-xxs);
-  padding: var(--spacing-xxs);
+  gap: var(--vsui-space-xs);
+  padding: var(--vsui-space-xs);
   text-align: left;
   color: var(--editor-text);
-  border: var(--border-width) solid var(--editor-line);
+  border: var(--border-width) solid var(--editor-line-soft);
+  border-radius: var(--editor-radius);
   cursor: pointer;
   transition: border-color var(--transition-fast) ease;
 }
@@ -123,7 +124,7 @@ function pick(id: string | null) {
 }
 
 .ed-models__name {
-  font-size: var(--font-size-xs);
+  font-size: var(--editor-fs-xs);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;

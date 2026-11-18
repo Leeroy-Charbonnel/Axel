@@ -11,13 +11,16 @@ const { open, request, accept, dismiss } = useConfirm()
 const { t } = useTranslations()
 
 const confirmButton = ref<HTMLButtonElement | null>(null)
+const cancelButton  = ref<HTMLButtonElement | null>(null)
 
 //the confirming button takes focus, so Enter answers and Escape refuses without
-//reaching for the mouse. Focus moves after the paint that mounts it.
+//reaching for the mouse; a destructive request focuses Cancel instead, so Enter
+//never deletes by reflex. Focus moves after the paint that mounts it.
 watch(open, async (isOpen) => {
   if (!isOpen) return
   await new Promise(requestAnimationFrame)
-  confirmButton.value?.focus()
+  const target = request.value?.destructive ? cancelButton : confirmButton
+  target.value?.focus()
 })
 
 function onKeydown(e: KeyboardEvent) {
@@ -43,17 +46,17 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onKeydown))
         aria-labelledby="confirm-title"
         @click.self="dismiss"
       >
-        <div class="confirm__box">
+        <div class="confirm__box ed-ui">
           <h2 id="confirm-title" class="confirm__title">{{ request.title }}</h2>
           <p v-if="request.what" class="confirm__what">{{ request.what }}</p>
 
           <div class="confirm__actions">
-            <button type="button" class="confirm__cancel" @click="dismiss">{{ t("confirmCancel") }}</button>
+            <button ref="cancelButton" type="button" class="ed-btn" @click="dismiss">{{ t("confirmCancel") }}</button>
             <button
               ref="confirmButton"
               type="button"
-              class="confirm__accept"
-              :class="{ 'confirm__accept--destructive': request.destructive }"
+              class="ed-btn"
+              :class="request.destructive ? 'confirm__destructive' : 'ed-btn--primary'"
               @click="accept"
             >
               {{ request.action }}
@@ -73,9 +76,8 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onKeydown))
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: var(--spacing-lg);
+  padding: var(--vsui-space-lg);
   background-color: var(--overlay-bg);
-  backdrop-filter: blur(var(--filter-blur));
 }
 
 .confirm__box {
@@ -83,72 +85,39 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onKeydown))
   max-width: var(--confirm-width);
   display: flex;
   flex-direction: column;
-  gap: var(--spacing-md);
-  padding: var(--spacing-xl);
-  background-color: hsl(var(--card));
-  border: var(--border-width-sm) solid hsl(var(--border-color));
-  border-radius: var(--radius);
+  gap: var(--vsui-space-sm);
+  padding: var(--vsui-space-lg);
+  background-color: var(--editor-surface);
+  border: var(--border-width) solid var(--editor-line);
+  border-radius: var(--editor-radius);
+  box-shadow: var(--editor-shadow);
 }
 
 .confirm__title {
-  font-size: var(--font-size-md);
-  font-weight: var(--font-weight-bold);
-  color: hsl(var(--foreground));
+  font-size: var(--editor-fs);
+  font-weight: var(--font-weight-semibold);
 }
 
 .confirm__what {
-  font-size: var(--font-size-sm);
-  color: var(--text-muted);
+  color: var(--editor-text-muted);
   overflow-wrap: anywhere;
 }
 
 .confirm__actions {
   display: flex;
   justify-content: flex-end;
-  gap: var(--spacing-sm);
+  gap: var(--vsui-space-xs);
+  margin-top: var(--vsui-space-xs);
 }
 
-.confirm__cancel,
-.confirm__accept {
-  padding: var(--spacing-xs) var(--spacing-md);
-  border: var(--border-width-sm) solid hsl(var(--border-color));
-  border-radius: var(--radius);
-  background: transparent;
-  color: hsl(var(--foreground));
-  font-size: var(--font-size-sm);
-  cursor: pointer;
-  transition: background-color var(--transition-fast), border-color var(--transition-fast);
+/*a destructive action is filled red, the only red button of the editor*/
+.confirm__destructive {
+  font-weight: var(--font-weight-semibold);
+  color: hsl(var(--destructive-foreground));
+  background-color: var(--editor-danger);
 }
 
-/*only the colours move: a thicker border here would resize the button*/
-.confirm__cancel:hover {
-  border-color: hsl(var(--foreground));
-}
-
-.confirm__accept {
-  border-color: hsl(var(--primary));
-  background-color: hsl(var(--primary) / 0.15);
-}
-
-.confirm__accept:hover {
-  background-color: hsl(var(--primary) / 0.3);
-}
-
-.confirm__accept--destructive {
-  border-color: hsl(var(--destructive));
-  background-color: hsl(var(--destructive) / 0.15);
-  color: hsl(var(--destructive));
-}
-
-.confirm__accept--destructive:hover {
-  background-color: hsl(var(--destructive) / 0.3);
-}
-
-.confirm__accept:focus-visible,
-.confirm__cancel:focus-visible {
-  outline: none;
-  box-shadow: 0 0 0 var(--border-width-md) hsl(var(--primary));
-}
+.confirm__destructive:hover { border-color: transparent; background-color: hsl(var(--destructive) / 0.85); }
 
 .confirm-enter-active,
 .confirm-leave-active {

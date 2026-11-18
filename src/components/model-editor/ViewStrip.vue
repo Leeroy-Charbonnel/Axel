@@ -168,7 +168,7 @@ async function remove(view: Model3dView) {
     <p v-if="!views.length" class="ed-hint vs__empty">{{ t('modelEditorViewsEmpty') }}</p>
 
     <ul v-else class="vs__list">
-      <li v-for="view in views" :key="view.name" class="vs__item" :class="{ 'vs__item--on': selected === view.name }">
+      <li v-for="view in views" :key="view.name" class="vs__item">
         <form v-if="renaming === view.name" class="vs__rename" @submit.prevent="commitRename">
           <input
             ref="renameInput"
@@ -182,7 +182,13 @@ async function remove(view: Model3dView) {
         </form>
 
         <template v-else>
-          <button type="button" class="vs__chip" :title="usages(view.name) ? t('modelEditorViewUsedBy').replace('{n}', String(usages(view.name))) : undefined" @click="go(view)">
+          <button
+            type="button"
+            class="ed-btn vs__chip"
+            :class="{ 'ed-btn--active': selected === view.name }"
+            :title="usages(view.name) ? t('modelEditorViewUsedBy').replace('{n}', String(usages(view.name))) : undefined"
+            @click="go(view)"
+          >
             <span class="vs__name">{{ view.name }}</span>
             <Monitor v-if="screenOf(view.name).includes('desktop')" :size="14" class="vs__badge" :aria-label="t('modelEditorViewIsDesktop')" />
             <Smartphone v-if="screenOf(view.name).includes('phone')" :size="14" class="vs__badge" :aria-label="t('modelEditorViewIsPhone')" />
@@ -220,12 +226,12 @@ async function remove(view: Model3dView) {
 .vs {
   display: flex;
   align-items: center;
-  gap: var(--spacing-sm);
-  min-height: var(--me-strip-height);
-  padding: var(--spacing-xs) var(--spacing-sm);
+  gap: var(--vsui-space-sm);
+  padding: var(--vsui-space-xs) var(--vsui-space-sm);
   overflow-x: auto;
-  background-color: var(--me-chrome-bg);
-  border-top: var(--border-width) solid var(--editor-line);
+  scrollbar-width: thin;
+  background-color: var(--editor-surface);
+  border-top: var(--border-width) solid var(--editor-line-soft);
 }
 
 .vs__add { flex-shrink: 0; }
@@ -235,7 +241,7 @@ async function remove(view: Model3dView) {
 .vs__list {
   display: flex;
   align-items: center;
-  gap: var(--spacing-xs);
+  gap: var(--vsui-space-sm);
   list-style: none;
 }
 
@@ -243,24 +249,10 @@ async function remove(view: Model3dView) {
   display: flex;
   align-items: center;
   flex-shrink: 0;
-  border: var(--border-width) solid var(--editor-line);
+  gap: var(--vsui-space-2xs);
 }
 
-.vs__item--on { border-color: var(--editor-accent); }
-
-.vs__chip {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--spacing-xs);
-  min-height: var(--editor-target);
-  padding: 0 var(--spacing-sm);
-  font-size: var(--font-size-xs);
-  color: var(--editor-text);
-  cursor: pointer;
-}
-
-.vs__chip:hover { background-color: var(--editor-surface-raised); }
-.vs__chip:focus-visible { outline: none; box-shadow: inset var(--editor-focus); }
+.vs__chip { font-size: var(--editor-fs-sm); }
 
 .vs__name {
   max-width: var(--vsui-panel-xs);
@@ -269,20 +261,18 @@ async function remove(view: Model3dView) {
   white-space: nowrap;
 }
 
-.vs__badge { color: var(--editor-accent); }
+.vs__badge { flex-shrink: 0; color: var(--editor-accent); }
 
 .vs__actions {
   display: flex;
-  border-left: var(--border-width) solid var(--editor-line);
+  gap: var(--vsui-space-2xs);
 }
 
 .vs__rename {
   display: flex;
   align-items: center;
+  gap: var(--vsui-space-2xs);
 }
 
-.vs__rename-input {
-  width: var(--vsui-panel-xs);
-  border: none;
-}
+.vs__rename-input { width: var(--vsui-panel-xs); }
 </style>

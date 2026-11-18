@@ -166,9 +166,9 @@ async function replace() {
 <style scoped>
 .mo__stats {
   display: grid;
-  grid-template-columns: auto 1fr;
-  gap: var(--spacing-xs) var(--spacing-md);
-  font-size: var(--font-size-sm);
+  grid-template-columns: var(--editor-label-col) minmax(0, 1fr);
+  gap: var(--vsui-space-xs) var(--vsui-space-sm);
+  font-size: var(--editor-fs-sm);
 }
 
 .mo__stats dt { color: var(--editor-text-muted); }
@@ -181,17 +181,19 @@ async function replace() {
 .mo__warnings {
   display: flex;
   flex-direction: column;
-  gap: var(--spacing-xs);
+  gap: var(--vsui-space-xs);
   list-style: none;
-  font-size: var(--font-size-sm);
+  font-size: var(--editor-fs-sm);
   color: var(--editor-warning);
 }
 
 .mo__warnings li {
   display: flex;
   align-items: flex-start;
-  gap: var(--spacing-xs);
+  gap: var(--vsui-space-xs);
 }
+
+.mo__warnings svg { flex-shrink: 0; }
 
 .mo__action { align-self: flex-start; }
 </style>

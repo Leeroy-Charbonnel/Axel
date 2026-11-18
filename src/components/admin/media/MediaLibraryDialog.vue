@@ -40,7 +40,7 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onKeydown))
     <div v-if="request" class="media-dialog" @click.self="cancelPick">
       <div
         ref="box"
-        class="media-dialog__box"
+        class="ed-ui media-dialog__box"
         role="dialog"
         aria-modal="true"
         aria-labelledby="media-dialog-title"
@@ -49,7 +49,7 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onKeydown))
         <header class="media-dialog__head">
           <h2 id="media-dialog-title" class="media-dialog__title">{{ t('mediaTitle') }}</h2>
           <button type="button" class="ed-btn ed-btn--ghost ed-btn--icon" :aria-label="t('editorClose')" @click="cancelPick">
-            <X :size="18" />
+            <X :size="16" />
           </button>
         </header>
         <div class="media-dialog__body">
@@ -73,9 +73,8 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onKeydown))
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: var(--spacing-lg);
+  padding: var(--vsui-space-lg);
   background-color: var(--overlay-bg);
-  backdrop-filter: blur(var(--filter-blur));
 }
 
 .media-dialog__box {
@@ -84,9 +83,11 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onKeydown))
   width: 100%;
   max-width: var(--editor-dialog-width);
   max-height: 100%;
-  color: var(--editor-text);
+  overflow: hidden;
   background-color: var(--editor-surface);
   border: var(--border-width) solid var(--editor-line);
+  border-radius: var(--editor-radius);
+  box-shadow: var(--editor-shadow);
 }
 
 .media-dialog__box:focus-visible { outline: none; }
@@ -95,27 +96,26 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onKeydown))
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: var(--spacing-sm);
-  padding: var(--spacing-xs) var(--spacing-xs) var(--spacing-xs) var(--spacing-lg);
-  border-bottom: var(--border-width) solid var(--editor-line);
+  gap: var(--vsui-space-sm);
+  padding: var(--vsui-space-xs) var(--vsui-space-xs) var(--vsui-space-xs) var(--vsui-space-md);
+  border-bottom: var(--border-width) solid var(--editor-line-soft);
 }
 
 .media-dialog__title {
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-bold);
-  text-transform: uppercase;
-  letter-spacing: var(--letter-spacing-normal);
+  font-size: var(--editor-fs);
+  font-weight: var(--font-weight-semibold);
 }
 
 .media-dialog__body {
   overflow-y: auto;
   overscroll-behavior: contain;
-  padding: var(--spacing-lg);
+  scrollbar-width: thin;
+  padding: var(--vsui-space-md);
 }
 
 @media (max-width: 640px) {
   .media-dialog { padding: 0; }
-  .media-dialog__box { height: 100%; max-width: none; border: none; }
-  .media-dialog__body { padding: var(--spacing-sm); }
+  .media-dialog__box { height: 100%; max-width: none; border: none; border-radius: 0; }
+  .media-dialog__body { padding: var(--vsui-space-sm); }
 }
 </style>

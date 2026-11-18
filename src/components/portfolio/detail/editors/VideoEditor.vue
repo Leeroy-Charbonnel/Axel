@@ -24,11 +24,13 @@ const TOGGLES = [
     @pick="(f) => { props.content.fileId = f.id; props.content.url = f.url }"
     @clear="props.content.fileId = null; props.content.url = null"
   />
-  <ToggleField
-    v-for="tg in TOGGLES"
-    :key="tg.key"
-    :label="t(tg.label)"
-    :model-value="props.content[tg.key]"
-    @update:model-value="(v) => (props.content[tg.key] = v)"
-  />
+  <div class="ed-form__grid">
+    <ToggleField
+      v-for="tg in TOGGLES"
+      :key="tg.key"
+      :label="t(tg.label)"
+      :model-value="props.content[tg.key]"
+      @update:model-value="(v) => (props.content[tg.key] = v)"
+    />
+  </div>
 </template>

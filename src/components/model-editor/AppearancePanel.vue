@@ -4,7 +4,6 @@ import { ChevronDown, ImageUp, Sun } from "lucide-vue-next"
 import ToggleField from "../admin/fields/ToggleField.vue"
 import { useMediaLibrary } from "../admin/media/useMediaLibrary"
 import { useTranslations } from "../../composables/useTranslations"
-import { VIEWER_DEFAULTS } from "../../lib/viewer-defaults"
 import type { ViewerSettings } from "../../three/types"
 import LightList from "./LightList.vue"
 import SegmentedControl from "./SegmentedControl.vue"
@@ -95,7 +94,9 @@ onMounted(() => {
 
 <template>
   <div class="ed-form">
-    <SegmentedControl :label="t('modelEditorLook')" :model-value="look" :options="looks" @update:model-value="(v) => (look = v)" />
+    <section class="ed-form__section">
+      <SegmentedControl :label="t('modelEditorLook')" :model-value="look" :options="looks" @update:model-value="(v) => (look = v)" />
+    </section>
 
     <section class="ed-form__section">
       <h3 class="ed-form__title">{{ t('modelEditorEnvironment') }}</h3>
@@ -123,7 +124,7 @@ onMounted(() => {
       <h3 class="ed-form__title">{{ t('modelEditorLighting') }}</h3>
       <SegmentedControl :label="t('modelEditorLightPreset')" :model-value="preset" :options="presetOptions" auto="studio" @update:model-value="applyPreset" />
       <p v-if="!preset" class="ed-hint">{{ t('modelEditorPresetCustom') }}</p>
-      <button type="button" class="ap__drawer" :aria-expanded="ed.showLights.value" @click="ed.showLights.value = !ed.showLights.value">
+      <button type="button" class="ed-btn ap__drawer" :aria-expanded="ed.showLights.value" @click="ed.showLights.value = !ed.showLights.value">
         <span>{{ t('modelEditorLightsAdvanced') }} ({{ (ed.doc.value.settings.lights ?? []).length }})</span>
         <ChevronDown :size="16" class="ap__chevron" aria-hidden="true" />
       </button>
@@ -174,37 +175,20 @@ onMounted(() => {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: var(--spacing-xs);
+  gap: var(--vsui-space-xs);
 }
 
 .ap__env-name {
   display: inline-flex;
   flex: 1;
   align-items: center;
-  gap: var(--spacing-xs);
+  gap: var(--vsui-space-xs);
   min-width: 0;
-  font-size: var(--font-size-sm);
   color: var(--editor-text);
   overflow-wrap: anywhere;
 }
 
-.ap__drawer {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  min-height: var(--editor-target);
-  padding: 0 var(--spacing-xs);
-  font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-medium);
-  letter-spacing: var(--letter-spacing-tight);
-  text-transform: uppercase;
-  color: var(--editor-text);
-  border: var(--border-width) solid var(--editor-line);
-  cursor: pointer;
-}
-
-.ap__drawer:hover { border-color: var(--editor-text); }
-.ap__drawer:focus-visible { outline: none; box-shadow: var(--editor-focus); }
+.ap__drawer { justify-content: space-between; }
 .ap__drawer[aria-expanded="true"] .ap__chevron { transform: rotate(180deg); }
 .ap__chevron { transition: transform var(--transition-fast) ease; }
 </style>

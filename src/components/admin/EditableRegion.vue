@@ -70,7 +70,7 @@ function onKeydown(e: KeyboardEvent) {
   position: absolute;
   inset: calc(-1 * var(--editor-region-inset));
   z-index: var(--editor-z-region);
-  border: var(--editor-outline-width) dashed transparent;
+  border: var(--border-width) dashed transparent;
   pointer-events: none;
   transition: border-color var(--transition-fast) ease;
 }
@@ -91,12 +91,14 @@ function onKeydown(e: KeyboardEvent) {
   z-index: var(--editor-z-region);
   display: none;
   align-items: center;
-  gap: var(--spacing-xxs);
-  padding: var(--spacing-xxs) var(--spacing-xs);
-  font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-bold);
-  text-transform: uppercase;
-  letter-spacing: var(--letter-spacing-tight);
+  gap: var(--vsui-space-xs);
+  padding: var(--vsui-space-2xs) var(--vsui-space-sm);
+  font-family: var(--editor-font);
+  font-size: var(--editor-fs-xs);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--editor-lh);
+  letter-spacing: normal;
+  text-transform: none;
   color: var(--editor-on-accent);
   background-color: var(--editor-text-muted);
   pointer-events: none;
@@ -109,8 +111,8 @@ function onKeydown(e: KeyboardEvent) {
 .editable-region--selected > .editable-region__chip { background-color: var(--editor-accent); }
 
 .editable-region__dirty {
-  width: var(--spacing-xs);
-  height: var(--spacing-xs);
+  width: var(--vsui-space-xs);
+  height: var(--vsui-space-xs);
   border-radius: var(--border-radius-full);
   background-color: var(--editor-warning);
 }

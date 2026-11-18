@@ -129,7 +129,7 @@ async function remove() {
   <Transition name="inspector">
     <aside
       v-if="open && kind && entity"
-      class="inspector"
+      class="inspector ed-ui"
       :class="{ 'inspector--collapsed': collapsed }"
       :aria-label="t('editorInspector')"
       @keydown="onKeydown"
@@ -152,27 +152,28 @@ async function remove() {
           <h2 ref="heading" class="inspector__title" tabindex="-1">{{ title }}</h2>
         </div>
         <button type="button" class="ed-btn ed-btn--ghost ed-btn--icon" :aria-label="t('editorClose')" @click="close">
-          <X :size="18" />
+          <X :size="16" />
         </button>
       </header>
 
       <div v-if="isCollection" class="inspector__tools">
         <ToggleField :label="t('editorPublished')" :model-value="published" @update:model-value="setPublished" />
         <div class="inspector__tools-end">
-          <button type="button" class="ed-btn ed-btn--icon" :aria-label="t('editorMoveUp')" :disabled="index <= 0" @click="move(-1)">
-            <ArrowUp :size="16" />
+          <button type="button" class="ed-btn ed-btn--ghost ed-btn--icon" :aria-label="t('editorMoveUp')" :title="t('editorMoveUp')" :disabled="index <= 0" @click="move(-1)">
+            <ArrowUp :size="14" />
           </button>
           <button
             type="button"
-            class="ed-btn ed-btn--icon"
+            class="ed-btn ed-btn--ghost ed-btn--icon"
             :aria-label="t('editorMoveDown')"
+            :title="t('editorMoveDown')"
             :disabled="index < 0 || index >= items.length - 1"
             @click="move(1)"
           >
-            <ArrowDown :size="16" />
+            <ArrowDown :size="14" />
           </button>
-          <button type="button" class="ed-btn ed-btn--icon ed-btn--danger" :aria-label="t('editorDeleteAction')" @click="remove">
-            <Trash2 :size="16" />
+          <button type="button" class="ed-btn ed-btn--ghost ed-btn--icon ed-btn--danger" :aria-label="t('editorDeleteAction')" :title="t('editorDeleteAction')" @click="remove">
+            <Trash2 :size="14" />
           </button>
         </div>
       </div>
@@ -186,7 +187,7 @@ async function remove() {
             @click="orderOpen = !orderOpen"
           >
             <span>{{ t('editorOrder') }} ({{ items.length }})</span>
-            <ChevronDown :size="16" class="inspector__chevron" :class="{ 'inspector__chevron--open': orderOpen }" />
+            <ChevronDown :size="14" class="inspector__chevron" :class="{ 'inspector__chevron--open': orderOpen }" />
           </button>
           <ol v-if="orderOpen" ref="orderList" class="inspector__order-list">
             <li
@@ -204,7 +205,7 @@ async function remove() {
                 :aria-label="`${t('fieldReorder')} ${item.title}`"
                 v-bind="sortable.handleProps(i)"
               >
-                <GripVertical :size="16" />
+                <GripVertical :size="14" />
               </button>
               <button type="button" class="inspector__order-title" @click="editor.select(kind, item.id)">
                 <span class="inspector__order-index">{{ String(i + 1).padStart(2, "0") }}</span>
@@ -230,7 +231,6 @@ async function remove() {
   display: flex;
   flex-direction: column;
   width: var(--editor-inspector-width);
-  color: var(--editor-text);
   background-color: var(--editor-surface);
   border-left: var(--border-width) solid var(--editor-line);
 }
@@ -238,9 +238,9 @@ async function remove() {
 .inspector__head {
   display: flex;
   align-items: center;
-  gap: var(--spacing-xs);
-  padding: var(--spacing-xs) var(--spacing-xs) var(--spacing-xs) var(--spacing-lg);
-  border-bottom: var(--border-width) solid var(--editor-line);
+  gap: var(--vsui-space-xs);
+  padding: var(--vsui-space-sm) var(--vsui-space-xs) var(--vsui-space-sm) var(--vsui-space-md);
+  border-bottom: var(--border-width) solid var(--editor-line-soft);
 }
 
 .inspector__grab { display: none; }
@@ -255,22 +255,16 @@ async function remove() {
 .inspector__kind {
   display: flex;
   align-items: center;
-  gap: var(--spacing-xs);
-  font-size: var(--font-size-xs);
-  text-transform: uppercase;
-  letter-spacing: var(--letter-spacing-normal);
-  color: var(--editor-accent);
+  gap: var(--vsui-space-xs);
+  font-size: var(--editor-fs-xs);
+  color: var(--editor-text-muted);
 }
 
-.inspector__dirty {
-  color: var(--editor-warning);
-  text-transform: none;
-  letter-spacing: normal;
-}
+.inspector__dirty { color: var(--editor-warning); }
 
 .inspector__title {
-  font-size: var(--font-size-md);
-  font-weight: var(--font-weight-bold);
+  font-size: var(--editor-fs);
+  font-weight: var(--font-weight-semibold);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -282,14 +276,14 @@ async function remove() {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: var(--spacing-sm);
-  padding: var(--spacing-xxs) var(--spacing-xs) var(--spacing-xxs) var(--spacing-lg);
-  border-bottom: var(--border-width) solid var(--editor-line);
+  gap: var(--vsui-space-sm);
+  padding: var(--vsui-space-2xs) var(--vsui-space-xs) var(--vsui-space-2xs) var(--vsui-space-md);
+  border-bottom: var(--border-width) solid var(--editor-line-soft);
 }
 
 .inspector__tools-end {
   display: flex;
-  gap: var(--spacing-xxs);
+  gap: var(--vsui-space-2xs);
 }
 
 .inspector__body {
@@ -297,48 +291,50 @@ async function remove() {
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: var(--spacing-xl);
+  gap: var(--vsui-space-md);
   overflow-y: auto;
   overscroll-behavior: contain;
-  padding: var(--spacing-lg);
+  padding: var(--vsui-space-md);
 }
 
 /*ORDER LIST*/
 .inspector__order {
   display: flex;
   flex-direction: column;
-  gap: var(--spacing-xs);
+  gap: var(--vsui-space-xs);
+  padding-bottom: var(--vsui-space-md);
+  border-bottom: var(--border-width) solid var(--editor-line-soft);
 }
 
 .inspector__order-toggle {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  min-height: var(--editor-target);
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-bold);
-  text-transform: uppercase;
-  letter-spacing: var(--letter-spacing-normal);
-  border-bottom: var(--border-width) solid var(--editor-line);
+  min-height: var(--editor-control);
+  font-size: var(--editor-fs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--editor-text);
+  border-radius: var(--editor-radius);
 }
 
 .inspector__order-toggle:focus-visible { outline: none; box-shadow: var(--editor-focus); }
 
-.inspector__chevron { transition: transform var(--transition-fast) ease; }
+.inspector__chevron { color: var(--editor-text-muted); transition: transform var(--transition-fast) ease; }
 .inspector__chevron--open { transform: rotate(180deg); }
 
 .inspector__order-list {
   list-style: none;
   display: flex;
   flex-direction: column;
-  gap: var(--spacing-xxs);
+  gap: var(--vsui-space-2xs);
 }
 
 .inspector__order-item {
   display: flex;
   align-items: center;
-  background-color: var(--color-background-gray-50);
+  background-color: var(--editor-input-bg);
   border: var(--border-width) solid transparent;
+  border-radius: var(--editor-radius);
 }
 
 .inspector__order-item--current { border-color: var(--editor-accent-line); }
@@ -347,13 +343,14 @@ async function remove() {
 .inspector__order-title {
   display: flex;
   align-items: center;
-  gap: var(--spacing-sm);
+  gap: var(--vsui-space-sm);
   flex: 1;
   min-width: 0;
-  min-height: var(--editor-target);
-  padding-right: var(--spacing-sm);
-  font-size: var(--font-size-sm);
+  min-height: var(--editor-control);
+  padding-right: var(--vsui-space-sm);
+  font-size: var(--editor-fs);
   text-align: left;
+  color: var(--editor-text);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -362,7 +359,8 @@ async function remove() {
 .inspector__order-title:focus-visible { outline: none; box-shadow: var(--editor-focus); }
 
 .inspector__order-index {
-  font-size: var(--font-size-xs);
+  font-size: var(--editor-fs-xs);
+  font-variant-numeric: tabular-nums;
   color: var(--editor-text-muted);
 }
 
@@ -375,25 +373,25 @@ async function remove() {
     max-height: var(--editor-sheet-height);
     border-left: none;
     border-top: var(--border-width) solid var(--editor-line);
-    box-shadow: var(--vsui-shadow-lg);
+    box-shadow: var(--editor-shadow);
   }
 
-  .inspector__head { padding-left: var(--spacing-xs); }
+  .inspector__head { padding-left: var(--vsui-space-xs); }
 
   .inspector__grab {
     display: flex;
     align-items: center;
     justify-content: center;
-    width: var(--editor-target);
-    height: var(--editor-target);
+    width: var(--editor-control);
+    height: var(--editor-control);
     flex-shrink: 0;
   }
 
   .inspector__grab:focus-visible { outline: none; box-shadow: var(--editor-focus); }
 
   .inspector__grip {
-    width: var(--spacing-lg);
-    height: var(--spacing-xxs);
+    width: var(--vsui-space-lg);
+    height: var(--vsui-space-xs);
     border-radius: var(--border-radius-full);
     background-color: var(--editor-text-muted);
   }
@@ -401,8 +399,8 @@ async function remove() {
   .inspector--collapsed .inspector__tools,
   .inspector--collapsed .inspector__body { display: none; }
 
-  .inspector__tools { padding-left: var(--spacing-sm); }
-  .inspector__body  { padding: var(--spacing-sm); }
+  .inspector__tools { padding-left: var(--vsui-space-sm); }
+  .inspector__body  { padding: var(--vsui-space-sm); }
 }
 
 /*MOTION - slides in from its edge, nothing under reduced motion*/

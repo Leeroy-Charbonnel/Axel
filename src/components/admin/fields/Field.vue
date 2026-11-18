@@ -35,13 +35,13 @@ const describedBy = computed(() => (props.error || props.hint) ? messageId : und
 .ed-field {
   display: flex;
   flex-direction: column;
-  gap: var(--spacing-xxs);
+  gap: var(--vsui-space-xs);
   min-width: 0;
 }
 
 .ed-field__head {
   display: flex;
   align-items: center;
-  gap: var(--spacing-xs);
+  gap: var(--vsui-space-xs);
 }
 </style>

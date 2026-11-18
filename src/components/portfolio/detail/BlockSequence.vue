@@ -12,7 +12,7 @@ import type { SequenceBlockContent } from "../../../types/portfolio"
 const props = defineProps<{ content: SequenceBlockContent; lang: Lang; sizes: string }>()
 const { t } = useTranslations()
 
-const items = computed(() => props.content.items.filter((i) => i.url))
+const items = computed(() => props.content.items.filter((i): i is SequenceBlockContent["items"][number] & { url: string } => Boolean(i.url)))
 </script>
 
 <template>

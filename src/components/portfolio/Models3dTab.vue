@@ -67,56 +67,62 @@ async function remove(id: string, name: string) {
     <form class="models__new" @submit.prevent="add">
       <h2 class="ed-form__title">{{ t('modelsAddTitle') }}</h2>
       <TextField :label="t('modelsName')" :model-value="draft.name" @update:model-value="(v) => (draft.name = v)" />
-      <MediaField
-        :label="t('modelsGlb')"
-        accept="model"
-        :url="draft.glb?.url ?? null"
-        @pick="pickGlb"
-        @clear="draft.glb = null"
-      />
-      <MediaField
-        :label="t('modelsThumbnail')"
-        accept="image"
-        :url="draft.thumbnail?.url ?? null"
-        @pick="(f) => (draft.thumbnail = f)"
-        @clear="draft.thumbnail = null"
-      />
-      <button type="submit" class="ed-btn ed-btn--primary models__submit" :disabled="!canAdd">
-        <Plus :size="16" />
-        <span>{{ adding ? t('modelsAdding') : t('modelsAdd') }}</span>
-      </button>
-      <p v-if="adding" class="ed-hint" role="status">{{ t('modelsAddingHint') }}</p>
+      <div class="ed-form__grid">
+        <MediaField
+          :label="t('modelsGlb')"
+          accept="model"
+          :url="draft.glb?.url ?? null"
+          @pick="pickGlb"
+          @clear="draft.glb = null"
+        />
+        <MediaField
+          :label="t('modelsThumbnail')"
+          accept="image"
+          :url="draft.thumbnail?.url ?? null"
+          @pick="(f) => (draft.thumbnail = f)"
+          @clear="draft.thumbnail = null"
+        />
+      </div>
+      <div class="models__submit">
+        <button type="submit" class="ed-btn ed-btn--primary" :disabled="!canAdd">
+          <Plus :size="16" />
+          <span>{{ adding ? t('modelsAdding') : t('modelsAdd') }}</span>
+        </button>
+        <p v-if="adding" class="ed-hint" role="status">{{ t('modelsAddingHint') }}</p>
+      </div>
     </form>
 
-    <h2 class="ed-form__title">{{ t('modelsListTitle') }} ({{ models.length }})</h2>
-    <p v-if="!models.length" class="ed-hint">{{ t('modelsEmpty') }}</p>
+    <div class="models__list">
+      <h2 class="ed-form__title">{{ t('modelsListTitle') }} ({{ models.length }})</h2>
+      <p v-if="!models.length" class="ed-hint">{{ t('modelsEmpty') }}</p>
 
-    <ul v-else class="models__grid">
-      <li v-for="m in models" :key="m.id" class="models__card">
-        <div class="models__thumb">
-          <img v-if="m.thumbnailUrl" :src="m.thumbnailUrl" :alt="m.name" loading="lazy" />
-          <Box v-else :size="32" aria-hidden="true" />
-        </div>
-        <div class="models__meta">
-          <span class="models__name" :title="m.name">{{ m.name }}</span>
-          <span class="ed-hint">{{ t('modelsViews').replace('{n}', String(m.views.length)) }}</span>
-        </div>
-        <div class="models__actions">
-          <RouterLink class="ed-btn" :to="`/edit-3d/${m.id}`">
-            <Pencil :size="16" />
-            <span>{{ t('modelsEdit') }}</span>
-          </RouterLink>
-          <button
-            type="button"
-            class="ed-btn ed-btn--icon ed-btn--danger"
-            :aria-label="`${t('modelsDeleteAction')} ${m.name}`"
-            @click="remove(m.id, m.name)"
-          >
-            <Trash2 :size="16" />
-          </button>
-        </div>
-      </li>
-    </ul>
+      <ul v-else class="models__grid">
+        <li v-for="m in models" :key="m.id" class="models__card">
+          <div class="models__thumb">
+            <img v-if="m.thumbnailUrl" :src="m.thumbnailUrl" :alt="m.name" loading="lazy" />
+            <Box v-else :size="24" aria-hidden="true" />
+          </div>
+          <div class="models__meta">
+            <span class="models__name" :title="m.name">{{ m.name }}</span>
+            <span class="ed-hint">{{ t('modelsViews').replace('{n}', String(m.views.length)) }}</span>
+          </div>
+          <div class="models__actions">
+            <RouterLink class="ed-btn" :to="`/edit-3d/${m.id}`">
+              <Pencil :size="16" />
+              <span>{{ t('modelsEdit') }}</span>
+            </RouterLink>
+            <button
+              type="button"
+              class="ed-btn ed-btn--icon ed-btn--ghost ed-btn--danger"
+              :aria-label="`${t('modelsDeleteAction')} ${m.name}`"
+              @click="remove(m.id, m.name)"
+            >
+              <Trash2 :size="16" />
+            </button>
+          </div>
+        </li>
+      </ul>
+    </div>
   </section>
 </template>
 
@@ -124,32 +130,44 @@ async function remove(id: string, name: string) {
 .models {
   display: flex;
   flex-direction: column;
-  gap: var(--spacing-lg);
+  gap: var(--vsui-space-xl);
 }
 
 .models__new {
   display: flex;
   flex-direction: column;
-  gap: var(--spacing-md);
-  padding: var(--spacing-lg);
-  background-color: var(--editor-surface);
-  border: var(--border-width) solid var(--editor-line);
+  gap: var(--vsui-space-md);
+  padding: var(--vsui-space-md);
+  border: var(--border-width) solid var(--editor-line-soft);
+  border-radius: var(--editor-radius);
 }
 
-.models__submit { align-self: flex-start; }
+.models__submit {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--vsui-space-sm);
+}
+
+.models__list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--vsui-space-sm);
+}
 
 .models__grid {
   list-style: none;
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(var(--vsui-panel-sm), 1fr));
-  gap: var(--spacing-md);
+  gap: var(--vsui-space-sm);
 }
 
 .models__card {
   display: flex;
   flex-direction: column;
-  background-color: var(--editor-surface);
-  border: var(--border-width) solid var(--editor-line);
+  overflow: hidden;
+  border: var(--border-width) solid var(--editor-line-soft);
+  border-radius: var(--editor-radius);
 }
 
 .models__thumb {
@@ -171,14 +189,13 @@ async function remove(id: string, name: string) {
 .models__meta {
   display: flex;
   flex-direction: column;
-  gap: var(--spacing-xxs);
-  padding: var(--spacing-sm) var(--spacing-md);
+  gap: var(--vsui-space-2xs);
+  padding: var(--vsui-space-sm) var(--vsui-space-sm) var(--vsui-space-xs);
 }
 
 .models__name {
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-bold);
-  color: var(--color-text-hover);
+  font-weight: var(--font-weight-semibold);
+  color: var(--editor-text);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -187,7 +204,11 @@ async function remove(id: string, name: string) {
 .models__actions {
   display: flex;
   justify-content: space-between;
-  gap: var(--spacing-xxs);
-  padding: 0 var(--spacing-md) var(--spacing-md);
+  gap: var(--vsui-space-xs);
+  padding: 0 var(--vsui-space-sm) var(--vsui-space-sm);
+}
+
+@media (max-width: 640px) {
+  .models__new .ed-form__grid { grid-template-columns: minmax(0, 1fr); }
 }
 </style>

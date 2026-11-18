@@ -184,7 +184,7 @@ async function resetPhone() {
 
 <template>
   <div class="bento">
-    <div class="bento__toolbar">
+    <div class="bento__toolbar ed-ui">
       <div class="bento__tabs" role="radiogroup" :aria-label="t('detailLayoutLabel')">
         <button
           v-for="l in (['desktop', 'phone'] as const)"
@@ -197,19 +197,19 @@ async function resetPhone() {
           @click="setLayout(l)"
         >{{ t(l === 'desktop' ? 'detailLayoutDesktop' : 'detailLayoutPhone') }}</button>
       </div>
+      <button v-if="layout === 'phone' && authored" type="button" class="ed-btn ed-btn--ghost" @click="resetPhone">{{ t('detailPhoneReset') }}</button>
       <span class="bento__scale">{{ t('detailPreviewScale').replace('{n}', String(Math.round(scale * 100))) }}</span>
-      <template v-if="layout === 'phone'">
-        <button v-if="authored" type="button" class="ed-btn ed-btn--ghost" @click="resetPhone">{{ t('detailPhoneReset') }}</button>
-        <p v-else class="ed-hint bento__hint">{{ t('detailPhoneAuto') }}</p>
-      </template>
+      <p v-if="layout === 'phone' && !authored" class="ed-hint bento__hint">{{ t('detailPhoneAuto') }}</p>
     </div>
 
     <div ref="stage" class="bento__stage" :style="{ height: `${stageH}px` }">
+      <!--the chrome drawn over the blocks is scaled back by --bento-unscale, so
+      it keeps its screen size whatever the canvas scale-->
       <div
         ref="canvas"
         class="bento__canvas"
         :class="{ 'bento__canvas--phone': layout === 'phone' }"
-        :style="{ transform: `scale(${scale})` }"
+        :style="{ transform: `scale(${scale})`, '--bento-unscale': 1 / scale }"
       >
         <div
           ref="gridEl"
@@ -240,9 +240,9 @@ async function resetPhone() {
             @dblclick="startInline(b)"
             @keydown="onBlockKeydown($event, b)"
           >
-            <span class="bento__tag" aria-hidden="true">{{ t(blockType(b.type).labelKey) }}</span>
+            <span class="bento__tag ed-ui" aria-hidden="true">{{ t(blockType(b.type).labelKey) }}</span>
 
-            <div v-if="editingId === b.id" class="bento__inline">
+            <div v-if="editingId === b.id" class="bento__inline ed-ui">
               <span class="bento__inline-lang">{{ t('detailInlineLang').replace('{lang}', lang.toUpperCase()) }}</span>
               <textarea
                 :ref="(el) => (inlineEl = el as HTMLTextAreaElement | null)"
@@ -256,8 +256,8 @@ async function resetPhone() {
             </div>
 
             <div v-else-if="b.type === 'viewer3d' && !(b.content as Viewer3dBlockContent).model3dId" class="bento__viewer">
-              <span class="bento__viewer-label">
-                <Box :size="20" aria-hidden="true" />
+              <span class="bento__viewer-label ed-ui">
+                <Box :size="16" aria-hidden="true" />
                 {{ t('detailViewerPick') }}
               </span>
             </div>
@@ -304,22 +304,31 @@ async function resetPhone() {
 .bento {
   display: flex;
   flex-direction: column;
-  gap: var(--spacing-md);
+  gap: var(--vsui-space-md);
 }
+/*TOOLBAR - layout switch, phone reset, preview scale*/
 .bento__toolbar {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: var(--spacing-sm);
+  gap: var(--vsui-space-sm);
+  padding: var(--vsui-space-xs);
+  background-color: var(--editor-surface);
+  border: var(--border-width) solid var(--editor-line-soft);
+  border-radius: var(--editor-radius);
 }
-.bento__tabs { display: flex; gap: var(--spacing-xxs); }
+.bento__tabs { display: flex; gap: var(--vsui-space-2xs); }
 .bento__scale {
-  font-size: var(--site-fs-label);
-  letter-spacing: var(--site-tracking-label);
-  text-transform: uppercase;
+  margin-inline-start: auto;
+  padding-inline: var(--vsui-space-xs);
+  font-size: var(--editor-fs-sm);
+  font-variant-numeric: tabular-nums;
   color: var(--editor-text-muted);
 }
-.bento__hint { flex-basis: 100%; }
+.bento__hint {
+  flex-basis: 100%;
+  padding: 0 var(--vsui-space-xs) var(--vsui-space-2xs);
+}
 
 /*clip, not hidden: a hidden box can still be scrolled by focus or
 scrollIntoView, which would shift the canvas under its own toolbar*/
@@ -375,11 +384,11 @@ phone it is scaled down instead of squeezed*/
 /*as on the public grid: media take the cell's size, text sets it*/
 .bento__block--fill { contain: size; }
 .bento__block:hover { outline-color: var(--editor-text-muted); }
-.bento__block:focus-visible { outline: var(--editor-outline-width) solid hsl(var(--ring)); }
+.bento__block:focus-visible { outline: calc(var(--editor-outline-width) * var(--bento-unscale)) solid hsl(var(--ring)); }
 .bento__block--selected,
 .bento__block--selected:hover {
-  outline: var(--editor-outline-width) solid var(--editor-accent);
-  outline-offset: calc(-1 * var(--editor-outline-width));
+  outline: calc(var(--editor-outline-width) * var(--bento-unscale)) solid var(--editor-accent);
+  outline-offset: calc(-1 * var(--editor-outline-width) * var(--bento-unscale));
 }
 .bento__block--dragging { z-index: 2; cursor: grabbing; opacity: var(--vsui-disabled-opacity); }
 
@@ -388,14 +397,17 @@ phone it is scaled down instead of squeezed*/
   top: 0;
   left: 0;
   z-index: 5;
-  padding: var(--vsui-space-2xs) var(--spacing-xs);
-  font-size: var(--site-fs-label);
-  letter-spacing: var(--site-tracking-label);
-  text-transform: uppercase;
+  padding: var(--vsui-space-2xs) var(--vsui-space-xs);
+  font-size: var(--editor-fs-xs);
+  font-weight: var(--font-weight-medium);
+  white-space: nowrap;
   color: var(--editor-on-accent);
   background-color: var(--editor-accent);
+  border-bottom-right-radius: var(--editor-radius);
   opacity: 0;
   pointer-events: none;
+  transform: scale(var(--bento-unscale));
+  transform-origin: top left;
   transition: opacity var(--transition-fast) ease;
 }
 .bento__block:hover .bento__tag,
@@ -416,20 +428,20 @@ phone it is scaled down instead of squeezed*/
   justify-content: center;
   width: 100%;
   height: 100%;
-  background-color: var(--color-background-gray-50);
+  background-color: var(--editor-surface);
   pointer-events: none;
 }
 .bento__viewer-label {
   position: relative;
   display: inline-flex;
   align-items: center;
-  gap: var(--spacing-xs);
-  font-size: var(--site-fs-label);
-  letter-spacing: var(--site-tracking-label);
-  text-transform: uppercase;
-  color: var(--site-text-heading);
+  gap: var(--vsui-space-xs);
+  font-size: var(--editor-fs-sm);
+  color: var(--editor-text-muted);
+  transform: scale(var(--bento-unscale));
 }
 
+/*INLINE TEXT - typed at the editor's screen size, whatever the canvas scale*/
 .bento__inline {
   position: relative;
   display: flex;
@@ -442,20 +454,23 @@ phone it is scaled down instead of squeezed*/
   top: 0;
   right: 0;
   z-index: 1;
-  padding: var(--vsui-space-2xs) var(--spacing-xs);
-  font-size: var(--site-fs-label);
-  letter-spacing: var(--site-tracking-label);
+  padding: var(--vsui-space-2xs) var(--vsui-space-xs);
+  font-size: var(--editor-fs-xs);
+  font-weight: var(--font-weight-medium);
+  white-space: nowrap;
   color: var(--editor-on-accent);
   background-color: var(--editor-accent);
+  border-bottom-left-radius: var(--editor-radius);
+  transform: scale(var(--bento-unscale));
+  transform-origin: top right;
 }
 .bento__inline-input {
   width: 100%;
   height: 100%;
-  padding: var(--spacing-lg) var(--spacing-md);
+  padding: var(--vsui-space-xl) var(--vsui-space-md) var(--vsui-space-md);
   font: inherit;
-  font-size: var(--site-fs-body);
-  line-height: var(--site-lh-body);
-  color: var(--site-text-heading);
+  font-size: calc(var(--editor-fs) * var(--bento-unscale));
+  color: var(--editor-text);
   background-color: var(--editor-input-bg);
   border: none;
   resize: none;
@@ -469,11 +484,13 @@ phone it is scaled down instead of squeezed*/
   right: 0;
   bottom: 0;
   z-index: 6;
-  width: var(--site-touch-target);
-  height: var(--site-touch-target);
+  width: var(--editor-control);
+  height: var(--editor-control);
   cursor: nwse-resize;
   background: linear-gradient(135deg, transparent 50%, var(--editor-accent) 50%);
   opacity: 0;
+  transform: scale(var(--bento-unscale));
+  transform-origin: bottom right;
   transition: opacity var(--transition-fast) ease;
 }
 .bento__block:hover .bento__resize,

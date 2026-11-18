@@ -58,9 +58,7 @@ async function onSignOut() {
   await signOut()
 }
 
-function toggleLang() {
-  editLang.value = editLang.value === "fr" ? "en" : "fr"
-}
+const LANGS = ["fr", "en"] as const
 
 //GUARD - a route change with unsaved work asks first
 const removeGuard = router.beforeEach(async (to, from) => {
@@ -86,47 +84,49 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div v-if="visible" class="edit-bar" :class="{ 'edit-bar--docked': editMode }" role="region" :aria-label="t('editorBar')">
+  <div v-if="visible" class="edit-bar ed-ui" :class="{ 'edit-bar--docked': editMode }" role="region" :aria-label="t('editorBar')">
     <template v-if="!editMode">
       <button type="button" class="ed-btn" :aria-label="t('editorEnter')" @click="editor.setEditMode(true)">
-        <Pencil :size="16" aria-hidden="true" />
+        <Pencil :size="14" aria-hidden="true" />
         <span class="edit-bar__label">{{ t('editorEnter') }}</span>
       </button>
     </template>
 
     <template v-else>
       <button type="button" class="ed-btn ed-btn--ghost" :aria-label="t('editorExit')" @click="editor.setEditMode(false)">
-        <PencilOff :size="16" aria-hidden="true" />
+        <PencilOff :size="14" aria-hidden="true" />
         <span class="edit-bar__label">{{ t('editorExit') }}</span>
       </button>
 
-      <button
-        type="button"
-        class="ed-btn edit-bar__lang"
-        :title="t('editorEditLangHint')"
-        :aria-label="t('editorEditLang').replace('{lang}', editLang.toUpperCase())"
-        @click="toggleLang"
-      >
-        <span :class="{ 'edit-bar__lang--on': editLang === 'fr' }">FR</span>
-        <span aria-hidden="true">/</span>
-        <span :class="{ 'edit-bar__lang--on': editLang === 'en' }">EN</span>
-      </button>
+      <div class="edit-bar__lang" role="group" :aria-label="t('editorEditLangHint')" :title="t('editorEditLangHint')">
+        <button
+          v-for="lang in LANGS"
+          :key="lang"
+          type="button"
+          class="edit-bar__lang-btn"
+          :aria-pressed="editLang === lang"
+          :aria-label="t('editorEditLang').replace('{lang}', lang.toUpperCase())"
+          @click="editLang = lang"
+        >
+          {{ lang.toUpperCase() }}
+        </button>
+      </div>
 
       <p class="edit-bar__status max-sm:sr-only" :class="`edit-bar__status--${status}`" role="status">{{ statusText }}</p>
 
       <div class="edit-bar__actions">
         <button type="button" class="ed-btn ed-btn--ghost ed-btn--icon" :aria-label="t('editorUndo')" :title="t('editorUndo')" :disabled="!canUndo" @click="editor.undo()">
-          <Undo2 :size="18" />
+          <Undo2 :size="16" />
         </button>
         <button type="button" class="ed-btn ed-btn--ghost ed-btn--icon" :aria-label="t('editorRedo')" :title="t('editorRedo')" :disabled="!canRedo" @click="editor.redo()">
-          <Redo2 :size="18" />
+          <Redo2 :size="16" />
         </button>
         <button type="button" class="ed-btn" :aria-label="t('editorDiscard')" :disabled="!dirty || saving" @click="editor.confirmDiscard()">
-          <Eraser :size="16" aria-hidden="true" />
+          <Eraser :size="14" aria-hidden="true" />
           <span class="edit-bar__label">{{ t('editorDiscard') }}</span>
         </button>
         <button type="button" class="ed-btn ed-btn--primary edit-bar__save" :aria-label="t('editorSave')" :disabled="!dirty || saving" @click="editor.saveAll()">
-          <Save :size="16" aria-hidden="true" />
+          <Save :size="14" aria-hidden="true" />
           <span class="edit-bar__label">{{ t('editorSave') }}</span>
           <span v-if="dirty" class="edit-bar__save-dot" aria-hidden="true"></span>
         </button>
@@ -143,7 +143,7 @@ onBeforeUnmount(() => {
         :aria-label="t('editorMenu')"
         @click="menuOpen = !menuOpen"
       >
-        <Ellipsis :size="18" />
+        <Ellipsis :size="16" />
       </button>
       <div v-if="menuOpen" class="edit-bar__menu" role="menu">
         <button
@@ -155,7 +155,7 @@ onBeforeUnmount(() => {
           :class="{ 'edit-bar__item--danger': entry.danger }"
           @click="runEntry(entry)"
         >
-          <component :is="entry.icon" :size="16" aria-hidden="true" />
+          <component :is="entry.icon" :size="14" aria-hidden="true" />
           <span>{{ t(entry.labelKey) }}</span>
         </button>
       </div>
@@ -166,40 +166,62 @@ onBeforeUnmount(() => {
 <style scoped>
 .edit-bar {
   position: fixed;
-  right: var(--spacing-md);
-  bottom: calc(var(--spacing-md) + env(safe-area-inset-bottom));
+  right: var(--vsui-space-md);
+  bottom: calc(var(--vsui-space-md) + env(safe-area-inset-bottom));
   z-index: var(--editor-z-bar);
   display: flex;
   align-items: center;
-  gap: var(--spacing-xxs);
-  padding: var(--spacing-xxs);
-  color: var(--editor-text);
+  gap: var(--vsui-space-xs);
+  padding: var(--vsui-space-xs);
   background-color: var(--editor-surface);
   border: var(--border-width) solid var(--editor-line);
-  box-shadow: var(--vsui-shadow-lg);
+  border-radius: var(--editor-radius);
+  box-shadow: var(--editor-shadow);
 }
 
+/*docked: a full-width strip, square, only its top edge drawn*/
 .edit-bar--docked {
   left: 0;
   right: 0;
   bottom: 0;
   min-height: var(--editor-bar-height);
-  padding: var(--spacing-xxs) var(--spacing-sm) calc(var(--spacing-xxs) + env(safe-area-inset-bottom));
+  padding: var(--vsui-space-xs) var(--vsui-space-sm) calc(var(--vsui-space-xs) + env(safe-area-inset-bottom));
   border-width: var(--border-width) 0 0;
+  border-radius: 0;
+  box-shadow: none;
 }
 
+/*SEGMENTED - the editing language*/
 .edit-bar__lang {
-  gap: var(--spacing-xxs);
-  color: var(--editor-text-muted);
+  display: flex;
+  padding: var(--vsui-space-2xs);
+  background-color: var(--editor-input-bg);
+  border-radius: var(--editor-radius);
 }
 
-.edit-bar__lang--on { color: var(--editor-accent); }
+.edit-bar__lang-btn {
+  min-width: var(--editor-control);
+  min-height: calc(var(--editor-control) - 2 * var(--vsui-space-2xs));
+  padding: 0 var(--vsui-space-sm);
+  font-size: var(--editor-fs-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--editor-text-muted);
+  border-radius: var(--editor-radius);
+  cursor: pointer;
+}
+
+.edit-bar__lang-btn:hover { color: var(--editor-text); }
+.edit-bar__lang-btn:focus-visible { outline: none; box-shadow: var(--editor-focus); }
+.edit-bar__lang-btn[aria-pressed="true"] {
+  color: var(--editor-text);
+  background-color: var(--editor-surface-raised);
+}
 
 .edit-bar__status {
   flex: 1;
   min-width: 0;
-  padding: 0 var(--spacing-sm);
-  font-size: var(--font-size-xs);
+  padding: 0 var(--vsui-space-sm);
+  font-size: var(--editor-fs-sm);
   color: var(--editor-text-muted);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -212,18 +234,18 @@ onBeforeUnmount(() => {
 .edit-bar__actions {
   display: flex;
   align-items: center;
-  gap: var(--spacing-xxs);
+  gap: var(--vsui-space-xs);
 }
 
 .edit-bar__save { position: relative; }
 
 .edit-bar__save-dot {
   position: absolute;
-  top: var(--spacing-xxs);
-  right: var(--spacing-xxs);
+  top: var(--vsui-space-2xs);
+  right: var(--vsui-space-2xs);
   display: none;
-  width: var(--spacing-xs);
-  height: var(--spacing-xs);
+  width: var(--vsui-space-xs);
+  height: var(--vsui-space-xs);
   border-radius: var(--border-radius-full);
   background-color: var(--editor-warning);
 }
@@ -234,25 +256,27 @@ onBeforeUnmount(() => {
 .edit-bar__menu {
   position: absolute;
   right: 0;
-  bottom: calc(100% + var(--spacing-sm));
+  bottom: calc(100% + var(--vsui-space-sm));
   display: flex;
   flex-direction: column;
   min-width: var(--editor-menu-width);
-  padding: var(--spacing-xxs);
+  padding: var(--vsui-space-xs);
   background-color: var(--editor-surface);
   border: var(--border-width) solid var(--editor-line);
-  box-shadow: var(--vsui-shadow-lg);
+  border-radius: var(--editor-radius);
+  box-shadow: var(--editor-shadow);
 }
 
 .edit-bar__item {
   display: flex;
   align-items: center;
-  gap: var(--spacing-sm);
-  min-height: var(--editor-target);
-  padding: 0 var(--spacing-sm);
-  font-size: var(--font-size-sm);
+  gap: var(--vsui-space-sm);
+  min-height: var(--editor-control);
+  padding: 0 var(--vsui-space-sm);
+  font-size: var(--editor-fs);
   text-align: left;
   color: var(--editor-text);
+  border-radius: var(--editor-radius);
 }
 
 .edit-bar__item:hover { background-color: var(--editor-surface-raised); }

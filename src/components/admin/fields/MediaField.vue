@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from "vue"
+import { computed, onMounted } from "vue"
 import { Box, FileText, Film, ImageIcon, Sun } from "lucide-vue-next"
 import Field from "./Field.vue"
 import { useMediaLibrary, type MediaFile, type MediaType } from "../media/useMediaLibrary"
@@ -20,9 +20,10 @@ const props = withDefaults(defineProps<{
 
 const emit = defineEmits<{ pick: [file: MediaFile]; clear: [] }>()
 const { t } = useTranslations()
-const { files, pickMedia } = useMediaLibrary()
+const { files, ensureLoaded, pickMedia } = useMediaLibrary()
+onMounted(() => { void ensureLoaded() })
 
-//the library knows the original name; before it has loaded, the stored name says enough
+//the original name once the library has loaded, the stored name until then
 const fileName = computed(() => {
   if (!props.url) return ""
   return files.value.find((f) => f.url === props.url)?.originalFilename ?? props.url.split("/").pop() ?? props.url
@@ -65,7 +66,7 @@ async function choose() {
 .ed-media {
   display: flex;
   align-items: center;
-  gap: var(--spacing-sm);
+  gap: var(--vsui-space-sm);
 }
 
 .ed-media__preview {
@@ -78,7 +79,8 @@ async function choose() {
   overflow: hidden;
   color: var(--editor-text-muted);
   background-color: var(--editor-input-bg);
-  border: var(--border-width) solid var(--editor-line);
+  border: var(--border-width) solid var(--editor-line-soft);
+  border-radius: var(--editor-radius);
 }
 
 .ed-media__preview img {
@@ -90,13 +92,13 @@ async function choose() {
 .ed-media__meta {
   display: flex;
   flex-direction: column;
-  gap: var(--spacing-xxs);
+  gap: var(--vsui-space-xs);
   min-width: 0;
 }
 
 .ed-media__name {
-  font-size: var(--font-size-xs);
-  color: var(--editor-text);
+  font-size: var(--editor-fs-xs);
+  color: var(--editor-text-muted);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -105,6 +107,6 @@ async function choose() {
 .ed-media__actions {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--spacing-xxs);
+  gap: var(--vsui-space-xs);
 }
 </style>

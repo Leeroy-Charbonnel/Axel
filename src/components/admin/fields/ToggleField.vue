@@ -29,8 +29,9 @@ defineEmits<{ "update:modelValue": [value: boolean] }>()
 .ed-toggle {
   display: inline-flex;
   align-items: center;
-  gap: var(--spacing-sm);
-  min-height: var(--editor-target);
+  gap: var(--vsui-space-sm);
+  min-height: var(--editor-control);
+  font-size: var(--editor-fs);
   cursor: pointer;
 }
 
@@ -82,7 +83,7 @@ defineEmits<{ "update:modelValue": [value: boolean] }>()
 }
 
 .ed-toggle__label {
-  font-size: var(--font-size-sm);
+  font-size: var(--editor-fs);
   color: var(--editor-text);
 }
 </style>

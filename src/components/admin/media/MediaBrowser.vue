@@ -99,7 +99,7 @@ onMounted(() => { void library.load() })
 
 <template>
   <div
-    class="media"
+    class="ed-ui media"
     :class="{ 'media--dropping': dropping }"
     @dragover.prevent="dropping = true"
     @dragleave.self="dropping = false"
@@ -135,7 +135,7 @@ onMounted(() => { void library.load() })
     <div class="media__filters" role="group" :aria-label="t('mediaFilter')">
       <button
         type="button"
-        class="ed-btn"
+        class="ed-btn ed-btn--ghost media__filter"
         :class="{ 'ed-btn--active': filter === 'all' }"
         :aria-pressed="filter === 'all'"
         @click="filter = 'all'"
@@ -146,7 +146,7 @@ onMounted(() => { void library.load() })
         v-for="type in MEDIA_TYPES"
         :key="type.type"
         type="button"
-        class="ed-btn"
+        class="ed-btn ed-btn--ghost media__filter"
         :class="{ 'ed-btn--active': filter === type.type }"
         :aria-pressed="filter === type.type"
         @click="filter = type.type"
@@ -186,7 +186,7 @@ onMounted(() => { void library.load() })
           <span class="media__preview">
             <SiteImage v-if="mediaTypeOf(f) === 'image'" :src="f.url" :sizes="IMAGE_SIZES.tile" />
             <component :is="ICONS[mediaTypeOf(f) ?? 'document']" v-else :size="24" aria-hidden="true" />
-            <span v-if="chosen.includes(f.id)" class="media__check"><Check :size="14" /></span>
+            <span v-if="chosen.includes(f.id)" class="media__check"><Check :size="12" /></span>
           </span>
           <span class="media__name" :title="f.originalFilename">{{ f.originalFilename }}</span>
           <span class="media__meta">
@@ -201,7 +201,7 @@ onMounted(() => { void library.load() })
           :aria-label="`${t('mediaDeleteAction')} ${f.originalFilename}`"
           @click="onDelete(f)"
         >
-          <Trash2 :size="16" />
+          <Trash2 :size="14" />
         </button>
       </li>
     </ul>
@@ -218,31 +218,48 @@ onMounted(() => { void library.load() })
 .media {
   display: flex;
   flex-direction: column;
-  gap: var(--spacing-sm);
+  gap: var(--vsui-space-sm);
   min-height: 0;
+  border-radius: var(--editor-radius);
 }
 
 .media--dropping { box-shadow: var(--editor-focus); }
 
 .media__toolbar {
   display: flex;
-  gap: var(--spacing-xs);
+  gap: var(--vsui-space-xs);
 }
 
 .media__search { flex: 1; min-width: 0; }
 
+/*FILTERS - a compact segmented row*/
 .media__filters {
   display: flex;
-  gap: var(--spacing-xxs);
+  align-self: flex-start;
+  gap: var(--vsui-space-2xs);
+  max-width: 100%;
+  padding: var(--vsui-space-2xs);
   overflow-x: auto;
   scrollbar-width: thin;
+  background-color: var(--editor-input-bg);
+  border-radius: var(--editor-radius);
 }
 
+.media__filter {
+  flex-shrink: 0;
+  min-height: calc(var(--editor-control) - 2 * var(--vsui-space-2xs));
+  font-size: var(--editor-fs-sm);
+}
+
+.media__filter:not(.ed-btn--active) { color: var(--editor-text-muted); }
+.media__filter:not(.ed-btn--active):hover { color: var(--editor-text); }
+
+/*THE GRID - dense tiles, the selection drawn by the border colour only*/
 .media__grid {
   list-style: none;
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(var(--editor-media-tile), 1fr));
-  gap: var(--spacing-xs);
+  gap: var(--vsui-space-xs);
 }
 
 .media__tile {
@@ -250,24 +267,26 @@ onMounted(() => { void library.load() })
   min-width: 0;
 }
 
-.media__tile--skeleton .media__card { border-color: transparent; }
-
 .media__card {
   display: flex;
   flex-direction: column;
-  gap: var(--spacing-xxs);
+  gap: var(--vsui-space-2xs);
   width: 100%;
-  padding: var(--spacing-xxs);
+  padding: var(--vsui-space-xs);
   text-align: left;
   color: var(--editor-text);
-  border: var(--border-width) solid var(--editor-line);
-  transition: border-color var(--transition-fast) ease;
+  border: var(--border-width) solid transparent;
+  border-radius: var(--editor-radius);
+  transition: border-color var(--transition-fast) ease, background-color var(--transition-fast) ease;
 }
 
 button.media__card { cursor: pointer; }
-button.media__card:hover:not(:disabled) { border-color: var(--editor-text-muted); }
+button.media__card:hover:not(:disabled) { background-color: var(--editor-surface-raised); }
 button.media__card:focus-visible { outline: none; box-shadow: var(--editor-focus); }
-.media__tile--chosen .media__card { border-color: var(--editor-accent); }
+.media__tile--chosen .media__card {
+  background-color: var(--editor-accent-soft);
+  border-color: var(--editor-accent);
+}
 .media__tile--blocked .media__card { opacity: var(--vsui-disabled-opacity); cursor: not-allowed; }
 
 .media__preview {
@@ -279,6 +298,7 @@ button.media__card:focus-visible { outline: none; box-shadow: var(--editor-focus
   overflow: hidden;
   color: var(--editor-text-muted);
   background-color: var(--editor-input-bg);
+  border-radius: var(--editor-radius);
 }
 
 .media__preview img {
@@ -287,41 +307,43 @@ button.media__card:focus-visible { outline: none; box-shadow: var(--editor-focus
   object-fit: cover;
 }
 
+.media__tile--skeleton .media__preview { background-color: var(--editor-surface-raised); }
+
 .media__check {
   position: absolute;
-  top: var(--spacing-xxs);
-  right: var(--spacing-xxs);
+  top: var(--vsui-space-xs);
+  right: var(--vsui-space-xs);
   z-index: var(--editor-z-region);
   display: flex;
-  padding: var(--spacing-xxs);
+  padding: var(--vsui-space-2xs);
   color: var(--editor-on-accent);
   background-color: var(--editor-accent);
+  border-radius: var(--border-radius-full);
 }
 
 .media__name {
-  font-size: var(--font-size-xs);
+  font-size: var(--editor-fs-xs);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .media__meta {
-  font-size: var(--font-size-xs);
+  font-size: var(--editor-fs-xs);
   color: var(--editor-text-muted);
 }
 
 .media__delete {
   position: absolute;
-  top: var(--spacing-xxs);
-  right: var(--spacing-xxs);
+  top: var(--vsui-space-xs);
+  right: var(--vsui-space-xs);
   z-index: var(--editor-z-region);
   background-color: var(--editor-surface);
 }
 
 .media__empty {
-  padding: var(--spacing-xl);
+  padding: var(--vsui-space-xl);
   text-align: center;
-  font-size: var(--font-size-sm);
   color: var(--editor-text-muted);
 }
 
@@ -330,7 +352,8 @@ button.media__card:focus-visible { outline: none; box-shadow: var(--editor-focus
   bottom: 0;
   display: flex;
   justify-content: flex-end;
-  padding-top: var(--spacing-xs);
+  padding: var(--vsui-space-sm) 0 0;
   background-color: var(--editor-surface);
+  border-top: var(--border-width) solid var(--editor-line-soft);
 }
 </style>

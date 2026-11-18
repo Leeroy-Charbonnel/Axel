@@ -209,39 +209,47 @@ named token below derives from these, so the accent_color setting (written to
   /*the viewer stage ratio of the 3D models list in the settings*/
   --mp-viewer-aspect: 16 / 9;
 
-  /*THE 3D EDITOR SURFACES*/
-  --editor-panel-bg: hsl(0 0% 0%);
-  --editor-border:   hsl(0 0% 20%);
-  --editor-rule:     hsl(var(--foreground) / 0.06);
-  /*the one warning colour in the editor: amber, readable on the panel ground*/
-  --editor-warning:  hsl(34 100% 63%);
-
-  /*EDITING CHROME - edit bar, editable regions, inspector, fields, media
-  library. Breakpoints: the inspector is a side panel above 1024px and a bottom
-  sheet below; the bar compacts at 640px.*/
-  --editor-bar-height:      56px;
-  --editor-target:          44px;
-  --editor-inspector-width: clamp(22rem, 34vw, 36rem);
+  /*EDITOR UI - admin only, deliberately not the site's look: system font,
+  sentence case, small dense controls, neutral greys. Every admin surface
+  carries the .ed-ui class (admin.css), which applies the font and size.
+  Breakpoints: the inspector is a side panel above 1024px and a bottom sheet
+  below; the bar compacts at 640px. Touch screens get taller controls.*/
+  --editor-font:            system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --editor-fs:              13px;
+  --editor-fs-sm:           12px;
+  --editor-fs-xs:           11px;
+  --editor-lh:              1.4;
+  --editor-control:         28px;
+  --editor-icon:            16px;
+  --editor-radius:          var(--vsui-radius-sm);
+  --editor-bar-height:      44px;
+  --editor-inspector-width: clamp(20rem, 26vw, 26rem);
   --editor-sheet-height:    70dvh;
-  --editor-surface:         hsl(var(--card));
-  --editor-surface-raised:  hsl(var(--muted));
-  --editor-input-bg:        hsl(var(--muted) / 0.6);
-  --editor-line:            hsl(var(--border-color));
+  --editor-surface:         color-mix(in srgb, hsl(var(--ink)) 9%, hsl(var(--background)));
+  --editor-surface-raised:  color-mix(in srgb, hsl(var(--ink)) 15%, hsl(var(--background)));
+  --editor-input-bg:        color-mix(in srgb, hsl(var(--ink)) 4%, hsl(var(--background)));
+  --editor-line:            color-mix(in srgb, hsl(var(--ink)) 20%, hsl(var(--background)));
+  --editor-line-soft:       color-mix(in srgb, hsl(var(--ink)) 13%, hsl(var(--background)));
   --editor-accent:          hsl(var(--primary));
   --editor-accent-soft:     hsl(var(--primary) / 0.15);
   --editor-accent-line:     hsl(var(--primary) / 0.5);
   --editor-accent-hover:    hsl(var(--primary) / 0.85);
   --editor-danger:          hsl(var(--destructive));
-  --editor-text:            hsl(var(--card-foreground));
-  --editor-text-muted:      hsl(var(--muted-foreground));
+  --editor-warning:         hsl(var(--warning));
+  --editor-text:            hsl(var(--ink) / 0.92);
+  --editor-text-muted:      hsl(var(--ink) / 0.58);
   --editor-on-accent:       hsl(var(--background));
   --editor-outline-width:   2px;
   --editor-focus:           0 0 0 var(--editor-outline-width) hsl(var(--ring));
+  --editor-shadow:          0 8px 24px hsl(var(--background) / 0.6);
   --editor-region-inset:    var(--spacing-xxs);
-  --editor-media-tile:      8.5rem;
-  --editor-media-preview:   4.5rem;
-  --editor-dialog-width:    60rem;
-  --editor-menu-width:      14rem;
+  --editor-media-tile:      6.5rem;
+  --editor-media-preview:   3.5rem;
+  --editor-dialog-width:    56rem;
+  --editor-menu-width:      12rem;
+  --editor-page-width:      56rem;
+  /*property rows: the label column, the control takes the rest*/
+  --editor-label-col:       40%;
   /*regions sit above media (z 2); panels above the page, below toasts and the confirmation*/
   --editor-z-region:        3;
   --editor-z-inspector:     900;
@@ -326,6 +334,9 @@ desktop inspector reserves its width on the right so it never covers the item
 being edited. Below 1025px the inspector is a bottom sheet over the page.*/
 html.editor-editing                         { --editor-bar-offset: var(--editor-bar-height); }
 html.editor-editing body                    { padding-bottom: var(--editor-bar-height); }
+@media (pointer: coarse) {
+  :root { --editor-control: 36px; --editor-bar-height: 52px; }
+}
 @media (min-width: 1025px) {
   html.editor-inspector-open body           { padding-right: var(--editor-inspector-width); }
 }

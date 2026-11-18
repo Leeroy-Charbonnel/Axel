@@ -49,10 +49,34 @@ const EDITORS: Record<DetailBlockType, Component> = {
 </script>
 
 <template>
-  <aside class="block-panel" :aria-label="t('detailPanel')">
+  <aside class="block-panel ed-ui" :aria-label="t('detailPanel')">
+    <!--the selected block comes first: the add lists are long-->
+    <template v-if="selected">
+      <section class="ed-form__section">
+        <div class="block-panel__head">
+          <h2 class="ed-form__title block-panel__title">{{ t('detailBlockSettings').replace('{type}', t(blockType(selected.type).labelKey)) }}</h2>
+          <button type="button" class="ed-btn ed-btn--ghost ed-btn--icon" :aria-label="t('detailDuplicateBlock')" :title="t('detailDuplicateBlock')" @click="emit('duplicate')">
+            <Copy :size="16" aria-hidden="true" />
+          </button>
+          <button type="button" class="ed-btn ed-btn--ghost ed-btn--danger ed-btn--icon" :aria-label="t('detailDeleteBlock')" :title="t('detailDeleteBlock')" @click="emit('remove')">
+            <Trash2 :size="16" aria-hidden="true" />
+          </button>
+        </div>
+        <component :is="EDITORS[selected.type]" :key="selected.id" :content="selected.content" />
+      </section>
+      <section class="ed-form__section">
+        <BlockStyleEditor :key="`style-${selected.id}`" :block="selected" />
+      </section>
+    </template>
+    <section v-else class="ed-form__section">
+      <p class="ed-hint">{{ t('detailNoSelection') }}</p>
+    </section>
+
     <section class="ed-form__section">
-      <h2 class="ed-form__title">{{ t('detailAddSection') }}</h2>
-      <p class="ed-hint">{{ t('detailAddSectionHint') }}</p>
+      <div class="block-panel__intro">
+        <h2 class="ed-form__title">{{ t('detailAddSection') }}</h2>
+        <p class="ed-hint">{{ t('detailAddSectionHint') }}</p>
+      </div>
       <div class="block-panel__types">
         <button
           v-for="p in SECTION_PRESETS"
@@ -65,8 +89,10 @@ const EDITORS: Record<DetailBlockType, Component> = {
     </section>
 
     <section class="ed-form__section">
-      <h2 class="ed-form__title">{{ t('detailAddBlock') }}</h2>
-      <p class="ed-hint">{{ t('detailAddHint') }}</p>
+      <div class="block-panel__intro">
+        <h2 class="ed-form__title">{{ t('detailAddBlock') }}</h2>
+        <p class="ed-hint">{{ t('detailAddHint') }}</p>
+      </div>
       <div class="block-panel__types">
         <button
           v-for="bt in BLOCK_TYPES"
@@ -83,20 +109,6 @@ const EDITORS: Record<DetailBlockType, Component> = {
       </div>
     </section>
 
-    <section v-if="selected" class="ed-form__section">
-      <div class="block-panel__head">
-        <h2 class="ed-form__title block-panel__title">{{ t('detailBlockSettings').replace('{type}', t(blockType(selected.type).labelKey)) }}</h2>
-        <button type="button" class="ed-btn ed-btn--ghost ed-btn--icon" :aria-label="t('detailDuplicateBlock')" :title="t('detailDuplicateBlock')" @click="emit('duplicate')">
-          <Copy :size="16" aria-hidden="true" />
-        </button>
-        <button type="button" class="ed-btn ed-btn--ghost ed-btn--danger ed-btn--icon" :aria-label="t('detailDeleteBlock')" :title="t('detailDeleteBlock')" @click="emit('remove')">
-          <Trash2 :size="16" aria-hidden="true" />
-        </button>
-      </div>
-      <component :is="EDITORS[selected.type]" :key="selected.id" :content="selected.content" />
-      <BlockStyleEditor :key="`style-${selected.id}`" :block="selected" />
-    </section>
-    <p v-else class="ed-hint">{{ t('detailNoSelection') }}</p>
   </aside>
 </template>
 
@@ -109,36 +121,46 @@ const EDITORS: Record<DetailBlockType, Component> = {
   z-index: calc(var(--editor-z-inspector) - 1);
   display: flex;
   flex-direction: column;
-  gap: var(--spacing-xl);
   width: var(--detail-panel-width);
-  padding: var(--spacing-lg);
+  padding: var(--vsui-space-md);
   overflow-y: auto;
   overscroll-behavior: contain;
-  color: var(--editor-text);
   background-color: var(--editor-surface);
   border-left: var(--border-width) solid var(--editor-line);
   container: editor / inline-size;
 }
+.block-panel__intro {
+  display: flex;
+  flex-direction: column;
+  gap: var(--vsui-space-2xs);
+}
 .block-panel__types {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--spacing-xxs);
+  gap: var(--vsui-space-2xs);
 }
 .block-panel__type {
   justify-content: flex-start;
-  white-space: normal;
+  overflow: hidden;
+  text-overflow: ellipsis;
   text-align: left;
   touch-action: none;
   user-select: none;
   cursor: grab;
 }
+.block-panel__type svg {
+  flex-shrink: 0;
+  color: var(--editor-text-muted);
+}
 .block-panel__head {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: var(--spacing-xs);
+  gap: var(--vsui-space-2xs);
 }
-.block-panel__title { flex: 1; }
+.block-panel__title {
+  flex: 1;
+  min-width: 0;
+}
 @media (max-width: 1024px) {
   .block-panel {
     top: auto;

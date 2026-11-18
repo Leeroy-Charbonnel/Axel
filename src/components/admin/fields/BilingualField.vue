@@ -6,9 +6,8 @@ import { useTranslations } from "../../../composables/useTranslations"
 import type { Bilingual } from "../../../types/portfolio"
 import type { Lang } from "../../../lib/lang"
 
-//BOTH LANGUAGES OF ONE TEXT. Side by side when the panel is wide enough,
-//stacked otherwise. The language being edited is highlighted; a dot on the
-//label says the other one is still empty.
+//BOTH LANGUAGES OF ONE TEXT, one row each. The language being edited is
+//highlighted; a dot on the label says the other one is still empty.
 
 const LANGS: Lang[] = ["fr", "en"]
 const TEXTAREA_ROWS = 4
@@ -76,36 +75,42 @@ function set(lang: Lang, value: string) {
 </template>
 
 <style scoped>
+/*one control per language, the tag drawn inside its left edge, so a bilingual
+field lines up with the single-language ones*/
 .ed-bi {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: var(--spacing-xs);
-}
-
-@container editor (min-width: 26rem) {
-  .ed-bi { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  display: flex;
+  flex-direction: column;
+  gap: var(--vsui-space-xs);
 }
 
 .ed-bi__col {
-  display: flex;
-  flex-direction: column;
-  gap: var(--spacing-xxs);
+  position: relative;
+  display: block;
   min-width: 0;
 }
 
+.ed-bi__col .ed-input { padding-left: var(--editor-control); }
+
 .ed-bi__lang {
-  font-size: var(--font-size-xs);
-  letter-spacing: var(--letter-spacing-tight);
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: var(--editor-control);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: var(--editor-control);
+  font-size: var(--editor-fs-xs);
+  font-weight: var(--font-weight-semibold);
   color: var(--editor-text-muted);
+  pointer-events: none;
 }
 
 .ed-bi__col--active .ed-bi__lang { color: var(--editor-accent); }
-.ed-bi__col--active .ed-input { border-color: var(--editor-accent-line); }
-.ed-bi__col--active .ed-input:focus-visible { border-color: var(--editor-accent); }
 
 .ed-bi__missing {
-  width: var(--spacing-xs);
-  height: var(--spacing-xs);
+  width: var(--vsui-space-xs);
+  height: var(--vsui-space-xs);
   border-radius: var(--border-radius-full);
   background-color: var(--editor-warning);
 }

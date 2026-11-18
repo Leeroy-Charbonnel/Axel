@@ -9,7 +9,7 @@ const { t } = useTranslations()
 
 <template>
   <Teleport to="body">
-    <div class="vsui-toast-host" role="region" aria-live="polite" aria-label="Notifications">
+    <div class="vsui-toast-host ed-ui" role="region" aria-live="polite" aria-label="Notifications">
       <TransitionGroup name="vsui-toast">
         <div
           v-for="toast in toasts"

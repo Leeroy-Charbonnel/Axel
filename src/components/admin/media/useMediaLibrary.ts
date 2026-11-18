@@ -61,6 +61,13 @@ async function load() {
   }
 }
 
+//the list once per page load, for the fields that show original file names
+let listed: Promise<void> | null = null
+function ensureLoaded(): Promise<void> {
+  listed ??= load()
+  return listed
+}
+
 //uploads one after the other and answers the new rows, as listed by the server
 async function upload(list: File[]): Promise<MediaFile[]> {
   if (!list.length) return []
@@ -107,7 +114,7 @@ function finish(picked: MediaFile[]) {
 export function useMediaLibrary() {
   return {
     files, loading, uploading, error,
-    load, upload, remove,
+    load, ensureLoaded, upload, remove,
     request, pickMedia,
     resolvePick: finish,
     cancelPick:  () => finish([]),

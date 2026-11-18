@@ -77,17 +77,18 @@ function remove(index: number) {
   list-style: none;
   display: flex;
   flex-direction: column;
-  gap: var(--spacing-xs);
+  gap: var(--vsui-space-xs);
 }
 
 .ed-list__item {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: start;
-  gap: var(--spacing-xxs);
-  padding: var(--spacing-xxs);
-  background-color: var(--color-background-gray-50);
-  border: var(--border-width) solid transparent;
+  gap: var(--vsui-space-xs);
+  padding: var(--vsui-space-xs);
+  background-color: var(--editor-input-bg);
+  border: var(--border-width) solid var(--editor-line-soft);
+  border-radius: var(--editor-radius);
   transition: border-color var(--transition-fast) ease;
 }
 
@@ -96,7 +97,7 @@ function remove(index: number) {
 .ed-list__body {
   display: flex;
   flex-direction: column;
-  gap: var(--spacing-sm);
+  gap: var(--vsui-space-sm);
   min-width: 0;
 }
 

@@ -188,7 +188,7 @@ onBeforeUnmount(() => {
       </div>
 
       <div v-else-if="phase === 'error'" class="vp__state vp__state--error" role="alert">
-        <TriangleAlert :size="20" aria-hidden="true" />
+        <TriangleAlert :size="16" aria-hidden="true" />
         <p class="vp__error-title">{{ t('modelEditorLoadFailed') }}</p>
         <p class="ed-hint vp__error-detail">{{ errorDetail }}</p>
         <button v-if="ed.model.value?.glbUrl" type="button" class="ed-btn" @click="retry">
@@ -203,6 +203,8 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
+/*around a device frame: the editor's ground. Inside the frame: the site's
+own background, so the preview is what visitors get*/
 .vp {
   position: relative;
   display: flex;
@@ -212,7 +214,7 @@ onBeforeUnmount(() => {
   height: 100%;
   min-height: 0;
   container-type: size;
-  background-color: var(--me-stage-bg);
+  background-color: var(--editor-surface);
 }
 
 .vp__frame {
@@ -220,6 +222,7 @@ onBeforeUnmount(() => {
   width: 100%;
   height: 100%;
   overflow: hidden;
+  background-color: var(--me-stage-bg);
 }
 
 /*a device frame: the largest box of that shape that fits*/
@@ -253,8 +256,8 @@ onBeforeUnmount(() => {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: var(--spacing-sm);
-  padding: var(--spacing-lg);
+  gap: var(--vsui-space-sm);
+  padding: var(--vsui-space-lg);
   text-align: center;
   color: var(--editor-text-muted);
 }
@@ -262,8 +265,7 @@ onBeforeUnmount(() => {
 .vp__state--error { color: var(--editor-danger); }
 
 .vp__error-title {
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-bold);
+  font-weight: var(--font-weight-semibold);
   color: var(--editor-text);
 }
 
@@ -278,6 +280,7 @@ onBeforeUnmount(() => {
   height: var(--vsui-progress-thin);
   overflow: hidden;
   background-color: var(--editor-line);
+  border-radius: var(--border-radius-full);
 }
 
 .vp__progress-bar {

@@ -11,7 +11,7 @@ import type { MaterialsBlockContent } from "../../../types/portfolio"
 const props = defineProps<{ content: MaterialsBlockContent; lang: Lang }>()
 const { t } = useTranslations()
 
-const items = computed(() => props.content.items.filter((i) => i.url))
+const items = computed(() => props.content.items.filter((i): i is MaterialsBlockContent["items"][number] & { url: string } => Boolean(i.url)))
 //the swatch is drawn at most 5rem wide
 const SWATCH_SIZES = "80px"
 </script>

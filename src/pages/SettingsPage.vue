@@ -30,9 +30,9 @@ function openTab(key: TabKey) {
 </script>
 
 <template>
-  <div class="settings-page">
+  <div class="ed-ui settings-page">
     <header class="settings-page__header">
-      <RouterLink to="/" class="ed-btn">
+      <RouterLink to="/" class="ed-btn ed-btn--ghost">
         <ArrowLeft :size="16" />
         <span>{{ t('settingsBack') }}</span>
       </RouterLink>
@@ -44,8 +44,8 @@ function openTab(key: TabKey) {
         v-for="tab in TABS"
         :key="tab.key"
         type="button"
-        class="settings-page__tab"
-        :class="{ 'settings-page__tab--active': currentTab === tab.key }"
+        class="ed-btn ed-btn--ghost settings-page__tab"
+        :class="{ 'ed-btn--active': currentTab === tab.key }"
         :aria-current="currentTab === tab.key ? 'page' : undefined"
         @click="openTab(tab.key)"
       >
@@ -63,67 +63,58 @@ function openTab(key: TabKey) {
 </template>
 
 <style scoped>
+/*the column is centred by its own padding, so the surface runs edge to edge*/
 .settings-page {
-  max-width: var(--vsui-page-width);
-  margin: 0 auto;
-  padding: var(--spacing-3xl) var(--spacing-xl);
-  color: var(--editor-text);
+  display: flex;
+  flex-direction: column;
+  gap: var(--vsui-space-lg);
+  min-height: calc(100dvh - var(--editor-bar-offset));
+  padding: var(--vsui-space-xl) max(var(--vsui-space-lg), (100% - var(--editor-page-width)) / 2);
+  background-color: var(--editor-surface);
 }
 
 .settings-page__header {
   display: flex;
   align-items: center;
-  gap: var(--spacing-lg);
-  margin-bottom: var(--spacing-xl);
+  gap: var(--vsui-space-sm);
+  padding-bottom: var(--vsui-space-md);
+  border-bottom: var(--border-width) solid var(--editor-line-soft);
 }
 
 .settings-page__title {
-  font-size: var(--font-size-xl);
-  font-weight: var(--font-weight-bold);
-  letter-spacing: var(--letter-spacing-wide);
-  text-transform: uppercase;
-  color: var(--color-text-hover);
+  font-size: var(--vsui-text-base);
+  font-weight: var(--font-weight-semibold);
+  color: var(--editor-text);
 }
 
+/*TABS - a compact segmented row*/
 .settings-page__tabs {
   display: flex;
-  gap: var(--spacing-xxs);
-  margin-bottom: var(--spacing-xl);
+  align-self: flex-start;
+  gap: var(--vsui-space-2xs);
+  max-width: 100%;
+  padding: var(--vsui-space-2xs);
   overflow-x: auto;
-  border-bottom: var(--border-width) solid var(--editor-line);
+  scrollbar-width: thin;
+  background-color: var(--editor-input-bg);
+  border-radius: var(--editor-radius);
 }
 
 .settings-page__tab {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--spacing-xs);
-  min-height: var(--editor-target);
-  padding: 0 var(--spacing-lg);
-  font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-bold);
-  text-transform: uppercase;
-  letter-spacing: var(--letter-spacing-wide);
-  white-space: nowrap;
-  color: var(--editor-text-muted);
-  box-shadow: inset 0 calc(-1 * var(--border-width-md)) 0 transparent;
-  transition: color var(--transition-fast) ease, box-shadow var(--transition-fast) ease;
+  flex-shrink: 0;
+  min-height: calc(var(--editor-control) - 2 * var(--vsui-space-2xs));
 }
 
-.settings-page__tab:hover { color: var(--color-text-hover); }
-.settings-page__tab:focus-visible { outline: none; box-shadow: var(--editor-focus); }
-.settings-page__tab--active {
-  color: var(--editor-accent);
-  box-shadow: inset 0 calc(-1 * var(--border-width-md)) 0 var(--editor-accent);
-}
+.settings-page__tab:not(.ed-btn--active) { color: var(--editor-text-muted); }
+.settings-page__tab:not(.ed-btn--active):hover { color: var(--editor-text); }
 
 .settings-page__panel {
   display: flex;
   flex-direction: column;
-  gap: var(--spacing-lg);
+  gap: var(--vsui-space-lg);
 }
 
 @media (max-width: 640px) {
-  .settings-page { padding: var(--spacing-lg) var(--spacing-md); }
-  .settings-page__header { gap: var(--spacing-sm); }
+  .settings-page { padding: var(--vsui-space-md); }
 }
 </style>

@@ -28,9 +28,9 @@ async function add() {
 </script>
 
 <template>
-  <button v-if="editor.editMode.value" type="button" class="section-add" :disabled="busy" @click="add">
-    <Plus :size="24" aria-hidden="true" />
-    <span class="section-add__label">{{ label }}</span>
+  <button v-if="editor.editMode.value" type="button" class="section-add ed-ui" :disabled="busy" @click="add">
+    <Plus :size="16" aria-hidden="true" />
+    <span>{{ label }}</span>
   </button>
 </template>
 
@@ -39,13 +39,14 @@ async function add() {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: var(--spacing-sm);
+  gap: var(--vsui-space-xs);
   width: 100%;
-  min-height: var(--spacing-5xl);
-  padding: var(--spacing-lg);
-  color: var(--color-text-secondary);
+  min-height: var(--editor-control);
+  padding: var(--vsui-space-sm);
+  color: var(--editor-text-muted);
   background-color: transparent;
-  border: var(--border-width-md) dashed var(--color-gray-medium);
+  border: var(--border-width) dashed var(--editor-line);
+  border-radius: var(--editor-radius);
   cursor: pointer;
   transition: border-color var(--transition-fast) ease, color var(--transition-fast) ease, background-color var(--transition-fast) ease;
 }
@@ -58,10 +59,4 @@ async function add() {
 
 .section-add:focus-visible { outline: none; box-shadow: var(--editor-focus); }
 .section-add:disabled { opacity: var(--vsui-disabled-opacity); cursor: progress; }
-
-.section-add__label {
-  font-size: var(--font-size-xs);
-  letter-spacing: var(--letter-spacing-wide);
-  text-transform: uppercase;
-}
 </style>

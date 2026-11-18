@@ -24,16 +24,18 @@ const { t } = useTranslations()
     @pick="(f) => { props.content.afterFileId = f.id; props.content.afterUrl = f.url }"
     @clear="props.content.afterFileId = null; props.content.afterUrl = null"
   />
-  <BilingualField
-    :label="t('blockFieldBeforeLabel')"
-    :model-value="props.content.beforeLabel"
-    @update:model-value="(v) => (props.content.beforeLabel = v)"
-  />
-  <BilingualField
-    :label="t('blockFieldAfterLabel')"
-    :model-value="props.content.afterLabel"
-    @update:model-value="(v) => (props.content.afterLabel = v)"
-  />
+  <div class="ed-form__grid">
+    <BilingualField
+      :label="t('blockFieldBeforeLabel')"
+      :model-value="props.content.beforeLabel"
+      @update:model-value="(v) => (props.content.beforeLabel = v)"
+    />
+    <BilingualField
+      :label="t('blockFieldAfterLabel')"
+      :model-value="props.content.afterLabel"
+      @update:model-value="(v) => (props.content.afterLabel = v)"
+    />
+  </div>
   <ToggleField
     :label="t('blockCompareFollow')"
     :model-value="props.content.followMouse ?? false"

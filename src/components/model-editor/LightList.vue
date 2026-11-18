@@ -166,7 +166,7 @@ function remove(id: string) {
 .ll {
   display: flex;
   flex-direction: column;
-  gap: var(--spacing-sm);
+  gap: var(--vsui-space-sm);
 }
 
 .ll__list {
@@ -175,8 +175,8 @@ function remove(id: string) {
   list-style: none;
 }
 
-.ll__item { border-top: var(--border-width) solid var(--editor-line); }
-.ll__item:last-child { border-bottom: var(--border-width) solid var(--editor-line); }
+.ll__item { border-top: var(--border-width) solid var(--editor-line-soft); }
+.ll__item:last-child { border-bottom: var(--border-width) solid var(--editor-line-soft); }
 
 .ll__head {
   display: flex;
@@ -187,16 +187,17 @@ function remove(id: string) {
   display: flex;
   flex: 1;
   align-items: center;
-  gap: var(--spacing-xs);
+  gap: var(--vsui-space-sm);
   min-width: 0;
-  min-height: var(--editor-target);
-  padding: 0 var(--spacing-xxs);
-  font-size: var(--font-size-sm);
+  min-height: var(--editor-control);
+  padding: 0 var(--vsui-space-xs);
   text-align: left;
   color: var(--editor-text);
+  border-radius: var(--editor-radius);
   cursor: pointer;
 }
 
+.ll__toggle:hover { background-color: var(--editor-surface-raised); }
 .ll__toggle:focus-visible { outline: none; box-shadow: inset var(--editor-focus); }
 .ll__item--on .ll__toggle { color: var(--editor-accent); }
 
@@ -214,30 +215,36 @@ function remove(id: string) {
 }
 
 .ll__swatch {
-  width: var(--me-dot-size);
-  height: var(--me-dot-size);
+  flex-shrink: 0;
+  width: var(--me-swatch-sm);
+  height: var(--me-swatch-sm);
   border: var(--border-width) solid var(--editor-line);
+  border-radius: var(--editor-radius);
 }
 
 .ll__value {
-  font-size: var(--font-size-xs);
+  font-size: var(--editor-fs-sm);
   font-variant-numeric: tabular-nums;
   color: var(--editor-text-muted);
 }
 
-.ll__chevron { transition: transform var(--transition-fast) ease; }
+.ll__chevron {
+  flex-shrink: 0;
+  color: var(--editor-text-muted);
+  transition: transform var(--transition-fast) ease;
+}
 .ll__item--on .ll__chevron { transform: rotate(180deg); }
 
 .ll__body {
   display: flex;
   flex-direction: column;
-  gap: var(--spacing-xs);
-  padding: var(--spacing-xs) var(--spacing-xxs) var(--spacing-md);
+  gap: var(--vsui-space-sm);
+  padding: var(--vsui-space-xs) 0 var(--vsui-space-md);
 }
 
 .ll__add {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--spacing-xs);
+  gap: var(--vsui-space-xs);
 }
 </style>

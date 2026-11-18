@@ -2,9 +2,9 @@
 import { computed, useId } from "vue"
 import AutoDot from "./AutoDot.vue"
 
-//A number on a slider, with its value typed in beside it and the auto mark.
-//The slider bounds are a comfortable range, not a limit: a typed value may
-//leave them.
+//A number on a slider, with its value typed in beside it and the auto mark,
+//on one property row. The slider bounds are a comfortable range, not a limit:
+//a typed value may leave them.
 
 const props = withDefaults(defineProps<{
   label:      string
@@ -40,17 +40,6 @@ function onInput(raw: string) {
     <div class="slider__head">
       <label :for="id" class="ed-label slider__label">{{ label }}</label>
       <AutoDot :differs="differs" @reset="auto !== undefined && emit('update:modelValue', auto)" />
-      <span class="slider__value">
-        <input
-          class="slider__number"
-          type="number"
-          :step="step"
-          :value="shown"
-          :aria-label="label"
-          @change="onInput(($event.target as HTMLInputElement).value)"
-        />
-        <span v-if="unit" class="slider__unit">{{ unit }}</span>
-      </span>
     </div>
     <input
       :id="id"
@@ -62,74 +51,82 @@ function onInput(raw: string) {
       :value="modelValue"
       @input="onInput(($event.target as HTMLInputElement).value)"
     />
-    <p v-if="hint" class="ed-hint">{{ hint }}</p>
+    <span class="slider__value">
+      <input
+        class="ed-input slider__number"
+        type="number"
+        :step="step"
+        :value="shown"
+        :aria-label="label"
+        @change="onInput(($event.target as HTMLInputElement).value)"
+      />
+      <span v-if="unit" class="slider__unit">{{ unit }}</span>
+    </span>
+    <p v-if="hint" class="ed-hint slider__hint">{{ hint }}</p>
   </div>
 </template>
 
 <style scoped>
+/*label | slider | value: the value column has one width, so every slider of
+a panel starts and ends on the same lines*/
 .slider {
-  display: flex;
-  flex-direction: column;
-  gap: var(--spacing-xxs);
-  min-width: 0;
-}
-
-.slider__head {
-  display: flex;
+  display: grid;
+  grid-template-columns: var(--editor-label-col) minmax(0, 1fr) var(--me-number-width);
   align-items: center;
-  gap: var(--spacing-xxs);
-  min-height: var(--me-dot-target);
-}
-
-.slider__label {
-  flex: 1;
+  column-gap: var(--vsui-space-sm);
+  row-gap: var(--vsui-space-2xs);
   min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
-.slider__value {
-  display: inline-flex;
-  align-items: baseline;
-  gap: var(--spacing-xxs);
+/*the auto mark keeps its slot, so a label never rewraps when it shows*/
+.slider__head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) var(--editor-icon);
+  align-items: center;
+  gap: var(--vsui-space-2xs);
+  min-width: 0;
 }
 
-.slider__number {
-  width: var(--me-number-width);
-  padding: 0 var(--spacing-xxs);
-  font: inherit;
-  font-size: var(--font-size-xs);
-  font-variant-numeric: tabular-nums;
-  text-align: right;
-  color: var(--editor-text);
-  background-color: transparent;
-  border: var(--border-width) solid transparent;
-  appearance: textfield;
-}
-
-.slider__number::-webkit-inner-spin-button,
-.slider__number::-webkit-outer-spin-button { appearance: none; margin: 0; }
-.slider__number:hover { border-color: var(--editor-line); }
-.slider__number:focus-visible {
-  outline: none;
-  border-color: var(--editor-accent);
-  background-color: var(--editor-input-bg);
-}
-
-.slider__unit {
-  font-size: var(--font-size-xs);
-  color: var(--editor-text-muted);
-}
+.slider__label { overflow-wrap: break-word; hyphens: auto; }
 
 .slider__range {
   width: 100%;
-  height: var(--me-range-target);
+  min-width: 0;
+  height: var(--editor-control);
   margin: 0;
   background: transparent;
+  border-radius: var(--editor-radius);
   cursor: pointer;
   accent-color: var(--editor-accent);
 }
 
 .slider__range:focus-visible { outline: none; box-shadow: var(--editor-focus); }
+
+.slider__value {
+  display: flex;
+  align-items: center;
+  gap: var(--vsui-space-2xs);
+  min-width: 0;
+}
+
+.slider__number {
+  flex: 1;
+  min-width: 0;
+  padding: 0 var(--vsui-space-xs);
+  font-size: var(--editor-fs-sm);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  appearance: textfield;
+}
+
+.slider__number::-webkit-inner-spin-button,
+.slider__number::-webkit-outer-spin-button { appearance: none; margin: 0; }
+
+.slider__unit {
+  flex-shrink: 0;
+  font-size: var(--editor-fs-xs);
+  color: var(--editor-text-muted);
+}
+
+.slider__hint { grid-column: 1 / -1; }
 </style>

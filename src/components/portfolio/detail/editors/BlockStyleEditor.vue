@@ -78,6 +78,6 @@ function set(partial: DetailBlockStyle) {
 .style-editor__sides {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--spacing-xxs);
+  gap: var(--vsui-space-2xs);
 }
 </style>

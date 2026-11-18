@@ -1,112 +1,125 @@
 /*EDITOR PRIMITIVES - shared by the edit bar, the inspector, the fields, the
-media library and the settings page. Interactive controls are at least one
-touch target tall; hover, focus and errors only change colours or shadows.*/
+media library, the detail page editor, the 3D editor and the settings page.
+The admin's tool, not the site: system font, sentence case, dense controls.
+Hover, focus and errors only change colours or shadows, never sizes.*/
+
+.ed-ui {
+  color-scheme: dark;
+  font-family: var(--editor-font);
+  font-size: var(--editor-fs);
+  line-height: var(--editor-lh);
+  letter-spacing: normal;
+  text-transform: none;
+  color: var(--editor-text);
+}
 
 .ed-input {
   width: 100%;
-  min-height: var(--editor-target);
-  padding: var(--spacing-xs) var(--spacing-sm);
+  min-height: var(--editor-control);
+  padding: 0 var(--vsui-space-sm);
   font: inherit;
-  font-size: var(--font-size-sm);
+  font-size: var(--editor-fs);
   color: var(--editor-text);
   background-color: var(--editor-input-bg);
-  border: var(--border-width) solid var(--editor-line);
+  border: var(--border-width) solid var(--editor-line-soft);
+  border-radius: var(--editor-radius);
   transition: border-color var(--transition-fast) ease, box-shadow var(--transition-fast) ease;
 }
-.ed-input:hover { border-color: var(--editor-text-muted); }
+.ed-input:hover { border-color: var(--editor-line); }
 .ed-input:focus-visible {
   outline: none;
   border-color: var(--editor-accent);
-  box-shadow: var(--editor-focus);
+  box-shadow: none;
 }
 .ed-input[aria-invalid="true"] { border-color: var(--editor-danger); }
-textarea.ed-input { resize: vertical; line-height: 1.5; }
+.ed-input::placeholder { color: var(--editor-text-muted); }
+textarea.ed-input { padding: var(--vsui-space-xs) var(--vsui-space-sm); resize: vertical; line-height: var(--editor-lh); }
 select.ed-input { cursor: pointer; }
 
 .ed-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: var(--spacing-xs);
-  min-height: var(--editor-target);
-  min-width: var(--editor-target);
-  padding: 0 var(--spacing-sm);
-  font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-medium);
-  letter-spacing: var(--letter-spacing-tight);
-  text-transform: uppercase;
+  gap: var(--vsui-space-xs);
+  min-height: var(--editor-control);
+  min-width: var(--editor-control);
+  padding: 0 var(--vsui-space-sm);
+  font: inherit;
+  font-size: var(--editor-fs);
   white-space: nowrap;
   color: var(--editor-text);
-  background-color: transparent;
-  border: var(--border-width) solid var(--editor-line);
+  background-color: var(--editor-surface-raised);
+  border: var(--border-width) solid transparent;
+  border-radius: var(--editor-radius);
   cursor: pointer;
   transition: border-color var(--transition-fast) ease, background-color var(--transition-fast) ease, color var(--transition-fast) ease;
 }
-.ed-btn:hover:not(:disabled) { border-color: var(--editor-text); }
+.ed-btn:hover:not(:disabled) { border-color: var(--editor-line); }
 .ed-btn:focus-visible { outline: none; box-shadow: var(--editor-focus); }
 .ed-btn:disabled { opacity: var(--vsui-disabled-opacity); cursor: not-allowed; }
+/*a primary with nothing to do reads as a plain button*/
+.ed-btn--primary:disabled {
+  color: var(--editor-text-muted);
+  background-color: var(--editor-surface-raised);
+  font-weight: inherit;
+}
 .ed-btn--primary {
   color: var(--editor-on-accent);
   background-color: var(--editor-accent);
-  border-color: var(--editor-accent);
+  font-weight: var(--font-weight-semibold);
 }
 .ed-btn--primary:hover:not(:disabled) {
   background-color: var(--editor-accent-hover);
-  border-color: var(--editor-accent-hover);
+  border-color: transparent;
 }
-.ed-btn--ghost { border-color: transparent; }
+.ed-btn--ghost { background-color: transparent; }
 .ed-btn--ghost:hover:not(:disabled) { border-color: transparent; background-color: var(--editor-surface-raised); }
 .ed-btn--danger { color: var(--editor-danger); }
 .ed-btn--danger:hover:not(:disabled) { border-color: var(--editor-danger); }
 .ed-btn--icon { padding: 0; }
-.ed-btn--active {
+.ed-btn--active,
+.ed-btn--active:hover:not(:disabled) {
   color: var(--editor-accent);
-  border-color: var(--editor-accent);
+  background-color: var(--editor-accent-soft);
 }
 
 .ed-label {
-  font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-medium);
-  text-transform: uppercase;
-  letter-spacing: var(--letter-spacing-normal);
+  font-size: var(--editor-fs-sm);
   color: var(--editor-text-muted);
 }
-.ed-hint  { font-size: var(--font-size-xs); color: var(--editor-text-muted); }
-.ed-error { font-size: var(--font-size-xs); color: var(--editor-danger); }
+.ed-hint  { font-size: var(--editor-fs-xs); color: var(--editor-text-muted); }
+.ed-error { font-size: var(--editor-fs-xs); color: var(--editor-danger); }
 
-/*FORMS - a form is a column of titled sections*/
+/*FORMS - a form is a column of titled sections, separated by a line*/
 .ed-form {
   display: flex;
   flex-direction: column;
-  gap: var(--spacing-xl);
 }
 .ed-form__section {
   display: flex;
   flex-direction: column;
-  gap: var(--spacing-md);
+  gap: var(--vsui-space-md);
+  padding: var(--vsui-space-md) 0;
+  border-top: var(--border-width) solid var(--editor-line-soft);
 }
+.ed-form__section:first-child { padding-top: 0; border-top: none; }
 .ed-form__title {
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-bold);
-  text-transform: uppercase;
-  letter-spacing: var(--letter-spacing-normal);
+  font-size: var(--editor-fs);
+  font-weight: var(--font-weight-semibold);
   color: var(--editor-text);
-  padding-bottom: var(--spacing-xxs);
-  border-bottom: var(--border-width) solid var(--editor-line);
 }
 .ed-form__grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--spacing-sm);
+  gap: var(--vsui-space-sm);
 }
 .ed-form__link {
   display: inline-flex;
   align-items: center;
-  gap: var(--spacing-xs);
-  min-height: var(--editor-target);
-  font-size: var(--font-size-xs);
-  text-transform: uppercase;
-  letter-spacing: var(--letter-spacing-tight);
+  align-self: flex-start;
+  gap: var(--vsui-space-xs);
+  min-height: var(--editor-control);
+  font-size: var(--editor-fs-sm);
   color: var(--editor-accent);
 }
 .ed-form__link:hover { text-decoration: underline; }

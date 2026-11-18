@@ -55,17 +55,17 @@ function closeHelp() {
     <SegmentedControl class="tb__seg" bare :label="t('modelEditorMode')" :model-value="ed.preview.value" :options="modes" @update:model-value="(m) => (ed.preview.value = m)" />
     <SegmentedControl class="tb__seg tb__frames" bare :label="t('modelEditorFrame')" :model-value="ed.frame.value" :options="frames" @update:model-value="(f) => (ed.frame.value = f)" />
     <div class="tb__end">
-      <button type="button" class="ed-btn ed-btn--icon tb__btn" :title="`${t('modelEditorFrameModel')} (F)`" :aria-label="t('modelEditorFrameModel')" @click="emit('frameModel')">
-        <Focus :size="18" />
+      <button type="button" class="ed-btn ed-btn--ghost ed-btn--icon" :title="`${t('modelEditorFrameModel')} (F)`" :aria-label="t('modelEditorFrameModel')" @click="emit('frameModel')">
+        <Focus :size="16" />
       </button>
-      <button type="button" class="ed-btn ed-btn--icon tb__btn" :title="t('modelEditorRestView')" :aria-label="t('modelEditorRestView')" @click="emit('restView')">
-        <House :size="18" />
+      <button type="button" class="ed-btn ed-btn--ghost ed-btn--icon" :title="t('modelEditorRestView')" :aria-label="t('modelEditorRestView')" @click="emit('restView')">
+        <House :size="16" />
       </button>
       <div class="tb__help-host">
         <button
           ref="helpButton"
           type="button"
-          class="ed-btn ed-btn--icon tb__btn"
+          class="ed-btn ed-btn--ghost ed-btn--icon"
           :class="{ 'ed-btn--active': help }"
           :aria-expanded="help"
           aria-haspopup="dialog"
@@ -73,7 +73,7 @@ function closeHelp() {
           :aria-label="t('modelEditorShortcuts')"
           @click="help = !help"
         >
-          <CircleHelp :size="18" />
+          <CircleHelp :size="16" />
         </button>
         <div
           v-if="help"
@@ -84,7 +84,7 @@ function closeHelp() {
           :aria-label="t('modelEditorShortcuts')"
           @keydown.esc.stop="closeHelp"
         >
-          <p class="ed-label">{{ t('modelEditorShortcuts') }}</p>
+          <p class="tb__help-title">{{ t('modelEditorShortcuts') }}</p>
           <dl class="tb__keys">
             <template v-for="s in SHORTCUTS" :key="s.keys">
               <dt><kbd class="tb__kbd">{{ s.keys }}</kbd></dt>
@@ -103,62 +103,63 @@ function closeHelp() {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: var(--spacing-xs);
-  padding: var(--spacing-xs);
-  background-color: var(--me-chrome-bg);
-  border-bottom: var(--border-width) solid var(--editor-line);
+  gap: var(--vsui-space-sm);
+  padding: var(--vsui-space-xs) var(--vsui-space-sm);
+  background-color: var(--editor-surface);
+  border-bottom: var(--border-width) solid var(--editor-line-soft);
 }
 
-.tb__seg { flex: 0 1 var(--me-seg-width); }
+.tb__seg { flex: 0 1 auto; }
 
 .tb__end {
   display: flex;
   align-items: center;
-  gap: var(--spacing-xxs);
+  gap: var(--vsui-space-2xs);
   margin-left: auto;
-}
-
-.tb__btn {
-  min-width: var(--me-seg-height);
-  min-height: var(--me-seg-height);
 }
 
 .tb__help-host { position: relative; }
 
 .tb__help {
   position: absolute;
-  top: calc(100% + var(--spacing-xs));
+  top: calc(100% + var(--vsui-space-xs));
   right: 0;
   z-index: var(--editor-z-inspector);
   display: flex;
   flex-direction: column;
-  gap: var(--spacing-sm);
+  gap: var(--vsui-space-sm);
   width: var(--vsui-panel-md);
-  padding: var(--spacing-md);
-  background-color: var(--editor-surface);
+  padding: var(--vsui-space-md);
+  background-color: var(--editor-surface-raised);
   border: var(--border-width) solid var(--editor-line);
-  box-shadow: var(--vsui-shadow-lg);
+  border-radius: var(--editor-radius);
+  box-shadow: var(--editor-shadow);
 }
 
-.tb__help:focus-visible { outline: none; box-shadow: var(--editor-focus); }
+.tb__help:focus-visible { outline: none; box-shadow: var(--editor-shadow), var(--editor-focus); }
+
+.tb__help-title { font-weight: var(--font-weight-semibold); }
 
 .tb__keys {
   display: grid;
   grid-template-columns: auto 1fr;
-  gap: var(--spacing-xs) var(--spacing-sm);
-  font-size: var(--font-size-xs);
+  align-items: center;
+  gap: var(--vsui-space-xs) var(--vsui-space-sm);
+  font-size: var(--editor-fs-sm);
   color: var(--editor-text);
 }
 
 .tb__kbd {
   display: inline-block;
   min-width: var(--me-kbd-width);
-  padding: 0 var(--spacing-xxs);
+  padding: 0 var(--vsui-space-xs);
   font-family: inherit;
-  font-size: var(--font-size-xs);
+  font-size: var(--editor-fs-xs);
   text-align: center;
   color: var(--editor-text);
+  background-color: var(--editor-input-bg);
   border: var(--border-width) solid var(--editor-line);
+  border-radius: var(--editor-radius);
 }
 
 /*PHONE - the frame choice is for authoring views, which needs room*/

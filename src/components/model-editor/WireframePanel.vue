@@ -141,7 +141,7 @@ onBeforeUnmount(() => { ed.picking.value = false })
     <section class="ed-form__section">
       <h3 class="ed-form__title">{{ t('modelEditorGlow') }}</h3>
       <p class="wp__pick ed-hint">
-        <MousePointerClick :size="16" aria-hidden="true" />
+        <MousePointerClick :size="14" aria-hidden="true" />
         <span>{{ t('modelEditorGlowHint') }}</span>
       </p>
       <p v-if="!picks.length" class="ed-hint">{{ t('modelEditorGlowEmpty') }}</p>
@@ -163,20 +163,22 @@ onBeforeUnmount(() => { ed.picking.value = false })
 .wp__pick {
   display: flex;
   align-items: flex-start;
-  gap: var(--spacing-xs);
+  gap: var(--vsui-space-xs);
 }
+
+.wp__pick svg { flex-shrink: 0; }
 
 .wp__picks {
   display: flex;
   flex-direction: column;
-  gap: var(--spacing-xs);
+  gap: var(--vsui-space-xs);
   list-style: none;
 }
 
 .wp__pick-item {
   display: flex;
-  align-items: flex-end;
-  gap: var(--spacing-xs);
+  align-items: center;
+  gap: var(--vsui-space-xs);
 }
 
 .wp__pick-slider { flex: 1; }

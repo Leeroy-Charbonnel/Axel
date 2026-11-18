@@ -51,25 +51,26 @@ function toggle(sw: SoftwareDto) {
 .ed-chips {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--spacing-xxs);
+  gap: var(--vsui-space-xs);
 }
 
 .ed-chips__chip {
   display: inline-flex;
   align-items: center;
-  gap: var(--spacing-xs);
-  min-height: var(--editor-target);
-  padding: 0 var(--spacing-sm);
-  font-size: var(--font-size-xs);
+  gap: var(--vsui-space-xs);
+  min-height: var(--editor-control);
+  padding: 0 var(--vsui-space-sm);
+  font-size: var(--editor-fs-sm);
   color: var(--editor-text-muted);
-  border: var(--border-width) solid var(--editor-line);
+  border: var(--border-width) solid var(--editor-line-soft);
+  border-radius: var(--editor-radius);
   cursor: pointer;
   transition: border-color var(--transition-fast) ease, color var(--transition-fast) ease;
 }
 
 .ed-chips__chip img {
-  width: var(--spacing-md);
-  height: var(--spacing-md);
+  width: var(--editor-icon);
+  height: var(--editor-icon);
   object-fit: contain;
 }
 

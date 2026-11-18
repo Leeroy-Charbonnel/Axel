@@ -41,7 +41,7 @@ const variants = computed(() => {
   const steps = widthSteps(size.value?.[0] ?? null)
   return {
     srcset: steps.map(({ step, width }) => `${derivativeUrl(stored, step)} ${width}w`).join(", "),
-    src:    derivativeUrl(stored, steps.at(-1)!.step),
+    src:    derivativeUrl(stored, steps[steps.length - 1]!.step),
   }
 })
 </script>
