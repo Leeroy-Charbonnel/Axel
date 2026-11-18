@@ -198,7 +198,15 @@ function resetTheme() {
 const draftCount = computed(() => Object.keys(drafts.value).length)
 const pageActive = computed(() => pageActions.value !== null)
 const pageDirty  = computed(() => pageActions.value?.dirty.value ?? false)
-const dirty      = computed(() => draftCount.value > 0 || theme.dirty.value || pageDirty.value)
+//STRUCTURE - new order, removed and created items, all waiting for Save
+interface ItemRef { kind: EntityKind; id: number }
+const pendingOrder   = ref<Partial<Record<EntityKind, number[]>>>({})
+const pendingRemoved = ref<ItemRef[]>([])
+const pendingCreated = ref<ItemRef[]>([])
+const structureDirty = computed(() =>
+  Object.keys(pendingOrder.value).length > 0 || pendingRemoved.value.length > 0 || pendingCreated.value.length > 0)
+
+const dirty      = computed(() => draftCount.value > 0 || theme.dirty.value || pageDirty.value || structureDirty.value)
 const canUndo    = computed(() => past.value.length > 0 || (pageActions.value?.canUndo?.value ?? false))
 const canRedo    = computed(() => future.value.length > 0 || (pageActions.value?.canRedo?.value ?? false))
 export type EditorStatus = "saved" | "dirty" | "saving"
@@ -246,6 +254,7 @@ async function saveAll(): Promise<boolean> {
   saving.value = true
   let failed = 0
   try {
+    if (structureDirty.value && !(await trySave("structure", saveStructure))) failed++
     for (const entry of Object.values(drafts.value)) {
       if (!(await trySave(entityKey(entry.kind, entry.id), () => KINDS[entry.kind].save(entry.id, entry.patch as never)))) failed++
     }
@@ -269,6 +278,7 @@ function discardAll() {
   theme.discard()
   resetHistory()
   pageActions.value?.discard()
+  if (structureDirty.value) void discardStructure()
 }
 
 //asks before throwing work away; true when nothing is pending any more
@@ -305,40 +315,86 @@ function isSelected(kind: EntityKind, id: EntityId): boolean {
   return selection.value?.kind === kind && selection.value.id === id
 }
 
-//STRUCTURAL OPERATIONS - immediate, outside the drafts
+//STRUCTURAL OPERATIONS - shown at once, sent by Save, undone by Discard
 function collectionBase(kind: EntityKind): string {
   const collection = KINDS[kind].collection
   if (!collection) throw new Error(`${kind} is not a collection`)
   return collection.base
 }
 
+function liveList(kind: EntityKind): Array<{ id: number }> {
+  const data = portfolio.data.value
+  if (!data) throw new Error("[editor] no portfolio loaded")
+  return KINDS[kind].list(data) as Array<{ id: number }>
+}
+
+//The row is made hidden; Save publishes it, Discard deletes it
 async function createItem(kind: EntityKind) {
   const row = await apiJson<{ id: number }>("POST", collectionBase(kind))
   await portfolio.reload()
+  pendingCreated.value = [...pendingCreated.value, { kind, id: row.id }]
+  patch(kind, row.id, { published: true } as never)
   select(kind, row.id, { focus: true })
 }
 
+//Hidden from the page now, deleted on Save
 async function removeItem(kind: EntityKind, id: number) {
-  await apiJson("DELETE", `${collectionBase(kind)}/${id}`)
+  const list = liveList(kind)
+  const index = list.findIndex((e) => e.id === id)
+  if (index >= 0) list.splice(index, 1)
   forget(entityKey(kind, id))
   if (isSelected(kind, id)) clear()
-  await portfolio.reload()
+  if (pendingCreated.value.some((c) => c.kind === kind && c.id === id)) {
+    pendingCreated.value = pendingCreated.value.filter((c) => !(c.kind === kind && c.id === id))
+    await apiJson("DELETE", `${collectionBase(kind)}/${id}`)
+    return
+  }
+  pendingRemoved.value = [...pendingRemoved.value, { kind, id }]
 }
 
-//shows the new order at once, sends it, and re-reads the truth if it fails
+//The new order shows at once and is sent on Save
 async function reorder(kind: EntityKind, ids: number[]) {
-  const data = portfolio.data.value
-  if (!data) return
-  const list = KINDS[kind].list(data) as Array<{ id: number }>
+  const list = liveList(kind)
   const byId = new Map(list.map((e) => [e.id, e]))
   const next = ids.map((id) => byId.get(id)).filter((e): e is { id: number } => Boolean(e))
   list.splice(0, list.length, ...next)
-  try {
-    await apiJson("PUT", `${collectionBase(kind)}/order`, { ids })
-  } catch (e) {
-    console.error(`[editor] reorder of ${kind} failed:`, e)
-    await portfolio.reload()
+  pendingOrder.value = { ...pendingOrder.value, [kind]: ids }
+}
+
+//Fresh data from the server gets the pending order and removals back
+function applyStructure() {
+  if (!portfolio.data.value) return
+  for (const [kind, ids] of Object.entries(pendingOrder.value) as [EntityKind, number[]][]) {
+    const list = liveList(kind)
+    const rank = (id: number) => { const i = ids.indexOf(id); return i < 0 ? ids.length : i }
+    list.sort((a, b) => rank(a.id) - rank(b.id))
   }
+  for (const { kind, id } of pendingRemoved.value) {
+    const list = liveList(kind)
+    const index = list.findIndex((e) => e.id === id)
+    if (index >= 0) list.splice(index, 1)
+  }
+}
+watch(() => portfolio.data.value, applyStructure)
+
+async function saveStructure() {
+  for (const { kind, id } of pendingRemoved.value) await apiJson("DELETE", `${collectionBase(kind)}/${id}`)
+  pendingRemoved.value = []
+  for (const kind of Object.keys(pendingOrder.value) as EntityKind[]) {
+    await apiJson("PUT", `${collectionBase(kind)}/order`, { ids: liveList(kind).map((e) => e.id) })
+  }
+  pendingOrder.value = {}
+  pendingCreated.value = []
+}
+
+//Created rows are deleted, then the saved order and items come back
+async function discardStructure() {
+  const created = pendingCreated.value
+  pendingCreated.value = []
+  pendingRemoved.value = []
+  pendingOrder.value = {}
+  for (const { kind, id } of created) await apiJson("DELETE", `${collectionBase(kind)}/${id}`)
+  await portfolio.reload()
 }
 
 async function move(kind: EntityKind, id: number, delta: -1 | 1) {

@@ -46,6 +46,8 @@ contentRouter.post("/api/main-project", requireAdmin, async (_req, res) => {
     description:         { en: "Project description", fr: "Description du projet" },
     stats:               { vertices: 0, edges: 0, faces: 0, triangles: 0 },
     sortOrder:           await nextSortOrder(mainProject),
+    //Hidden until the editor saves it
+    published: false,
   }).returning()
   res.json(row)
 })
@@ -93,6 +95,8 @@ contentRouter.post("/api/gallery-project", requireAdmin, async (_req, res) => {
     link:      "",
     stats:     { vertices: 0, edges: 0, faces: 0, triangles: 0 },
     sortOrder: await nextSortOrder(galleryProject),
+    //Hidden until the editor saves it
+    published: false,
   }).returning()
   res.json(row)
 })
@@ -127,6 +131,8 @@ contentRouter.post("/api/experience", requireAdmin, async (_req, res) => {
     summary:     { en: "", fr: "" },
     description: { en: [], fr: [] },
     sortOrder:   await nextSortOrder(experience),
+    //Hidden until the editor saves it
+    published: false,
   }).returning()
   res.json(row)
 })
