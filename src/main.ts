@@ -7,6 +7,7 @@ import "./style.css"
 import App from "./App.vue"
 import router from "./router/index"
 import { authClient } from "./lib/authClient"
+import { startProjectPrefetch } from "./lib/project-prefetch"
 
 const DEV_LOGIN_URL = "/api/dev/login"
 const DEV_LOGIN_RELOAD_KEY = "dev-auto-login-reload"
@@ -14,6 +15,7 @@ const DEV_LOGIN_RELOAD_KEY = "dev-auto-login-reload"
 //The address asked for, before a guard redirects a signed-out visitor
 const startUrl = location.href
 createApp(App).use(router).mount("#app")
+startProjectPrefetch()
 
 async function isSignedIn(): Promise<boolean> {
   const { data, error } = await authClient.getSession()

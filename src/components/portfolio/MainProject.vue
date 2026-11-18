@@ -70,7 +70,7 @@ const longestWord = computed(() => Math.max(...title.value.split(/\s+/).map((wor
             @click="openThumbnail(thumb)"
           >
             <SiteImage :src="thumb.url!" :sizes="IMAGE_SIZES.thumb" />
-            <SiteImage v-if="thumb.wireframeUrl" :src="thumb.wireframeUrl" :sizes="IMAGE_SIZES.thumb" loading="eager" class="case__wire" />
+            <SiteImage v-if="thumb.wireframeUrl" :src="thumb.wireframeUrl" :sizes="IMAGE_SIZES.thumb" class="case__wire" />
           </button>
         </li>
       </ul>

@@ -47,6 +47,12 @@ export function derivativeUrl(stored: string, width: number, format: ImageFormat
   return `/media/${format}/${width}/${stored}`
 }
 
+//The step of the smallest copy at least `drawn` image pixels wide, or the widest one
+export function stepFor(drawn: number, naturalWidth: number | null): number {
+  const steps = widthSteps(naturalWidth)
+  return (steps.find((s) => s.width >= drawn) ?? steps[steps.length - 1]!).step
+}
+
 //The widths worth offering for an image this wide: every smaller step, then
 //one step that serves the image at its own width (the server never enlarges)
 export function widthSteps(naturalWidth: number | null): Array<{ step: number; width: number }> {

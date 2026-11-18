@@ -22,6 +22,13 @@ const firstCloneUrl = computed(() => items.value[0]?.url ?? "")
 const lastCloneUrl  = computed(() => items.value[items.value.length - 1]?.url ?? "")
 const caption       = computed(() => items.value[index.value]?.alt ?? "")
 
+//Only the open slide and its two neighbours load their full copy
+function near(i: number): boolean {
+  const n = items.value.length
+  const d = (((i - index.value) % n) + n) % n
+  return Math.min(d, n - d) <= 1
+}
+
 //displayed offset in the extended track; briefly -1 or items.length on a wrap
 const position           = ref(0)
 const transitionEnabled  = ref(true)
@@ -142,7 +149,7 @@ watch(isOpen, async (open) => {
         @transitionend.self="onTrackTransitionEnd"
       >
         <div class="lightbox__slide" aria-hidden="true" @click.self="onSlideClick">
-          <SiteImage v-if="lastCloneUrl" :src="lastCloneUrl" :sizes="IMAGE_SIZES.lightbox" loading="eager" draggable="false" class="lightbox__image" />
+          <SiteImage v-if="lastCloneUrl && near(items.length - 1)" :src="lastCloneUrl" :sizes="IMAGE_SIZES.lightbox" full draggable="false" class="lightbox__image" />
         </div>
         <div
           v-for="(it, i) in items"
@@ -151,10 +158,10 @@ watch(isOpen, async (open) => {
           :aria-hidden="i !== index"
           @click.self="onSlideClick"
         >
-          <SiteImage :src="it.url" :alt="it.alt ?? ''" :sizes="IMAGE_SIZES.lightbox" loading="eager" draggable="false" class="lightbox__image" />
+          <SiteImage v-if="near(i)" :src="it.url" :alt="it.alt ?? ''" :sizes="IMAGE_SIZES.lightbox" full draggable="false" class="lightbox__image" />
         </div>
         <div class="lightbox__slide" aria-hidden="true" @click.self="onSlideClick">
-          <SiteImage v-if="firstCloneUrl" :src="firstCloneUrl" :sizes="IMAGE_SIZES.lightbox" loading="eager" draggable="false" class="lightbox__image" />
+          <SiteImage v-if="firstCloneUrl && near(0)" :src="firstCloneUrl" :sizes="IMAGE_SIZES.lightbox" full draggable="false" class="lightbox__image" />
         </div>
       </div>
 
