@@ -75,7 +75,7 @@ const EDITORS: Record<DetailBlockType, Component> = {
 
 <template>
   <aside class="block-panel ed-ui" :aria-label="t('detailPanel')">
-    <EditorTabs v-model="tab" class="block-panel__tabs" :tabs="tabs" :label="t('detailPanel')" id-prefix="block" keep>
+    <EditorTabs v-model="tab" class="block-panel__tabs" :tabs="tabs" :label="t('detailPanel')" id-prefix="block" keep rail>
       <template #end>
         <EditLangSwitch />
       </template>

@@ -10,13 +10,14 @@ export interface EditorTab<K extends string = string> {
 </script>
 
 <script setup lang="ts" generic="K extends string">
-import { shallowReactive, watch } from "vue"
+import { computed, shallowReactive, watch } from "vue"
 
 //EDITOR TABS - a row of tabs over their panes, for the editor's side panels.
 //Arrows, Home and End move between tabs; only the open tab is in the Tab
 //order. A pane comes from the slot named after its tab. With `keep`, a pane
 //opened once stays mounted while hidden; without it, only the open pane exists.
-//The `end` slot sits beside the tabs, outside the tab list.
+//The `end` slot sits beside the tabs, outside the tab list. With `rail`, the
+//tabs are a column of icons on the left and the open tab names the panel.
 
 const props = withDefaults(defineProps<{
   tabs:     EditorTab<K>[]
@@ -26,7 +27,8 @@ const props = withDefaults(defineProps<{
   idPrefix: string
   keep?:    boolean
   padded?:  boolean
-}>(), { keep: false, padded: false })
+  rail?:    boolean
+}>(), { keep: false, padded: false, rail: false })
 
 const open = defineModel<K>({ required: true })
 
@@ -37,10 +39,13 @@ const tabEls = new Map<K, HTMLElement>()
 const tabId  = (key: K) => `${props.idPrefix}-tab-${key}`
 const paneId = (key: K) => `${props.idPrefix}-pane-${key}`
 const mounted = (key: K) => key === open.value || (props.keep && visited.has(key))
+const openLabel = computed(() => props.tabs.find((tb) => tb.key === open.value)?.label ?? "")
 
 const MOVES: Record<string, (i: number, n: number) => number> = {
   ArrowLeft:  (i, n) => (i - 1 + n) % n,
   ArrowRight: (i, n) => (i + 1) % n,
+  ArrowUp:    (i, n) => (i - 1 + n) % n,
+  ArrowDown:  (i, n) => (i + 1) % n,
   Home:       () => 0,
   End:        (_, n) => n - 1,
 }
@@ -57,9 +62,9 @@ function onKeydown(e: KeyboardEvent) {
 </script>
 
 <template>
-  <div class="ed-tabs">
+  <div class="ed-tabs" :class="{ 'ed-tabs--rail': rail }">
     <div class="ed-tabs__bar">
-      <div class="ed-tabs__list" role="tablist" :aria-label="label" @keydown="onKeydown">
+      <div class="ed-tabs__list" role="tablist" :aria-label="label" :aria-orientation="rail ? 'vertical' : 'horizontal'" @keydown="onKeydown">
         <button
           v-for="tb in tabs"
           :id="tabId(tb.key)"
@@ -78,6 +83,11 @@ function onKeydown(e: KeyboardEvent) {
           <span class="ed-tabs__label">{{ tb.label }}</span>
         </button>
       </div>
+      <slot v-if="!rail" name="end" />
+    </div>
+    <div class="ed-tabs__main">
+    <div v-if="rail" class="ed-tabs__head">
+      <span class="ed-tabs__title">{{ openLabel }}</span>
       <slot name="end" />
     </div>
     <template v-for="tb in tabs" :key="tb.key">
@@ -93,6 +103,7 @@ function onKeydown(e: KeyboardEvent) {
         <slot :name="tb.key" />
       </div>
     </template>
+    </div>
   </div>
 </template>
 
@@ -167,6 +178,50 @@ function onKeydown(e: KeyboardEvent) {
 }
 
 .ed-tabs__pane--padded { padding: var(--vsui-space-md); }
+
+.ed-tabs__main {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+
+/*RAIL - icons in a column on the left, the open tab named on top*/
+.ed-tabs--rail { flex-direction: row; }
+.ed-tabs--rail .ed-tabs__bar {
+  flex-direction: column;
+  border-bottom: none;
+  border-right: var(--border-width) solid var(--editor-line);
+}
+.ed-tabs--rail .ed-tabs__list { flex: none; flex-direction: column; container-type: normal; }
+.ed-tabs--rail .ed-tabs__tab {
+  flex: none;
+  width: var(--editor-control);
+  padding: 0;
+}
+.ed-tabs--rail .ed-tabs__label { display: none; }
+
+.ed-tabs__head {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: var(--vsui-space-xs);
+  min-height: calc(var(--editor-control) + 2 * var(--vsui-space-xs));
+  padding: 0 var(--vsui-space-xs) 0 var(--vsui-space-sm);
+  border-bottom: var(--border-width) solid var(--editor-line);
+}
+
+.ed-tabs__title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--editor-fs-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--editor-text);
+}
 
 /*A narrow row: only the open tab spells its name, the others keep their icon and title*/
 @container ed-tabs (max-width: 360px) {
