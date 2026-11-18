@@ -9,7 +9,8 @@ import type { LabelPoint, ModelViewer } from "../../three/modelViewer"
 import type { ViewerMode, ViewerSettings } from "../../three/types"
 
 //PUBLIC 3D VIEWER, transparent so the model floats on the page. Fetches three.js
-//and the GLB when the viewer comes near the viewport, on every device, and flies
+//and the GLB when the viewer comes near the viewport or once the page settled
+//(not when the browser asks to save data), and flies
 //the camera in once a good part of it is on screen. The poster only shows when
 //the model cannot be. Rendering pauses offscreen and in a hidden tab. The scene itself lives in src/three/modelViewer.ts.
 
@@ -39,8 +40,12 @@ const emit = defineEmits<{ "update:wireframe": [on: boolean]; "update:plain": [o
 const { t } = useLanguage()
 const { accent } = useTheme()
 
-//start loading this far before the viewer scrolls into view
-const PRELOAD_MARGIN = "200px"
+//start loading a screen before the viewer scrolls into view
+const PRELOAD_MARGIN = "100%"
+//every viewer of the page starts loading this long after the page shows, in the background
+const EAGER_START_MS = 1500
+//the wheel zooms once the pointer rested this long on the viewer without a page scroll
+const ZOOM_ARM_MS = 600
 //share of the viewer on screen before the intro flight starts
 const INTRO_THRESHOLD = 0.3
 const DESKTOP_MAX_DPR = 2
@@ -214,6 +219,49 @@ function onVisibilityChange() {
   pageHidden.value = document.hidden
 }
 
+//WHEEL INTENT - a wheel that passes over the viewer while scrolling the page
+//keeps scrolling it. The wheel zooms once the pointer rested on the viewer
+//without a page scroll, or after a press on it.
+let hovering = false
+let zoomArmed = false
+let armTimer: ReturnType<typeof setTimeout> | undefined
+let eagerTimer: ReturnType<typeof setTimeout> | undefined
+
+function rearm() {
+  zoomArmed = false
+  clearTimeout(armTimer)
+  if (hovering) armTimer = setTimeout(() => { zoomArmed = true }, ZOOM_ARM_MS)
+}
+
+function onPointerEnter(e: PointerEvent) {
+  if (e.pointerType !== "mouse") return
+  hovering = true
+  rearm()
+}
+
+function onPointerLeave() {
+  hovering = false
+  rearm()
+}
+
+function onPress() {
+  clearTimeout(armTimer)
+  zoomArmed = true
+}
+
+function onPageScroll() {
+  if (hovering) rearm()
+}
+
+//capture phase: a wheel the viewer must not take never reaches the controls
+function onWheel(e: WheelEvent) {
+  if (!zoomArmed && !isFullscreen.value) e.stopPropagation()
+}
+
+function saveData(): boolean {
+  return Boolean((navigator as Navigator & { connection?: { saveData?: boolean } }).connection?.saveData)
+}
+
 function onFullscreenChange() {
   isFullscreen.value = document.fullscreenElement === root.value
 }
@@ -244,6 +292,12 @@ onMounted(() => {
   canvas.value!.addEventListener("webglcontextrestored", onContextRestored)
   document.addEventListener("visibilitychange", onVisibilityChange)
   document.addEventListener("fullscreenchange", onFullscreenChange)
+  el.addEventListener("wheel", onWheel, { capture: true, passive: true })
+  el.addEventListener("pointerenter", onPointerEnter)
+  el.addEventListener("pointerleave", onPointerLeave)
+  el.addEventListener("pointerdown", onPress)
+  window.addEventListener("scroll", onPageScroll, { passive: true })
+  if (!saveData()) eagerTimer = setTimeout(() => { if (phase.value === "idle") void start() }, EAGER_START_MS)
 })
 
 onBeforeUnmount(() => {
@@ -252,6 +306,9 @@ onBeforeUnmount(() => {
   canvas.value?.removeEventListener("webglcontextrestored", onContextRestored)
   document.removeEventListener("visibilitychange", onVisibilityChange)
   document.removeEventListener("fullscreenchange", onFullscreenChange)
+  window.removeEventListener("scroll", onPageScroll)
+  clearTimeout(armTimer)
+  clearTimeout(eagerTimer)
   teardown(true)
 })
 

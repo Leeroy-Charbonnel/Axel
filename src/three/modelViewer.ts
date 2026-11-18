@@ -19,6 +19,7 @@ import { createViewerCore, type ViewerCore } from "./core"
 import { disposeObject } from "./dispose"
 import { EnvironmentManager } from "./environment"
 import { LightRig } from "./lights"
+import { untilScrollIdle } from "./loadQueue"
 import { type ProgressFn, loadGltf } from "./loaders"
 import {
   applyMaterialState,
@@ -272,6 +273,7 @@ export class ModelViewer {
 
     root.visible = true
     await envReady
+    await untilScrollIdle()
     if (this.disposed) return
     //compile off the first frame where the driver allows it
     this.compiling = this.core.renderer.compileAsync(this.core.scene, this.core.camera)
@@ -283,6 +285,10 @@ export class ModelViewer {
     if (this.disposed) return
 
     this.placeCamera()
+    //the first frame's heavy work done before the viewer is on screen
+    await untilScrollIdle()
+    if (this.disposed) return
+    this.core.warmUp()
     this.core.requestRender()
   }
 

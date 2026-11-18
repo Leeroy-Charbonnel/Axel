@@ -71,6 +71,8 @@ export interface ViewerCore {
   onResize(cb: (width: number, height: number) => void): void
   //false stops the loop entirely (offscreen, hidden tab)
   setActive(active: boolean): void
+  //draws one frame even while inactive: uploads and shadow maps happen now, not on screen
+  warmUp(): void
   //loseContext: false when the context is already lost and should come back
   dispose(loseContext: boolean): void
 }
@@ -85,6 +87,8 @@ export function createViewerCore(canvas: HTMLCanvasElement, opts: ViewerCoreOpti
   renderer.toneMappingExposure = 1
   renderer.shadowMap.enabled   = true
   renderer.setClearColor(0x000000, 0)
+  //the shader check reads each program back at once and stalls the frame: dev only
+  renderer.debug.checkShaderErrors = import.meta.env.DEV
 
   const scene  = new Scene()
   const camera = new PerspectiveCamera(CAMERA_FOV, 1, 0.01, 1000)
@@ -226,6 +230,11 @@ export function createViewerCore(canvas: HTMLCanvasElement, opts: ViewerCoreOpti
     },
     onResize(cb) {
       resizeCallbacks.push(cb)
+    },
+    warmUp() {
+      if (disposed) return
+      if (composer) composer.render(0)
+      else renderer.render(scene, camera)
     },
     setActive(value) {
       active = value
