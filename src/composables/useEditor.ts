@@ -1,5 +1,6 @@
 import { computed, ref, shallowRef, watch, type Ref } from "vue"
 import { usePortfolio, apiJson } from "./usePortfolio"
+import { useMediaLibrary } from "../components/admin/media/useMediaLibrary"
 import { useToast } from "./useToast"
 import { useConfirm } from "./useConfirm"
 import { useTranslations } from "./useTranslations"
@@ -206,7 +207,8 @@ const pendingCreated = ref<ItemRef[]>([])
 const structureDirty = computed(() =>
   Object.keys(pendingOrder.value).length > 0 || pendingRemoved.value.length > 0 || pendingCreated.value.length > 0)
 
-const dirty      = computed(() => draftCount.value > 0 || theme.dirty.value || pageDirty.value || structureDirty.value)
+const media = useMediaLibrary()
+const dirty      = computed(() => draftCount.value > 0 || theme.dirty.value || pageDirty.value || structureDirty.value || media.filesDirty.value)
 const canUndo    = computed(() => past.value.length > 0 || (pageActions.value?.canUndo?.value ?? false))
 const canRedo    = computed(() => future.value.length > 0 || (pageActions.value?.canRedo?.value ?? false))
 export type EditorStatus = "saved" | "dirty" | "saving"
@@ -261,6 +263,8 @@ async function saveAll(): Promise<boolean> {
     if (theme.dirty.value && !(await trySave(THEME_KEY, theme.save))) failed++
     const page = pageActions.value
     if (page?.dirty.value && !(await trySave("page", page.save))) failed++
+    //Files go after the content, which may stop using them
+    if (media.filesDirty.value && !(await trySave("files", media.commitDeletes))) failed++
     await portfolio.reload()
     //saved fields now equal the fresh data and fall away; failed ones stay, with their history
     for (const key of Object.keys(drafts.value)) prune(key)
@@ -279,6 +283,7 @@ function discardAll() {
   resetHistory()
   pageActions.value?.discard()
   if (structureDirty.value) void discardStructure()
+  if (media.filesDirty.value) void media.discardDeletes()
 }
 
 //asks before throwing work away; true when nothing is pending any more

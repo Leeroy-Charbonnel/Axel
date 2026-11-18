@@ -17,8 +17,8 @@ import SiteImage from "../../SiteImage.vue"
 //and a project's files panel ("manage"). Search, type filter, upload (button
 //or drop), previews. With a project: manage shows its files only, pick shows
 //its files and the shared ones, and uploads go to its folder. Manage mode
-//also shows the storage used and sweeps the orphans, never while an edit is
-//unsaved: a file it picked has no reference yet. compact: inside a panel.
+//also shows the storage used and sweeps the orphans; a deletion waits for Save.
+//compact: inside a panel.
 
 const ICONS = { image: ImageIcon, video: Film, model: Box, hdr: Sun, document: FileText }
 //placeholders drawn before the very first answer; later loads keep the last list on screen
@@ -77,7 +77,7 @@ const emptyText = computed(() => {
 })
 
 const uploadLabel = computed(() => uploading.value ? t("mediaUploading") : t("mediaUpload"))
-const saveFirst = computed(() => dirty.value ? t("mediaSaveFirst") : undefined)
+
 
 function metaText(f: MediaFile): string {
   const use = f.referenceCount ? t("mediaUsed").replace("{n}", String(f.referenceCount)) : t("mediaUnused")
@@ -162,7 +162,6 @@ function onDrop(e: DragEvent) {
 }
 
 async function onDelete(f: MediaFile, index: number) {
-  if (dirty.value) return
   const ok = await confirm({
     title:       t("mediaDeleteTitle"),
     what:        f.originalFilename,
@@ -170,13 +169,8 @@ async function onDelete(f: MediaFile, index: number) {
     destructive: true,
   })
   if (!ok) return
-  try {
-    await library.remove(f)
-  } catch (e) {
-    reportFailure(e, `${t("mediaDeleteAction")} ${f.originalFilename}`)
-    return
-  }
-  void refreshSummary()
+  await library.remove(f)
+  toast.info(t("mediaDeleteOnSave"))
   await nextTick()
   focusNear(index)
 }
@@ -194,8 +188,6 @@ function focusNear(index: number) {
 const summary  = ref<StorageSummary | null>(null)
 const sweeping = ref(false)
 const orphanCount = computed(() => summary.value?.orphans.files ?? 0)
-//Something the trash or the sweep could take
-const deletable = computed(() => orphanCount.value > 0 || scoped.value.some((f) => f.referenceCount === 0))
 
 const orphanText = computed(() => {
   const s = summary.value
@@ -222,7 +214,7 @@ async function refreshSummary() {
 }
 
 async function onSweep() {
-  if (!summary.value || dirty.value) return
+  if (!summary.value) return
   const what = props.project === null ? "mediaOrphansWhatSite" : "mediaOrphansWhatProject"
   const ok = await confirm({
     title:       t("mediaOrphansTitle"),
@@ -231,16 +223,8 @@ async function onSweep() {
     destructive: true,
   })
   if (!ok) return
-  sweeping.value = true
-  try {
-    const done = await library.sweepOrphans(props.project)
-    toast.success(t("mediaOrphansDone").replace("{n}", String(done.deletedFiles)).replace("{size}", formatBytes(done.freedBytes)))
-  } catch (e) {
-    reportFailure(e, t("mediaOrphansDelete"))
-  } finally {
-    sweeping.value = false
-  }
-  void refreshSummary()
+  await library.sweepOrphans(props.project)
+  toast.info(t("mediaDeleteOnSave"))
 }
 
 watch(() => props.project, () => {
@@ -331,13 +315,11 @@ onMounted(() => {
         </span>
         <span v-if="!compact" class="media__storage-meta">{{ t('mediaStorageCache').replace('{size}', formatBytes(summary.cacheBytes)) }}</span>
         <span class="media__storage-meta">{{ compact ? `· ${orphanText}` : orphanText }}</span>
-        <span v-if="saveFirst && deletable" class="media__storage-meta">{{ saveFirst }}</span>
         <button
           v-if="orphanCount"
           type="button"
           class="ed-btn ed-btn--ghost ed-btn--danger media__sweep"
-          :disabled="sweeping || dirty"
-          :title="saveFirst"
+          :disabled="sweeping"
           @click="onSweep"
         >
           <Brush :size="SMALL_ICON_SIZE" />
@@ -388,8 +370,7 @@ onMounted(() => {
           type="button"
           class="ed-btn ed-btn--ghost ed-btn--icon ed-btn--danger media__delete"
           :aria-label="`${t('mediaDeleteAction')} ${f.originalFilename}`"
-          :disabled="dirty"
-          :title="saveFirst"
+
           @click="onDelete(f, index)"
         >
           <Trash2 :size="SMALL_ICON_SIZE" />

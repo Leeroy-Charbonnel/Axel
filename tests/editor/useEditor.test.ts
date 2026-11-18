@@ -9,8 +9,9 @@ const reloadWith = { next: null as PortfolioDto | null }
 mock.module("../../src/composables/usePortfolio", () => ({
   usePortfolio: () => ({ data, reload: async () => { data.value = reloadWith.next } }),
   apiJson:      async () => ({}),
+  uploadFile:   async () => ({}),
 }))
-mock.module("../../src/composables/useToast", () => ({ useToast: () => ({ error: () => {} }) }))
+mock.module("../../src/composables/useToast", () => ({ useToast: () => ({ error: () => {}, info: () => {}, success: () => {} }) }))
 mock.module("../../src/composables/useConfirm", () => ({ useConfirm: () => ({ confirm: async () => true }) }))
 mock.module("../../src/composables/useTranslations", () => ({ useTranslations: () => ({ t: (key: string) => key }) }))
 

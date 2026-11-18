@@ -1,4 +1,4 @@
-import { ref, shallowRef, watch, type WatchStopHandle } from "vue"
+import { computed, ref, shallowRef, watch, type WatchStopHandle } from "vue"
 import { apiJson, uploadFile, usePortfolio } from "../../../composables/usePortfolio"
 import { useToast } from "../../../composables/useToast"
 import { useTranslations } from "../../../composables/useTranslations"
@@ -101,7 +101,7 @@ async function load(): Promise<void> {
   error.value = null
   try {
     const list = await apiJson<MediaFile[]>("GET", "/api/files")
-    if (seq === loadSeq) files.value = list
+    if (seq === loadSeq) files.value = list.filter((f) => !isPendingDelete(f))
   } catch (e) {
     reportFailure(e, "GET /api/files")
     if (seq !== loadSeq) return
@@ -158,20 +158,51 @@ async function upload(list: File[], project: number | null): Promise<MediaFile[]
   return ids.map((id) => files.value.find((f) => f.id === id)).filter((f): f is MediaFile => Boolean(f))
 }
 
+//DELETIONS WAIT FOR SAVE - a removed or swept file leaves the list now, the
+//server deletes it on Save, Discard brings it back
+const pendingDeletes = ref<string[]>([])
+const pendingSweeps  = ref<Array<number | null>>([])
+const filesDirty = computed(() => pendingDeletes.value.length > 0 || pendingSweeps.value.length > 0)
+
+//What a sweep would take, as the server rule: unused, older than an hour, HDRs and models kept
+const SWEEP_KEPT = /\.(hdr|exr|hdri|glb|gltf)$/i
+const SWEEP_MIN_AGE_MS = 60 * 60 * 1000
+const sweepable = (f: MediaFile, project: number | null) =>
+  f.referenceCount === 0 && !SWEEP_KEPT.test(f.originalFilename)
+  && Date.now() - new Date(f.createdAt).getTime() >= SWEEP_MIN_AGE_MS
+  && (project === null || f.projectId === project)
+
+function isPendingDelete(f: MediaFile): boolean {
+  return pendingDeletes.value.includes(f.id) || pendingSweeps.value.some((p) => sweepable(f, p))
+}
+
 async function remove(file: MediaFile): Promise<void> {
-  await apiJson("DELETE", `/api/files/${file.id}`)
+  pendingDeletes.value = [...pendingDeletes.value, file.id]
   files.value = files.value.filter((f) => f.id !== file.id)
+}
+
+async function commitDeletes(): Promise<void> {
+  for (const id of pendingDeletes.value) await apiJson("DELETE", `/api/files/${id}`)
+  pendingDeletes.value = []
+  for (const project of pendingSweeps.value) await apiJson<SweepResult>("DELETE", withProject("/api/files/orphans", project))
+  pendingSweeps.value = []
+  await load()
+}
+
+async function discardDeletes(): Promise<void> {
+  pendingDeletes.value = []
+  pendingSweeps.value = []
+  await load()
 }
 
 function storage(project: number | null): Promise<StorageSummary> {
   return apiJson<StorageSummary>("GET", withProject("/api/files/storage", project))
 }
 
-//deletes the unused rows and the bytes no row names, in the project's folder or everywhere
-async function sweepOrphans(project: number | null): Promise<SweepResult> {
-  const result = await apiJson<SweepResult>("DELETE", withProject("/api/files/orphans", project))
-  await load()
-  return result
+//Marks the unused files of the folder (or everywhere) for deletion on Save
+async function sweepOrphans(project: number | null): Promise<void> {
+  pendingSweeps.value = [...pendingSweeps.value, project]
+  files.value = files.value.filter((f) => !sweepable(f, project))
 }
 
 //PICK REQUEST - like useConfirm: one open request, settled by the dialog
@@ -203,6 +234,7 @@ export function useMediaLibrary() {
   return {
     files, loading, uploading, error,
     load, ensureLoaded, upload, remove, storage, sweepOrphans,
+    filesDirty, commitDeletes, discardDeletes,
     setMediaProject,
     request, pickMedia,
     resolvePick: finish,
