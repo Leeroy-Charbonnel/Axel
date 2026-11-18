@@ -11,8 +11,8 @@ import { derivativeUrl, stepFor, storedImage, type ImageSizes } from "../lib/med
 //EVERY PUBLIC IMAGE. An upload under /media/images loads one resized WebP
 //copy, one image pixel per CSS pixel of the width `sizes` gives, when its turn
 //comes in the image queue (one image at a time, the ones on screen first).
-//`full` (the lightbox) loads the copy for the screen's pixel density at once,
-//over the small copy while it comes. A copy already loaded at least as wide is
+//`full` (the lightbox) loads the widest copy at once, over the small copy
+//while it comes. A copy already loaded at least as wide is
 //reused. The stored width and height reserve the box before the bytes arrive.
 //Anything else (a GIF, an external URL) is drawn as it is.
 const props = withDefaults(defineProps<{
@@ -77,9 +77,8 @@ function load(): void {
     shown.value = props.src
     return
   }
-  //full fills the screen, whatever width the window reports
-  const drawn = props.full ? Math.max(sizesWidth(props.sizes), window.screen.width) * window.devicePixelRatio : sizesWidth(props.sizes)
-  const step = stepFor(drawn, size.value?.[0] ?? null)
+  //full takes the widest copy, whatever the window reports
+  const step = stepFor(props.full ? Infinity : sizesWidth(props.sizes), size.value?.[0] ?? null)
   const have = loadedStep(stored)
   if (have !== undefined && have >= step) return show(stored, have)
   if (props.full) {
