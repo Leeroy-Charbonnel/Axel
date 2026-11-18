@@ -36,6 +36,8 @@ import type {
 const props = defineProps<{
   block:   DetailBlock
   lang:    Lang
+  //The page's desktop column count
+  cols:    number
   mobile?: boolean
 }>()
 
@@ -44,12 +46,12 @@ const lightbox = useLightbox()
 const reducedMotion = useReducedMotion()
 
 const c = computed(() => props.block.content)
-const sizes = computed(() => blockSizes(props.block.w))
+const sizes = computed(() => blockSizes(props.block.w, props.cols))
 const asText    = computed(() => c.value as TextBlockContent)
 const asImage   = computed(() => c.value as ImageBlockContent)
 const asVideo   = computed(() => c.value as VideoBlockContent)
 const imageAlt  = computed(() => pickBilingual(asImage.value.alt, props.lang))
-//a visitor who limits motion gets a still frame and the controls to start it
+//A visitor who limits motion gets a still frame and the controls to start it
 const autoplay  = computed(() => asVideo.value.autoplay && !reducedMotion.value)
 const controls  = computed(() => asVideo.value.controls || (asVideo.value.autoplay && reducedMotion.value))
 
@@ -102,7 +104,7 @@ function enlarge() {
 
   <BlockCarousel v-else-if="block.type === 'carousel'" :content="(c as CarouselBlockContent)" :lang="lang" :sizes="sizes" />
 
-  <BlockMarquee v-else-if="block.type === 'marquee'" :content="(c as MarqueeBlockContent)" :sizes="blockSizes(1)" />
+  <BlockMarquee v-else-if="block.type === 'marquee'" :content="(c as MarqueeBlockContent)" :sizes="blockSizes(1, cols)" />
 
   <CompareSlider v-else-if="block.type === 'compare'" :content="(c as CompareBlockContent)" :lang="lang" :sizes="sizes" />
 
@@ -119,7 +121,7 @@ function enlarge() {
   <BlockLegend v-else-if="block.type === 'legend'" :content="(c as LegendBlockContent)" :lang="lang" />
 
   <!--each image of a sequence is narrower than one column-->
-  <BlockSequence v-else-if="block.type === 'sequence'" :content="(c as SequenceBlockContent)" :lang="lang" :sizes="blockSizes(1)" />
+  <BlockSequence v-else-if="block.type === 'sequence'" :content="(c as SequenceBlockContent)" :lang="lang" :sizes="blockSizes(1, cols)" />
 
   <BlockMaterials v-else-if="block.type === 'materials'" :content="(c as MaterialsBlockContent)" :lang="lang" />
 

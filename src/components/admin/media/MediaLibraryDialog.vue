@@ -57,6 +57,7 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onKeydown))
             mode="pick"
             :accept="request.accept"
             :multiple="request.multiple"
+            :project="request.project"
             @pick="resolvePick"
           />
         </div>

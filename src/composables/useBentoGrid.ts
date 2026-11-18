@@ -1,8 +1,9 @@
 import { computed, onBeforeUnmount, shallowRef, type Ref } from "vue"
 import {
-  GRID_COLS, bottomOf, firstFree, layoutRects, phoneAuthored, reflow, restack, rowAfter, writeRects,
+  bottomOf, firstFree, fitBlocks, gridCols, layoutRects, phoneAuthored, reflow, restack, rowAfter, writeRects,
   type GridLayout, type Rect, type Rects,
 } from "../lib/bento-layout"
+import { pageSpan } from "../lib/project-sheet"
 import { insertSection, type SectionPreset } from "../lib/section-presets"
 import { blockType, newBlockId } from "../components/portfolio/detail/block-types"
 import type { DetailBlock, DetailBlockType } from "../types/portfolio"
@@ -25,7 +26,7 @@ interface Drag {
   type:   DetailBlockType
   startX: number
   startY: number
-  //for a move: which cell of the block the pointer grabbed
+  //For a move: which cell of the block the pointer grabbed
   grabX:  number
   grabY:  number
   moved:  boolean
@@ -34,9 +35,13 @@ interface Drag {
 export interface BentoGridOptions {
   blocks: Ref<DetailBlock[]>
   layout: Ref<GridLayout>
+  //The page's desktop column count
+  desktopCols: Readonly<Ref<number>>
   grid:   Ref<HTMLElement | null>
   select: (id: string | null) => void
-  //called around every write, so the history closes a step on each side
+  //A block picked on the canvas with the pointer
+  pick:   (id: string) => void
+  //Closes the history step, called before and after every write
   commit: () => void
 }
 
@@ -44,7 +49,7 @@ export function useBentoGrid(o: BentoGridOptions) {
   const drag    = shallowRef<Drag | null>(null)
   const preview = shallowRef<Rects | null>(null)
 
-  const cols  = computed(() => GRID_COLS[o.layout.value])
+  const cols  = computed(() => gridCols(o.layout.value, o.desktopCols.value))
   const saved = computed(() => layoutRects(o.blocks.value, o.layout.value))
   const rects = computed(() => preview.value ?? saved.value)
   const rows  = computed(() => Math.max(MIN_ROWS, bottomOf(rects.value.values()) + SPARE_ROWS))
@@ -103,8 +108,9 @@ export function useBentoGrid(o: BentoGridOptions) {
     const desktop = layoutRects(all, "desktop")
     const phone = layoutRects(all, "phone")
     const place = (rs: Rects, layout: GridLayout): Rect => {
-      const w = Math.min(GRID_COLS[layout], def.size.w)
-      return { ...firstFree(rs.values(), GRID_COLS[layout], w, def.size.h), w, h: def.size.h }
+      const layoutCols = gridCols(layout, o.desktopCols.value)
+      const w = pageSpan(def.size.w, layoutCols)
+      return { ...firstFree(rs.values(), layoutCols, w, def.size.h), w, h: def.size.h }
     }
     const atRect = at?.get(NEW_ID)
 
@@ -128,7 +134,7 @@ export function useBentoGrid(o: BentoGridOptions) {
     o.commit()
   }
 
-  //a copy right under the block; what was below it moves down
+  //A copy right under the block; what was below it moves down
   function duplicateBlock(id: string) {
     const all = o.blocks.value
     const src = all.find((b) => b.id === id)
@@ -149,7 +155,7 @@ export function useBentoGrid(o: BentoGridOptions) {
     o.commit()
   }
 
-  //a whole section of the sheet, after the block's band, or at the end
+  //A whole section of the sheet, after the block's band, or at the end
   function addSection(preset: SectionPreset, afterId: string | null) {
     o.commit()
     const all = o.blocks.value
@@ -158,7 +164,7 @@ export function useBentoGrid(o: BentoGridOptions) {
     const at = afterId
       ? { y: rowAfter(desktop, afterId), phoneY: rowAfter(phone, afterId) }
       : { y: bottomOf(desktop.values()), phoneY: bottomOf(phone.values()) }
-    const next = insertSection(all, preset, newBlockId, at)
+    const next = insertSection(all, preset, newBlockId, at, o.desktopCols.value)
     o.blocks.value = next
     o.select(next[all.length]?.id ?? null)
     o.commit()
@@ -191,7 +197,7 @@ export function useBentoGrid(o: BentoGridOptions) {
     apply(withRect(id, next))
   }
 
-  //back to the automatic phone stack
+  //Back to the automatic phone stack
   function resetPhone() {
     o.commit()
     for (const b of o.blocks.value) {
@@ -237,7 +243,7 @@ export function useBentoGrid(o: BentoGridOptions) {
     if (d.mode === "create") {
       if (!cell) { preview.value = null; return }
       const size = blockType(d.type).size
-      const w = Math.min(cols.value, size.w)
+      const w = pageSpan(size.w, cols.value)
       preview.value = withRect(NEW_ID, { x: Math.min(cols.value - w, cell.x), y: cell.y, w, h: size.h })
       return
     }
@@ -259,7 +265,7 @@ export function useBentoGrid(o: BentoGridOptions) {
       return
     }
     if (!d.moved) {
-      o.select(d.id)
+      o.pick(d.id)
       return
     }
     if (next) apply(next)
@@ -275,7 +281,14 @@ export function useBentoGrid(o: BentoGridOptions) {
 
   onBeforeUnmount(stop)
 
+  //A new column count: every block keeps its share of the width and fits in.
+  //The caller commits around it, with the settings change, for one undo step
+  function fitColumns(from: number, to: number) {
+    fitBlocks(o.blocks.value, from, to)
+  }
+
   return {
+    fitColumns,
     drag, rects, rows, cols, phantom, duplicateBlock, addSection,
     startMove, startResize, startCreate,
     addBlock, removeBlock, nudge, resetPhone,

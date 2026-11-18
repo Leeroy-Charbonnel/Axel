@@ -142,6 +142,12 @@ export class WireframeSweep {
     this.durationMs = ms
   }
 
+  //CSS colour of the lines along the sweep front
+  setGlowColor(color: string): void {
+    this.lineUniforms.uWfGlow.value.setStyle(color)
+    this.hooks.requestRender()
+  }
+
   setFrame(frame: SweepFrame): void {
     this.lineUniforms.uWfAxis.value.copy(frame.axis)
     this.lineUniforms.uWfMin.value = frame.min

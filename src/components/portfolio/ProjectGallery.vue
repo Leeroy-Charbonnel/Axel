@@ -11,6 +11,7 @@ import AnimatedReveal from "./AnimatedReveal.vue"
 import SectionHeader from "./SectionHeader.vue"
 import UnpublishedBadge from "./UnpublishedBadge.vue"
 import EditableRegion from "../admin/EditableRegion.vue"
+import InlineText from "../admin/InlineText.vue"
 import SectionAddButton from "../admin/SectionAddButton.vue"
 import type { GalleryProjectDto } from "../../types/portfolio"
 
@@ -42,7 +43,7 @@ function open(p: GalleryProjectDto) {
 </script>
 
 <template>
-  <section id="gallery" class="gallery site-section" aria-labelledby="gallery-title">
+  <section id="gallery" tabindex="-1" class="gallery site-section" aria-labelledby="gallery-title">
     <div class="site-container">
       <SectionHeader id="gallery-title" :title="t('galleryTitle')" />
 
@@ -63,7 +64,15 @@ function open(p: GalleryProjectDto) {
               <p v-else class="gallery__media gallery__media--empty">{{ t("projectNoImage") }}</p>
 
               <div class="gallery__text">
-                <h3 class="gallery__title">{{ card.title }}</h3>
+                <InlineText
+                  kind="galleryItem"
+                  :item-id="card.project.id"
+                  field="title"
+                  :value="card.project.title"
+                  :label="t('fieldTitle')"
+                  tag="h3"
+                  class="gallery__title"
+                />
                 <dl v-if="card.stats.length" class="gallery__stats">
                   <div v-for="stat in card.stats" :key="stat.key" class="gallery__stat">
                     <dt>{{ stat.label }}</dt>

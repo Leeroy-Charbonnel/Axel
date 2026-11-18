@@ -7,16 +7,17 @@ import { useLanguage } from "../composables/useLanguage"
 import { apiJson, usePortfolio } from "../composables/usePortfolio"
 import { useSnapshotHistory } from "../composables/useSnapshotHistory"
 import { pickBilingual } from "../lib/markdown"
-import type { Lang } from "../lib/lang"
 import DetailGrid from "../components/portfolio/detail/DetailGrid.vue"
 import BentoEditor from "../components/portfolio/detail/BentoEditor.vue"
 import ProjectMedia from "../components/portfolio/ProjectMedia.vue"
 import MainProject from "../components/portfolio/MainProject.vue"
 import { hasContent, sectionAnchor, storedContent } from "../components/portfolio/detail/block-types"
 import { readingOrder } from "../lib/bento-layout"
-import { setPageSections } from "../composables/useSectionNav"
+import { clearPageSections, setPageSections } from "../composables/useSectionNav"
 import NotFoundPage from "./NotFoundPage.vue"
-import type { DetailBlock, DetailPage, HeadingBlockContent } from "../types/portfolio"
+import { useMediaLibrary } from "../components/admin/media/useMediaLibrary"
+import { DEFAULT_GRID, gridOf, gridStyle } from "../lib/detail-grid"
+import type { DetailBlock, DetailGridSettings, DetailPage, HeadingBlockContent } from "../types/portfolio"
 
 //PROJECT DETAIL PAGE - a technical plan of the project: its position among
 //the projects, the head (the home card in its page variant: facts, model,
@@ -28,19 +29,21 @@ import type { DetailBlock, DetailPage, HeadingBlockContent } from "../types/port
 const route  = useRoute()
 const { lang, t } = useLanguage()
 const editor = useEditor()
-const { editMode, editLang } = editor
+const { editMode } = editor
 const portfolio = usePortfolio()
 const { data } = portfolio
-
-//the edit bar picks the language being written; the canvas shows that one
-const shownLang = computed<Lang>(() => editMode.value ? editLang.value : lang.value)
 
 const SKELETON_BLOCKS = 4
 
 const projectId = computed(() => Number(route.params.id))
+
+//Files picked or uploaded on this page belong to this project
+const { setMediaProject } = useMediaLibrary()
+watch(projectId, (id) => setMediaProject(id), { immediate: true })
+onBeforeUnmount(() => setMediaProject(null))
 const source  = computed(() => data.value?.mainProjects.find((p) => p.id === projectId.value) ?? null)
 const project = computed(() => source.value ? editor.display("mainProject", source.value) : null)
-const title   = computed(() => pickBilingual(project.value?.title, shownLang.value))
+const title   = computed(() => pickBilingual(project.value?.title, lang.value))
 
 const published = computed(() => (data.value?.mainProjects ?? []).filter((p) => p.published))
 const position  = computed(() => published.value.findIndex((p) => p.id === projectId.value))
@@ -55,50 +58,59 @@ watchEffect(() => {
   if (title.value) document.title = `${title.value} | ${t("siteTitle")}`
 })
 
-//BLOCKS - a local copy, its history, and what was last saved
+//BLOCKS AND GRID - a local copy, one history for both, and what was last saved
 const blocks    = ref<DetailBlock[]>([])
-const savedJson = ref("[]")
-const history   = useSnapshotHistory(blocks)
-const dirty     = computed(() => JSON.stringify(blocks.value) !== savedJson.value)
+const grid      = ref<DetailGridSettings>(gridOf(null))
+const pageState = computed({
+  get: () => ({ blocks: blocks.value, grid: grid.value }),
+  set: (v: { blocks: DetailBlock[]; grid: DetailGridSettings }) => { blocks.value = v.blocks; grid.value = v.grid },
+})
+const savedJson = ref(JSON.stringify(pageState.value))
+const history   = useSnapshotHistory(pageState)
+const pageDirty = computed(() => JSON.stringify(pageState.value) !== savedJson.value)
 //what a visitor sees: unfinished blocks are left out
-const shownBlocks = computed(() => blocks.value.filter((b) => hasContent(b, shownLang.value, data.value?.models ?? [])))
+const shownBlocks = computed(() => blocks.value.filter((b) => hasContent(b, lang.value, data.value?.models ?? [])))
 
 //THE RAIL lists this page's head and its section headings while it is shown
 const HEAD_ANCHOR = "project-head"
-watch([shownBlocks, shownLang, () => project.value?.id], () => {
-  if (!project.value) return setPageSections(null)
-  setPageSections([
-    { id: HEAD_ANCHOR, labelKey: "navProject" },
-    ...readingOrder(shownBlocks.value).filter((b) => b.type === "heading")
-      .map((b) => ({ id: sectionAnchor(b.id), label: pickBilingual((b.content as HeadingBlockContent).text, shownLang.value) })),
-  ])
+const NAV_OWNER = Symbol("project-page")
+//Only the head while loading or editing: the editor canvas has no heading ids
+const portfolioSettled = () => portfolio.loaded.value || !!portfolio.error.value
+watch([shownBlocks, lang, () => project.value?.id, portfolioSettled, editMode], () => {
+  if (portfolioSettled() && !project.value) return clearPageSections(NAV_OWNER)
+  const headings = project.value && !editMode.value
+    ? readingOrder(shownBlocks.value).filter((b) => b.type === "heading")
+      .map((b) => ({ id: sectionAnchor(b.id), label: pickBilingual((b.content as HeadingBlockContent).text, lang.value) }))
+    : []
+  setPageSections([{ id: HEAD_ANCHOR, labelKey: "navProject" }, ...headings], NAV_OWNER)
 }, { immediate: true })
-onBeforeUnmount(() => setPageSections(null))
+onBeforeUnmount(() => clearPageSections(NAV_OWNER))
 
 function syncBlocks() {
   blocks.value = JSON.parse(JSON.stringify(source.value?.detailPage.blocks ?? [])) as DetailBlock[]
-  savedJson.value = JSON.stringify(blocks.value)
+  grid.value = gridOf(source.value?.detailPage)
+  savedJson.value = JSON.stringify(pageState.value)
   history.reset()
 }
 
 //fresh data replaces the copy unless it holds unsaved work
 watch([() => portfolio.loaded.value, projectId], ([loaded]) => {
-  if (loaded && !dirty.value) syncBlocks()
+  if (loaded && !pageDirty.value) syncBlocks()
 }, { immediate: true })
 
-async function save() {
+async function savePage() {
   history.commit()
-  const sent = JSON.stringify(blocks.value)
-  const page: DetailPage = { blocks: blocks.value.map((b) => ({ ...b, content: storedContent(b) })) }
+  const sent = JSON.stringify(pageState.value)
+  const page: DetailPage = { blocks: blocks.value.map((b) => ({ ...b, content: storedContent(b) })), grid: grid.value }
   await apiJson("PUT", `/api/main-project/${projectId.value}`, { detailPage: page })
   savedJson.value = sent
   history.reset()
 }
 
 const unregister = editor.registerPageActions({
-  save,
+  save:     savePage,
   discard:  syncBlocks,
-  dirty,
+  dirty:    pageDirty,
   undo:     history.undo,
   redo:     history.redo,
   canUndo:  history.canUndo,
@@ -121,8 +133,8 @@ const ALL_PROJECTS = "/#projects"
 
 <template>
   <NotFoundPage v-if="portfolio.loaded.value && !portfolio.error.value && !project" />
-  <article v-else class="case" :class="{ 'case--editing': editMode }" :lang="shownLang">
-    <div v-if="!portfolio.loaded.value && !portfolio.error.value" class="site-container case__skeleton" aria-busy="true">
+  <article v-else class="case" :class="{ 'case--editing': editMode }" :lang="lang">
+    <div v-if="!portfolio.loaded.value && !portfolio.error.value" class="site-container case__skeleton" :style="gridStyle(DEFAULT_GRID)" aria-busy="true">
       <span class="case__skel case__skel--line"></span>
       <span class="case__skel case__skel--title"></span>
       <span class="case__skel case__skel--text"></span>
@@ -140,7 +152,7 @@ const ALL_PROJECTS = "/#projects"
     </div>
 
     <template v-else>
-      <header :id="HEAD_ANCHOR" class="site-container case__head">
+      <header :id="HEAD_ANCHOR" class="site-container case__head" tabindex="-1">
         <div class="case__bar">
           <RouterLink class="case__back" :to="ALL_PROJECTS">
             <ArrowLeft :size="16" aria-hidden="true" />
@@ -162,8 +174,8 @@ const ALL_PROJECTS = "/#projects"
       </header>
 
       <section class="site-container case__blocks" :aria-label="title">
-        <BentoEditor v-if="editMode" v-model:blocks="blocks" :lang="shownLang" :commit="history.commit" />
-        <DetailGrid v-else-if="shownBlocks.length" :blocks="shownBlocks" :lang="shownLang" />
+        <BentoEditor v-if="editMode" v-model:blocks="blocks" v-model:grid="grid" :lang="lang" :project-id="projectId" :commit="history.commit" />
+        <DetailGrid v-else-if="shownBlocks.length" :blocks="shownBlocks" :grid="grid" :lang="lang" />
         <ProjectMedia v-else :project="project" />
       </section>
 
@@ -171,11 +183,11 @@ const ALL_PROJECTS = "/#projects"
       <nav v-if="prev || next" class="site-container case__pager" :aria-label="t('detailPager')">
         <RouterLink v-if="prev" :to="`/project/${prev.id}`" class="case__pager-link">
           <span class="case__pager-label"><ArrowLeft :size="16" aria-hidden="true" />{{ t('detailPrev') }}</span>
-          <span class="case__pager-title">{{ pickBilingual(prev.title, shownLang) }}</span>
+          <span class="case__pager-title">{{ pickBilingual(prev.title, lang) }}</span>
         </RouterLink>
         <RouterLink v-if="next" :to="`/project/${next.id}`" class="case__pager-link case__pager-link--next">
           <span class="case__pager-label">{{ t('detailNext') }}<ArrowRight :size="16" aria-hidden="true" /></span>
-          <span class="case__pager-title">{{ pickBilingual(next.title, shownLang) }}</span>
+          <span class="case__pager-title">{{ pickBilingual(next.title, lang) }}</span>
         </RouterLink>
       </nav>
 
@@ -209,7 +221,7 @@ const ALL_PROJECTS = "/#projects"
 the inspector is open it takes that edge and reserves its own width, so the
 page does not reserve both*/
 .case--editing { padding-right: var(--detail-panel-width); }
-:global(html.editor-inspector-open) .case--editing { padding-right: 0; }
+html.editor-inspector-open .case--editing { padding-right: 0; }
 @media (max-width: 1024px) {
   .case--editing { padding-right: 0; padding-bottom: calc(var(--detail-sheet-height) + var(--spacing-xl)); }
 }
@@ -316,7 +328,7 @@ page does not reserve both*/
 .case__skel--text  { max-width: var(--site-text-width); height: var(--spacing-3xl); }
 .case__skel-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(var(--detail-cols), minmax(0, 1fr));
   gap: var(--detail-gap);
   margin-top: var(--spacing-xl);
 }

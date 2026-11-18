@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, watchEffect } from "vue"
+import { computed, ref, watchEffect } from "vue"
 import { useRoute } from "vue-router"
 import ToastHost from "./components/ToastHost.vue"
 import ConfirmDialog from "./components/ConfirmDialog.vue"
@@ -12,8 +12,8 @@ import MediaLibraryDialog from "./components/admin/media/MediaLibraryDialog.vue"
 import "./components/admin/admin.css"
 import LightboxCarousel from "./components/portfolio/LightboxCarousel.vue"
 
-//Dark only: there is no theme toggle, and useTheme() is not called so no theme
-//row is seeded into the settings table.
+//Dark only: there is no light / dark toggle. The site colours come from the
+//site theme (useTheme), applied for every visitor.
 
 const { lang, t } = useLanguage()
 const route = useRoute()
@@ -21,6 +21,9 @@ const route = useRoute()
 //the auth and admin screens render on the bare background, without the site chrome
 const chromeFreeRoutes = ["/login", "/settings", "/forgot-password", "/reset-password"]
 const withChrome = computed(() => !chromeFreeRoutes.includes(route.path) && !route.path.startsWith("/edit-3d/"))
+
+//The skip link moves the focus past the rail
+const mainEl = ref<HTMLElement | null>(null)
 
 //the document follows the reading language; the home page owns its title,
 //other pages set their own
@@ -34,9 +37,15 @@ watchEffect(() => {
 
 <template>
   <div class="vsui-app portfolio-app" :class="{ 'portfolio-app--chrome': withChrome }">
+    <a
+      v-if="withChrome"
+      href="#main"
+      class="site-button site-button--primary skip-link"
+      @click.prevent="mainEl?.focus()"
+    >{{ t("skipToMain") }}</a>
     <SideNav v-if="withChrome" />
 
-    <main class="portfolio-app__main">
+    <main id="main" ref="mainEl" tabindex="-1" class="portfolio-app__main">
       <RouterView />
       <SiteFooter v-if="withChrome" />
     </main>
@@ -63,6 +72,17 @@ watchEffect(() => {
   flex-direction: column;
 }
 
+/*SKIP LINK - above the top edge until focused*/
+.skip-link {
+  position: fixed;
+  top: var(--spacing-xs);
+  left: var(--spacing-xs);
+  z-index: calc(var(--site-z-chrome) + 1);
+  transform: translateY(calc(-100% - var(--spacing-xs)));
+}
+
+.skip-link:focus { transform: none; }
+
 /*main stays in the root stacking context so media inside it can sit above the
 grain (see .grain-overlay in style.css); a column, so the footer keeps the
 bottom of a short page*/
@@ -74,7 +94,7 @@ bottom of a short page*/
 }
 
 /*the rail floats over the page on desktop; the top bar takes its height below*/
-@media (max-width: 1024px) {
+@media (max-width: 768px) {
   .portfolio-app--chrome .portfolio-app__main { padding-top: var(--site-topbar-height); }
 }
 </style>

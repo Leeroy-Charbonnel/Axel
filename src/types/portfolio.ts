@@ -1,6 +1,7 @@
 //PORTFOLIO domain types - shape returned by GET /api/portfolio. Mirrors the
 //DB tables in db/schema.ts but with file ids resolved to /media URLs.
 import type { ImageSizes } from "../lib/media"
+import type { ThemeVars } from "../lib/theme-vars"
 
 export interface Bilingual {
   en: string
@@ -258,8 +259,16 @@ export type DetailBlockContent =
   | EmbedBlockContent
   | Viewer3dBlockContent
 
+//Desktop grid of a project page. A page without one gets the default grid
+export interface DetailGridSettings {
+  cols: number
+  rowH: number  //Minimum row height in px
+  gap:  number  //Space between cells in px
+}
+
 export interface DetailPage {
   blocks: DetailBlock[]
+  grid?:  DetailGridSettings
 }
 
 export interface MainProjectDto {
@@ -354,6 +363,8 @@ export interface PortfolioDto {
   experiences:     ExperienceDto[]
   profile:         ProfileDto | null
   editorPrefs:     EditorPrefsDto
+  //Saved values of the base CSS tokens, applied on every page
+  theme:           ThemeVars
   //[width, height] of every image URL above that has a stored size
   images:          ImageSizes
 }

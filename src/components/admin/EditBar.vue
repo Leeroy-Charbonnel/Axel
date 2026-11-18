@@ -8,11 +8,11 @@ import { useTranslations } from "../../composables/useTranslations"
 
 //THE ADMIN BAR - the one place the admin edits from. In read mode a small
 //floating pair (edit, menu); in edit mode a bar docked at the bottom with the
-//editing language, the save state, undo / redo, discard and save. It also
+//save state, undo / redo, discard and save. It also
 //owns the guard that stops a navigation from dropping unsaved work.
 
 const editor = useEditor()
-const { editMode, editLang, status, dirty, saving, canUndo, canRedo } = editor
+const { editMode, status, dirty, saving, canUndo, canRedo } = editor
 const { isAdmin, signOut } = useAdmin()
 const { t } = useTranslations()
 const route  = useRoute()
@@ -58,8 +58,6 @@ async function onSignOut() {
   await signOut()
 }
 
-const LANGS = ["fr", "en"] as const
-
 //GUARD - a route change with unsaved work asks first
 const removeGuard = router.beforeEach(async (to, from) => {
   if (to.path === from.path || !dirty.value) return true
@@ -97,20 +95,6 @@ onBeforeUnmount(() => {
         <PencilOff :size="14" aria-hidden="true" />
         <span class="edit-bar__label">{{ t('editorExit') }}</span>
       </button>
-
-      <div class="edit-bar__lang" role="group" :aria-label="t('editorEditLangHint')" :title="t('editorEditLangHint')">
-        <button
-          v-for="lang in LANGS"
-          :key="lang"
-          type="button"
-          class="edit-bar__lang-btn"
-          :aria-pressed="editLang === lang"
-          :aria-label="t('editorEditLang').replace('{lang}', lang.toUpperCase())"
-          @click="editLang = lang"
-        >
-          {{ lang.toUpperCase() }}
-        </button>
-      </div>
 
       <p class="edit-bar__status max-sm:sr-only" :class="`edit-bar__status--${status}`" role="status">{{ statusText }}</p>
 
@@ -189,32 +173,6 @@ onBeforeUnmount(() => {
   border-width: var(--border-width) 0 0;
   border-radius: 0;
   box-shadow: none;
-}
-
-/*SEGMENTED - the editing language*/
-.edit-bar__lang {
-  display: flex;
-  padding: var(--vsui-space-2xs);
-  background-color: var(--editor-input-bg);
-  border-radius: var(--editor-radius);
-}
-
-.edit-bar__lang-btn {
-  min-width: var(--editor-control);
-  min-height: calc(var(--editor-control) - 2 * var(--vsui-space-2xs));
-  padding: 0 var(--vsui-space-sm);
-  font-size: var(--editor-fs-sm);
-  font-weight: var(--font-weight-semibold);
-  color: var(--editor-text-muted);
-  border-radius: var(--editor-radius);
-  cursor: pointer;
-}
-
-.edit-bar__lang-btn:hover { color: var(--editor-text); }
-.edit-bar__lang-btn:focus-visible { outline: none; box-shadow: var(--editor-focus); }
-.edit-bar__lang-btn[aria-pressed="true"] {
-  color: var(--editor-text);
-  background-color: var(--editor-surface-raised);
 }
 
 .edit-bar__status {

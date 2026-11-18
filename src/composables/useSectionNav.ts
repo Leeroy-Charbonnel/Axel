@@ -22,25 +22,35 @@ export type NavSection = { id: string; label: string } | { id: string; labelKey:
 
 //the section crossing this line of the viewport is the current one
 const SPY_LINE = 0.35
+//Rounding room when testing for the bottom of the page
+const BOTTOM_SLACK_PX = 2
 
 const activeId = ref("")
 const pageSections = ref<NavSection[] | null>(null)
 let spying = false
+//The last section reached from a link: it wins a tie with a section on its row
+let pickedId = ""
 
 function shownIds(): string[] {
   return pageSections.value ? pageSections.value.map((s) => s.id) : SECTIONS.map((s) => s.id)
 }
 
+//Current: the section top closest above the line, the first one on a tie
 function spy() {
   const ids = shownIds()
   const line = window.innerHeight * SPY_LINE
   let current = ids[0] ?? ""
+  let best = -Infinity
   for (const id of ids) {
-    const el = document.getElementById(id)
-    if (el && el.getBoundingClientRect().top <= line) current = id
+    const top = document.getElementById(id)?.getBoundingClientRect().top
+    if (top === undefined || top > line) continue
+    if (top > best || (top === best && id === pickedId)) {
+      best = top
+      current = id
+    }
   }
   //the last section is too short to reach the line: the bottom of the page is it
-  const atBottom = window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 2
+  const atBottom = window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - BOTTOM_SLACK_PX
   const last = ids[ids.length - 1]
   if (atBottom && last && document.getElementById(last)) current = last
   activeId.value = current
@@ -63,12 +73,27 @@ export function scrollToSection(id: string) {
     console.warn(`[sections] no element #${id} on this page`)
     return
   }
+  pickedId = id
   el.scrollIntoView()
+  //Sections carry tabindex="-1" to take the focus
+  el.focus({ preventScroll: true })
 }
 
-//a page lists its own sections while it is shown, null gives the home's back
-export function setPageSections(list: NavSection[] | null) {
+//The page whose list is shown: only that page can take it away again
+let pageOwner: symbol | null = null
+
+//A page lists its own sections while it is shown
+export function setPageSections(list: NavSection[], owner: symbol) {
   pageSections.value = list
+  pageOwner = owner
+  if (typeof window !== "undefined") requestAnimationFrame(spy)
+}
+
+//Gives the home's list back, unless another page took the rail since
+export function clearPageSections(owner: symbol) {
+  if (pageOwner !== owner) return
+  pageSections.value = null
+  pageOwner = null
   if (typeof window !== "undefined") requestAnimationFrame(spy)
 }
 
@@ -80,13 +105,15 @@ export function useSectionNav() {
 
   const sections = computed(() => (pageSections.value ?? SECTIONS).map((s) =>
     ({ id: s.id, label: "labelKey" in s ? t(s.labelKey) : s.label })))
+  //A page shows its own list (a project's headings)
+  const pageList = computed(() => pageSections.value !== null)
   //the rail marks where the reader is on the page that owns the list
-  const ownPage = computed(() => pageSections.value !== null || route.path === "/")
+  const ownPage = computed(() => pageList.value || route.path === "/")
 
   function go(id: string) {
     if (pageSections.value || route.path === "/") scrollToSection(id)
     else void router.push({ path: "/", hash: `#${id}` })
   }
 
-  return { sections, activeId, ownPage, go }
+  return { sections, activeId, ownPage, pageList, go }
 }

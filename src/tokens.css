@@ -83,7 +83,7 @@
   --vsui-shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.15);
 
   /*BREAKPOINTS - reference only, media queries cannot read variables:
-  phone <= 640px, tablet 641px-1024px, desktop > 1024px*/
+  phone <= 640px, tablet 641px-768px, desktop > 768px (the editor inspector keeps 1024px)*/
   --vsui-bp-mobile: 720px;
 
   /*SITE TYPE SCALE - fluid, one scale for every public page*/
@@ -109,18 +109,20 @@
   --site-col-gap:     clamp(16px, 2vw, 32px);
   --site-section-gap: clamp(72px, 8vw, 128px);
   --site-touch-target: 44px;
+  /*the smallest target for a fine pointer*/
+  --site-target-min: 24px;
+  /*the widest label beside the page ticks*/
+  --site-rail-label-width: 16rem;
 
   /*SITE MOTION - one reveal for the whole site, off under reduced motion*/
   --site-reveal-distance: 12px;
   --site-reveal-duration: 0.6s;
   --site-ease:            cubic-bezier(0.2, 0.7, 0.2, 1);
 
-  /*DETAIL PAGE - the case-study block grid. Rows are fixed so a block keeps
-  its proportions between the editor and the public page; the phone values
+  /*DETAIL PAGE - the case-study block grid. The desktop row height and gap
+  are each page's own (lib/detail-grid.ts, set inline); the phone values
   apply when the grid is narrower than a phone (container query)*/
-  --detail-row-h:         200px;
   --detail-row-h-phone:   160px;
-  --detail-gap:           16px;
   --detail-gap-phone:     12px;
   --detail-content-width: min(var(--site-max-width), 100vw - 2 * var(--site-gutter));
   --detail-phone-width:   343px;

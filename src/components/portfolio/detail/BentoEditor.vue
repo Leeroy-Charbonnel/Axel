@@ -7,23 +7,28 @@ import { useEditor } from "../../../composables/useEditor"
 import { useTranslations } from "../../../composables/useTranslations"
 import { phoneAuthored, rowTracks, type GridLayout } from "../../../lib/bento-layout"
 import type { Lang } from "../../../lib/lang"
-import { blockType, FILL_TYPES } from "./block-types"
+import { blockType, FILL_TYPES, sectionAnchor } from "./block-types"
 import { SECTION_PRESETS } from "../../../lib/section-presets"
 import DetailBlockRenderer from "./DetailBlockRenderer.vue"
 import BlockBorder from "./BlockBorder.vue"
 import BlockPanel from "./BlockPanel.vue"
-import type { DetailBlock, TextBlockContent, Viewer3dBlockContent } from "../../../types/portfolio"
+import { gridStyle } from "../../../lib/detail-grid"
+import type { DetailBlock, DetailGridSettings, TextBlockContent, Viewer3dBlockContent } from "../../../types/portfolio"
 
 //THE BENTO EDITOR - the canvas is drawn at the width a visitor sees (the
 //public content width, or a phone), scaled down when the space beside the
 //panel is narrower, so what is placed here is what the page will show: the
 //same rows and the live viewers, over the cells the blocks are placed on.
-//Two layouts: desktop (3 columns) and phone (mobileY / mobileH).
+//Two layouts: desktop (the page's column count) and phone (mobileY / mobileH).
 
 const blocks = defineModel<DetailBlock[]>("blocks", { required: true })
+//The page's desktop grid: columns, row height, gap
+const settings = defineModel<DetailGridSettings>("grid", { required: true })
 const props = defineProps<{
   lang:   Lang
-  //closes the history step in progress, around every structural write
+  //The project this page belongs to: its files tab and uploads
+  projectId: number
+  //Closes the history step in progress, around every structural write
   commit: () => void
 }>()
 
@@ -40,6 +45,7 @@ const authored = computed(() => phoneAuthored(blocks.value))
 const stage  = ref<HTMLElement | null>(null)
 const canvas = ref<HTMLElement | null>(null)
 const gridEl = ref<HTMLElement | null>(null)
+const panel  = ref<InstanceType<typeof BlockPanel> | null>(null)
 const blockEls = new Map<string, HTMLElement>()
 
 function select(id: string | null) {
@@ -47,7 +53,7 @@ function select(id: string | null) {
   if (id !== editingId.value) editingId.value = null
   if (!id) return
   editor.clear()
-  //a block just added is not drawn yet, and may land off screen
+  //A block just added is not drawn yet, and may land off screen
   void nextTick(() => {
     const el = blockEls.get(id)
     if (!el) return
@@ -57,13 +63,39 @@ function select(id: string | null) {
   })
 }
 
-const grid = useBentoGrid({ blocks, layout, grid: gridEl, select, commit: props.commit })
+//A block picked on the canvas, with the pointer or a key, opens its properties
+function pick(id: string) {
+  select(id)
+  panel.value?.showProperties()
+}
 
-//an undo can take the selected block away
+const grid = useBentoGrid({
+  blocks, layout, grid: gridEl, select, pick, commit: props.commit,
+  desktopCols: computed(() => settings.value.cols),
+})
+
+//The grid's CSS variables, with the columns of the layout being edited
+const canvasVars = computed(() => gridStyle({ ...settings.value, cols: grid.cols.value }))
+
+//One setting of the page grid. A new column count refits the blocks in the
+//same undo step; the other settings follow the slider and the history groups them
+function setGridValue(key: keyof DetailGridSettings, value: number) {
+  if (key !== "cols") {
+    settings.value = { ...settings.value, [key]: value }
+    return
+  }
+  const from = settings.value.cols
+  props.commit()
+  settings.value = { ...settings.value, cols: value }
+  grid.fitColumns(from, value)
+  props.commit()
+}
+
+//An undo can take the selected block away
 watch(blocks, (list) => {
   if (selectedId.value && !list.some((b) => b.id === selectedId.value)) select(null)
 })
-//the inspector and this panel share the right edge: one at a time
+//The inspector and this panel share the right edge: one at a time
 watch(editor.selection, (s) => { if (s) select(null) })
 
 //SCALE - the canvas keeps its public width; the stage gives it what fits
@@ -97,17 +129,17 @@ function blockLabel(b: DetailBlock): string {
     .replace("{w}", String(r.w)).replace("{h}", String(r.h))
 }
 
-//the rows as the public grid draws them
+//The rows as the public grid draws them
 const tracks = computed(() => rowTracks(
   blocks.value, grid.rects.value, grid.rows.value, layout.value === "phone" ? "var(--detail-row-h-phone)" : "var(--detail-row-h)",
 ))
 
 //INLINE TEXT - text, heading and quote are typed on the canvas, in the
-//language the edit bar is set to
+//site language
 const inlineEl = ref<HTMLTextAreaElement | null>(null)
 async function startInline(b: DetailBlock) {
   if (!blockType(b.type).inline) return
-  select(b.id)
+  pick(b.id)
   editingId.value = b.id
   await nextTick()
   inlineEl.value?.focus()
@@ -122,7 +154,7 @@ function stopInline(refocus: boolean) {
   if (refocus && id) blockEls.get(id)?.focus({ preventScroll: true })
 }
 
-//a section goes under the selected block's band, or at the end of the page
+//A section goes under the selected block's band, or at the end of the page
 function addSection(key: string) {
   const preset = SECTION_PRESETS.find((p) => p.key === key)
   if (!preset) throw new Error(`[bento] unknown section preset: ${key}`)
@@ -148,18 +180,18 @@ function onBlockKeydown(e: KeyboardEvent, b: DetailBlock) {
   const arrow = ARROWS[e.key]
   if (arrow) {
     e.preventDefault()
-    select(b.id)
+    pick(b.id)
     grid.nudge(b.id, arrow[0], arrow[1], e.shiftKey)
   } else if (e.key === "Enter") {
     e.preventDefault()
     if (blockType(b.type).inline) void startInline(b)
-    else select(b.id)
+    else pick(b.id)
   } else if (e.key === "d" && (e.ctrlKey || e.metaKey)) {
     e.preventDefault()
     grid.duplicateBlock(b.id)
   } else if (e.key === "Delete" || e.key === "Backspace") {
     e.preventDefault()
-    select(b.id)
+    pick(b.id)
     void removeSelected()
   } else if (e.key === "Escape") {
     select(null)
@@ -203,18 +235,17 @@ async function resetPhone() {
     </div>
 
     <div ref="stage" class="bento__stage" :style="{ height: `${stageH}px` }">
-      <!--the chrome drawn over the blocks is scaled back by --bento-unscale, so
-      it keeps its screen size whatever the canvas scale-->
+      <!--The chrome drawn over the blocks keeps its screen size whatever the canvas scale-->
       <div
         ref="canvas"
         class="bento__canvas"
         :class="{ 'bento__canvas--phone': layout === 'phone' }"
-        :style="{ transform: `scale(${scale})`, '--bento-unscale': 1 / scale }"
+        :style="{ ...canvasVars, transform: `scale(${scale})`, '--bento-unscale': 1 / scale }"
       >
         <div
           ref="gridEl"
           class="bento__grid"
-          :style="{ '--cols': grid.cols.value, '--tracks': tracks }"
+          :style="{ '--tracks': tracks }"
           @pointerdown.self="select(null)"
         >
           <div class="bento__ghost" aria-hidden="true">
@@ -223,10 +254,12 @@ async function resetPhone() {
 
           <div
             v-for="b in blocks"
+            :id="b.type === 'heading' ? sectionAnchor(b.id) : undefined"
             :key="b.id"
             :ref="(el) => { if (el) blockEls.set(b.id, el as HTMLElement); else blockEls.delete(b.id) }"
             class="bento__block"
             :class="{
+              'bento__block--heading': b.type === 'heading',
               'bento__block--fill': FILL_TYPES.has(b.type),
               'bento__block--selected': selectedId === b.id,
               'bento__block--dragging': grid.drag.value?.id === b.id && grid.drag.value.moved,
@@ -263,7 +296,7 @@ async function resetPhone() {
             </div>
 
             <div v-else class="bento__preview">
-              <DetailBlockRenderer :block="b" :lang="lang" :mobile="layout === 'phone'" />
+              <DetailBlockRenderer :block="b" :lang="lang" :cols="settings.cols" :mobile="layout === 'phone'" />
             </div>
             <BlockBorder :bstyle="b.style" />
 
@@ -290,7 +323,11 @@ async function resetPhone() {
     </div>
 
     <BlockPanel
+      ref="panel"
       :selected="selected"
+      :grid="settings"
+      :project-id="projectId"
+      @set-grid="setGridValue"
       @add="grid.addBlock"
       @create="grid.startCreate"
       @add-section="addSection"
@@ -330,34 +367,32 @@ async function resetPhone() {
   padding: 0 var(--vsui-space-xs) var(--vsui-space-2xs);
 }
 
-/*clip, not hidden: a hidden box can still be scrolled by focus or
-scrollIntoView, which would shift the canvas under its own toolbar*/
+/*Clip, not hidden: focus and scrollIntoView never scroll a clipped box*/
 .bento__stage {
   position: relative;
   width: 100%;
   overflow: clip;
 }
-/*the desktop layout is never drawn narrower than a laptop: on a tablet or a
+/*The desktop layout is never drawn narrower than a laptop: on a tablet or a
 phone it is scaled down instead of squeezed*/
 .bento__canvas {
   width: max(var(--detail-content-width), var(--detail-canvas-min));
   transform-origin: top left;
-  --gap: var(--detail-gap);
 }
 .bento__canvas--phone {
   width: var(--detail-phone-width);
   margin-inline: auto;
-  --gap: var(--detail-gap-phone);
 }
 .bento__grid {
   position: relative;
   display: grid;
-  grid-template-columns: repeat(var(--cols), minmax(0, 1fr));
+  grid-template-columns: repeat(var(--detail-cols), minmax(0, 1fr));
   grid-template-rows: var(--tracks);
-  gap: var(--gap);
+  gap: var(--detail-gap);
   touch-action: none;
   user-select: none;
 }
+.bento__canvas--phone .bento__grid { gap: var(--detail-gap-phone); }
 .bento__ghost {
   display: grid;
   grid-column: 1 / -1;
@@ -381,8 +416,10 @@ phone it is scaled down instead of squeezed*/
   outline-offset: calc(-1 * var(--border-width));
   transition: outline-color var(--transition-fast) ease;
 }
-/*as on the public grid: media take the cell's size, text sets it*/
+/*As on the public grid: media take the cell's size, text sets it*/
 .bento__block--fill { contain: size; }
+/*A heading the rail scrolls to clears the top bar*/
+.bento__block--heading { scroll-margin-top: var(--site-chrome-top); }
 .bento__block:hover { outline-color: var(--editor-text-muted); }
 .bento__block:focus-visible { outline: calc(var(--editor-outline-width) * var(--bento-unscale)) solid hsl(var(--ring)); }
 .bento__block--selected,

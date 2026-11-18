@@ -11,6 +11,9 @@ set -e
 echo "[entrypoint] applying migrations"
 bunx drizzle-kit migrate --config=drizzle.config.ts
 
+echo "[entrypoint] filing each file into its project folder"
+bun scripts/file-projects.ts
+
 echo "[entrypoint] measuring images uploaded before their size was stored"
 bun scripts/backfill-image-sizes.ts
 

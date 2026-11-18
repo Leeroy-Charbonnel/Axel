@@ -244,7 +244,7 @@ function backToSignIn() {
 }
 
 .login-lang:hover {
-  background: hsl(var(--muted));
+  background: var(--muted);
   color: hsl(var(--foreground));
 }
 </style>

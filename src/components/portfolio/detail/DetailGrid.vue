@@ -6,9 +6,10 @@ import type { Lang } from "../../../lib/lang"
 import DetailBlockRenderer from "./DetailBlockRenderer.vue"
 import BlockBorder from "./BlockBorder.vue"
 import { FILL_TYPES, sectionAnchor } from "./block-types"
-import type { DetailBlock } from "../../../types/portfolio"
+import { gridStyle } from "../../../lib/detail-grid"
+import type { DetailBlock, DetailGridSettings } from "../../../types/portfolio"
 
-//THE PUBLIC BLOCK GRID - three columns, or the phone stack once the grid
+//THE PUBLIC BLOCK GRID - the page's columns, or the phone stack once the grid
 //itself is phone-narrow. A container query decides, not the window, so the
 //styleguide frames and the editor preview render exactly what a phone shows.
 //The page leaves out the blocks with nothing to show; the rows they held close up.
@@ -16,7 +17,7 @@ import type { DetailBlock } from "../../../types/portfolio"
 //take the height of their cell and never push it. A row that holds nothing
 //but headings is only as high as its title.
 
-const props = defineProps<{ blocks: DetailBlock[]; lang: Lang }>()
+const props = defineProps<{ blocks: DetailBlock[]; grid: DetailGridSettings; lang: Lang }>()
 const { isMobile } = useIsMobile()
 
 const desktop = computed(() => closeEmptyRows(layoutRects(props.blocks, "desktop")))
@@ -39,17 +40,18 @@ function cellStyle(b: DetailBlock) {
   <div class="detail-grid">
     <div
       class="detail-grid__inner"
-      :style="{ '--d-tracks': desktopTracks, '--p-tracks': phoneTracks }"
+      :style="{ ...gridStyle(grid), '--d-tracks': desktopTracks, '--p-tracks': phoneTracks }"
     >
       <div
         v-for="b in blocks"
         :key="b.id"
         :id="b.type === 'heading' ? sectionAnchor(b.id) : undefined"
+        :tabindex="b.type === 'heading' ? -1 : undefined"
         class="detail-grid__cell"
         :class="[`detail-grid__cell--${b.type}`, { 'detail-grid__cell--fill': FILL_TYPES.has(b.type) }]"
         :style="cellStyle(b)"
       >
-        <DetailBlockRenderer :block="b" :lang="lang" :mobile="isMobile" />
+        <DetailBlockRenderer :block="b" :lang="lang" :cols="grid.cols" :mobile="isMobile" />
         <BlockBorder :bstyle="b.style" />
       </div>
     </div>
@@ -63,7 +65,7 @@ function cellStyle(b: DetailBlock) {
 }
 .detail-grid__inner {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(var(--detail-cols), minmax(0, 1fr));
   grid-template-rows: var(--d-tracks);
   gap: var(--detail-gap);
 }
@@ -75,11 +77,12 @@ function cellStyle(b: DetailBlock) {
   grid-column: var(--d-col) / span var(--d-w);
   grid-row: var(--d-row) / span var(--d-h);
 }
-/*a heading the rail scrolls to clears the top bar*/
+/*A heading the rail scrolls to clears the top bar and takes the focus without a ring*/
 .detail-grid__cell--heading { scroll-margin-top: var(--site-chrome-top); }
-/*sized as if empty: a large image never stretches its row*/
+.detail-grid__cell--heading:focus { outline: none; }
+/*Sized as if empty: a large image never stretches its row*/
 .detail-grid__cell--fill { contain: size; }
-/*a phone-wide grid: 640px of window minus the two gutters*/
+/*A phone-wide grid: 640px of window minus the two gutters*/
 @container detail-grid (max-width: 590px) {
   .detail-grid__inner {
     grid-template-columns: minmax(0, 1fr);

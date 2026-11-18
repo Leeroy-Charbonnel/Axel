@@ -1,15 +1,19 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from "vue"
-import { Box, Check, FileText, Film, ImageIcon, RefreshCw, Sun, Trash2, Upload } from "lucide-vue-next"
-import { MEDIA_TYPES, acceptFor, mediaTypeOf, useMediaLibrary, type MediaFile, type MediaType } from "./useMediaLibrary"
+import { computed, onMounted, ref, watch } from "vue"
+import { Box, Brush, Check, FileText, Film, ImageIcon, RefreshCw, Sun, Trash2, Upload } from "lucide-vue-next"
+import { MEDIA_TYPES, acceptFor, inScope, mediaTypeOf, useMediaLibrary, type MediaFile, type MediaType, type StorageSummary } from "./useMediaLibrary"
 import { useConfirm } from "../../../composables/useConfirm"
+import { useToast } from "../../../composables/useToast"
 import { useTranslations } from "../../../composables/useTranslations"
 import { formatBytes } from "../../../lib/format"
 import { IMAGE_SIZES } from "../../../lib/media"
 import SiteImage from "../../SiteImage.vue"
 
-//THE FILE GRID - shared by the picker dialog ("pick") and the settings files
-//tab ("manage"). Search, type filter, upload (button or drop), previews.
+//THE FILE GRID - shared by the picker dialog ("pick"), the settings files tab
+//and a project's files panel ("manage"). Search, type filter, upload (button
+//or drop), previews. With a project: manage shows its files only, pick shows
+//its files and the shared ones, and uploads go to its folder. Manage mode
+//also shows the storage used and sweeps the orphans. compact: inside a panel.
 
 const ICONS = { image: ImageIcon, video: Film, model: Box, hdr: Sun, document: FileText }
 //placeholders drawn before the very first answer; later loads keep the last list on screen
@@ -19,11 +23,14 @@ const props = withDefaults(defineProps<{
   mode:      "pick" | "manage"
   accept?:   MediaType | null
   multiple?: boolean
-}>(), { accept: null, multiple: false })
+  project?:  number | null
+  compact?:  boolean
+}>(), { accept: null, multiple: false, project: null, compact: false })
 
 const emit = defineEmits<{ pick: [files: MediaFile[]] }>()
 const { t } = useTranslations()
 const { confirm } = useConfirm()
+const toast = useToast()
 const library = useMediaLibrary()
 const { files, loading, uploading, error } = library
 
@@ -36,11 +43,17 @@ const dropping = ref(false)
 const shown = computed(() => {
   const q = query.value.trim().toLowerCase()
   return files.value.filter((f) =>
+    visible(f) &&
     (filter.value === "all" || mediaTypeOf(f) === filter.value) &&
     (!q || f.originalFilename.toLowerCase().includes(q)))
 })
 
 const firstLoad = computed(() => loading.value && files.value.length === 0)
+
+function visible(f: MediaFile): boolean {
+  if (props.mode === "pick" && props.project !== null) return f.projectId === props.project || f.projectId === null
+  return inScope(f, props.project)
+}
 
 function allowed(f: MediaFile): boolean {
   return props.mode === "manage" || props.accept === null || mediaTypeOf(f) === props.accept
@@ -61,7 +74,7 @@ function confirmChosen() {
 }
 
 async function uploadList(list: File[]) {
-  const added = await library.upload(list)
+  const added = await library.upload(list, props.project)
   if (!added.length || props.mode !== "pick") return
   const usable = added.filter(allowed)
   if (!props.multiple && usable[0]) emit("pick", [usable[0]])
@@ -94,13 +107,45 @@ async function onDelete(f: MediaFile) {
   }
 }
 
+//STORAGE - what the files take on the server, and the orphans the sweep frees
+const summary  = ref<StorageSummary | null>(null)
+const sweeping = ref(false)
+const orphanCount = computed(() => summary.value ? summary.value.orphans.rows + summary.value.orphans.strayFiles : 0)
+
+async function refreshSummary() {
+  if (props.mode !== "manage") return
+  summary.value = await library.storage(props.project)
+}
+
+async function onSweep() {
+  if (!summary.value) return
+  const ok = await confirm({
+    title:       t("mediaOrphansTitle"),
+    what:        t("mediaOrphansWhat").replace("{n}", String(orphanCount.value)).replace("{size}", formatBytes(summary.value.orphans.bytes)),
+    action:      t("mediaOrphansDelete"),
+    destructive: true,
+  })
+  if (!ok) return
+  sweeping.value = true
+  try {
+    const done = await library.sweepOrphans(props.project)
+    toast.success(t("mediaOrphansDone").replace("{n}", String(done.deletedObjects)).replace("{size}", formatBytes(done.freedBytes)))
+  } finally {
+    sweeping.value = false
+  }
+}
+
+//every change to the list (upload, delete, sweep, reload) changes the sizes
+watch(files, () => { void refreshSummary() })
+watch(() => props.project, () => { void refreshSummary() })
+
 onMounted(() => { void library.load() })
 </script>
 
 <template>
   <div
     class="ed-ui media"
-    :class="{ 'media--dropping': dropping }"
+    :class="{ 'media--dropping': dropping, 'media--compact': compact }"
     @dragover.prevent="dropping = true"
     @dragleave.self="dropping = false"
     @drop.prevent="onDrop"
@@ -155,8 +200,28 @@ onMounted(() => { void library.load() })
       </button>
     </div>
 
+    <div v-if="mode === 'manage' && summary" class="media__storage">
+      <span class="media__storage-total">{{ t('mediaStorage').replace('{size}', formatBytes(summary.totalBytes)) }}</span>
+      <span class="media__storage-meta">{{ t('mediaStorageCache').replace('{size}', formatBytes(summary.cacheBytes)) }}</span>
+      <span class="media__storage-meta">
+        {{ orphanCount
+          ? t('mediaOrphans').replace('{n}', String(orphanCount)).replace('{size}', formatBytes(summary.orphans.bytes))
+          : t('mediaNoOrphans') }}
+      </span>
+      <button
+        v-if="orphanCount"
+        type="button"
+        class="ed-btn ed-btn--ghost ed-btn--danger media__sweep"
+        :disabled="sweeping"
+        @click="onSweep"
+      >
+        <Brush :size="14" />
+        <span>{{ t('mediaOrphansDelete') }}</span>
+      </button>
+    </div>
+
     <p v-if="error" class="ed-error" role="alert">{{ error }}</p>
-    <p class="ed-hint">{{ t('mediaDropHint') }}</p>
+    <p v-if="!compact" class="ed-hint">{{ t('mediaDropHint') }}</p>
 
     <ul v-if="firstLoad" class="media__grid" aria-hidden="true">
       <li v-for="i in SKELETON_TILES" :key="i" class="media__tile media__tile--skeleton">
@@ -224,6 +289,30 @@ onMounted(() => { void library.load() })
 }
 
 .media--dropping { box-shadow: var(--editor-focus); }
+
+/*COMPACT - inside a side panel: smaller tiles, no hint line*/
+.media--compact { --editor-media-tile: var(--editor-media-tile-compact); }
+
+/*STORAGE - one line: total, cache share, orphans, the sweep*/
+.media__storage {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--vsui-space-2xs) var(--vsui-space-sm);
+  font-size: var(--editor-fs-xs);
+}
+
+.media__storage-total {
+  font-weight: var(--font-weight-semibold);
+  color: var(--editor-text);
+}
+
+.media__storage-meta { color: var(--editor-text-muted); }
+
+.media__sweep {
+  margin-left: auto;
+  font-size: var(--editor-fs-xs);
+}
 
 .media__toolbar {
   display: flex;

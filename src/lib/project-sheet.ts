@@ -1,14 +1,24 @@
 import type { Bilingual, DetailBlock, DetailBlockContent, DetailBlockType, MaterialItem, Viewer3dLook } from "../types/portfolio"
+import { fitBlocks, scaleSpan } from "./bento-layout"
+import { DEFAULT_GRID } from "./detail-grid"
 
 //PROJECT SHEET - the detail page of a project imported with a technical plan
-//(scripts/import-renders.ts, sheet/sheet.json), laid out on the 3-column grid
-//as a sheet: plans beside the model in blueprint, the blocking, the exploded
-//view and its nomenclature, the shaders step by step, materials and maps, the
-//production stages, then the specifications. A band takes what it is given and
-//never leaves a hole. The page head already carries the title, the numbers and
-//the thumbnails.
+//(scripts/import-renders.ts, sheet/sheet.json), drawn on three columns and
+//scaled to the page's own count: plans beside the model in blueprint, the
+//blocking, the exploded view and its nomenclature, the shaders step by step,
+//materials and maps, the production stages, then the specifications. A band
+//takes what it is given and never leaves a hole. The page head already
+//carries the title, the numbers and the thumbnails.
 //The bands are shared with the editor's section presets (section-presets.ts):
 //a section added by hand is laid out exactly as an imported one.
+
+//The columns a band is drawn on
+export const SHEET_COLS = 3
+
+//A span of the sheet on a page of `cols` columns
+export function pageSpan(w: number, cols: number): number {
+  return scaleSpan(w, SHEET_COLS, cols)
+}
 
 export interface SheetImage {
   fileId:  string
@@ -20,15 +30,15 @@ export interface SheetMedia {
   view:      string
   intro:     Bilingual | null
   plansId:   string
-  //from the roughest pass to the refined one
+  //From the roughest pass to the refined one
   blocking:  { levels: SheetImage[]; videoId: string | null; text: Bilingual | null } | null
-  //modelId: the model saved apart, with its numbered marks; without it, the drawing
+  //The model saved apart, with its numbered marks; without it, the drawing
   exploded:  { fileId: string; modelId: string | null; legend: Bilingual[] } | null
-  //one row of squares per shader, under its own title
+  //One row of squares per shader, under its own title
   shaders:   { title: Bilingual; steps: SheetImage[] }[]
   materials: Omit<MaterialItem, "url">[]
   maps:      SheetImage[]
-  //the UV layout as lines, and the same layout over the colour texture
+  //The UV layout as lines, and the same layout over the colour texture
   uvId:      string | null
   uvTexturedId: string | null
   process:   SheetImage[]
@@ -44,16 +54,19 @@ export interface Tile {
 const bi = (fr: string, en: string): Bilingual => ({ fr, en })
 const present = (tiles: (Tile | null)[]) => tiles.filter((t): t is Tile => t !== null)
 
-//WRITER - lays tiles down the grid from row 0, desktop and phone together
+//WRITER - lays tiles down the sheet from row 0, desktop and phone together,
+//then hands them over on the page's own columns
 export class SheetWriter {
   readonly blocks: DetailBlock[] = []
   y = 0
   private phoneY = 0
 
   private readonly newId: () => string
+  private readonly cols: number
 
-  constructor(newId: () => string) {
+  constructor(newId: () => string, cols: number) {
     this.newId = newId
+    this.cols = cols
   }
 
   place(t: Tile, x: number, top: number, w: number, h: number, phoneH: number) {
@@ -61,43 +74,49 @@ export class SheetWriter {
     this.phoneY += phoneH
   }
   heading(text: Bilingual) {
-    this.place({ type: "heading", content: { text } }, 0, this.y, 3, 1, 1)
+    this.place({ type: "heading", content: { text } }, 0, this.y, SHEET_COLS, 1, 1)
     this.y += 1
   }
-  //a large tile on two columns, up to two tiles stacked at its right
+  //A large tile on two columns, up to two tiles stacked at its right
   pair(main: Tile, side: Tile[]) {
     if (side.length === 0) {
-      this.place(main, 0, this.y, 3, 2, 2)
+      this.place(main, 0, this.y, SHEET_COLS, 2, 2)
       this.y += 2
       return
     }
-    this.place(main, 0, this.y, 2, 2, 2)
-    if (side.length === 1) this.place(side[0]!, 2, this.y, 1, 2, 2)
-    else side.slice(0, 2).forEach((t, i) => this.place(t, 2, this.y + i, 1, 1, 1))
+    const sideX = SHEET_COLS - 1
+    this.place(main, 0, this.y, sideX, 2, 2)
+    if (side.length === 1) this.place(side[0]!, sideX, this.y, 1, 2, 2)
+    else side.slice(0, 2).forEach((t, i) => this.place(t, sideX, this.y + i, 1, 1, 1))
     this.y += 2
   }
-  //up to three tiles sharing a row: one takes it all, two split one and two
+  //Up to three tiles sharing a row: one takes it all, two split one and two
   row(tiles: Tile[], h: number) {
     if (!tiles.length) return
-    const widths = tiles.length === 1 ? [3] : tiles.length === 2 ? [1, 2] : [1, 1, 1]
+    const widths = tiles.length === 1 ? [SHEET_COLS] : tiles.length === 2 ? [1, SHEET_COLS - 1] : [1, 1, 1]
     let x = 0
-    tiles.slice(0, 3).forEach((t, i) => {
+    tiles.slice(0, SHEET_COLS).forEach((t, i) => {
       this.place(t, x, this.y, widths[i]!, h, h)
       x += widths[i]!
     })
     this.y += h
   }
+  //The blocks on the page's columns: tiles a narrow page squeezes together stack instead
+  fitted(): DetailBlock[] {
+    fitBlocks(this.blocks, SHEET_COLS, this.cols)
+    return this.blocks
+  }
 }
 
 //BANDS - one per section of the sheet, each under its heading
 
-//the drawing beside the model in the same black and white
+//The drawing beside the model in the same black and white
 export function bandPlans(w: SheetWriter, drawing: Tile, viewer: Tile) {
   w.heading(bi("Plans techniques", "Technical drawings"))
   w.pair(drawing, [viewer])
 }
 
-//the passes side by side, the motion test and the words beside them
+//The passes side by side, the motion test and the words beside them
 export function bandBlocking(w: SheetWriter, levels: Tile | null, video: Tile | null, text: Tile | null) {
   w.heading(bi("Blocking", "Blocking"))
   const side = present([video, text])
@@ -105,26 +124,27 @@ export function bandBlocking(w: SheetWriter, levels: Tile | null, video: Tile | 
   else w.row(side, 2)
 }
 
-//the parts set apart, numbered, and their nomenclature beside them
+//The parts set apart, numbered, and their nomenclature beside them
 export function bandExploded(w: SheetWriter, view: Tile, legend: Tile | null) {
   w.heading(bi("Vue éclatée", "Exploded view"))
   w.pair(view, present([legend]))
 }
 
-//each shader built square by square, its name beside its squares
+//Each shader built square by square, its name beside its squares
 export function bandShaders(w: SheetWriter, rows: { title: Tile; squares: Tile }[]) {
   w.heading(bi("Shaders", "Shaders"))
   for (const r of rows) w.row([r.title, r.squares], 1)
 }
 
-//the swatches down the left, the maps and the UV layouts beside them
+//The swatches down the left, the maps and the UV layouts beside them
 export function bandMaterials(w: SheetWriter, swatches: Tile | null, maps: Tile | null, uvs: Tile[]) {
   w.heading(bi("Matériaux et textures", "Materials and textures"))
   if (swatches && maps && uvs.length) {
+    const right = SHEET_COLS - 1
     w.place(swatches, 0, w.y, 1, 3, 2)
-    w.place(maps, 1, w.y, 2, 1, 1)
-    //one layout on both columns, or the two side by side
-    uvs.slice(0, 2).forEach((t, i) => w.place(t, 1 + i, w.y + 1, uvs.length === 1 ? 2 : 1, 2, 2))
+    w.place(maps, 1, w.y, right, 1, 1)
+    //One layout on both columns, or the two side by side
+    uvs.slice(0, right).forEach((t, i) => w.place(t, 1 + i, w.y + 1, uvs.length === 1 ? right : 1, 2, 2))
     w.y += 3
   } else {
     w.row(present([swatches, maps]), 2)
@@ -132,7 +152,7 @@ export function bandMaterials(w: SheetWriter, swatches: Tile | null, maps: Tile 
   }
 }
 
-//the same view at each stage
+//The same view at each stage
 export function bandProcess(w: SheetWriter, stages: Tile) {
   w.heading(bi("Processus de production", "Production process"))
   w.row([stages], 1)
@@ -145,7 +165,7 @@ export function bandSpecs(w: SheetWriter, specs: Tile | null, text: Tile | null)
 
 //TILES
 export const textTile = (text: Bilingual): Tile => ({ type: "text", content: { text } })
-//shown whole: a plan or a drawing must not lose an edge
+//Shown whole: a plan or a drawing must not lose an edge
 export const imageTile = (fileId: string | null, alt: Bilingual): Tile => ({
   type: "image", content: { fileId, url: null, alt, fit: "contain" },
 })
@@ -161,9 +181,10 @@ export const sequenceTile = (items: SheetImage[], numbered: boolean): Tile => ({
 })
 export const shaderTitle = (title: Bilingual): Tile => textTile({ fr: `### ${title.fr}`, en: `### ${title.en}` })
 
+//An imported page has no grid of its own: it is laid out on the default one
 export function sheetBlocks(m: SheetMedia): DetailBlock[] {
   let n = 0
-  const w = new SheetWriter(() => `ps${++n}`)
+  const w = new SheetWriter(() => `ps${++n}`, DEFAULT_GRID.cols)
 
   if (m.intro) w.row([textTile(m.intro)], 1)
 
@@ -205,5 +226,5 @@ export function sheetBlocks(m: SheetMedia): DetailBlock[] {
   if (m.specs.length || m.outro) {
     bandSpecs(w, m.specs.length ? { type: "specs", content: { rows: m.specs } } : null, m.outro ? textTile(m.outro) : null)
   }
-  return w.blocks
+  return w.fitted()
 }

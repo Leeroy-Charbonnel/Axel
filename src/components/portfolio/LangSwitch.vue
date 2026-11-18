@@ -1,14 +1,9 @@
 <script setup lang="ts">
 import { useLanguage } from "../../composables/useLanguage"
-import type { Lang } from "../../lib/lang"
+import { LANGS } from "../../lib/lang"
 
 //FR / EN - each language named in itself, the current one pressed
 const { lang, setLang } = useLanguage()
-
-const LANGS: { code: Lang; name: string }[] = [
-  { code: "fr", name: "Français" },
-  { code: "en", name: "English" },
-]
 </script>
 
 <template>

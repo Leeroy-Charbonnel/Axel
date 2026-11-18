@@ -4,20 +4,29 @@ import { ChevronDown } from "lucide-vue-next"
 import { useLanguage } from "../../composables/useLanguage"
 import { useSectionNav } from "../../composables/useSectionNav"
 import EditableRegion from "../admin/EditableRegion.vue"
+import InlineText from "../admin/InlineText.vue"
 import type { ProfileDto } from "../../types/portfolio"
 
 //TITLE SCREEN - the framed viewport with its drifting grid: PORTFOLIO, the name
 //with its last word in the accent, the headline, and a hint to scroll on.
 const props = defineProps<{ profile: ProfileDto }>()
 
-const { t, lang } = useLanguage()
+const { t } = useLanguage()
 const { go } = useSectionNav()
 
+//Where the last word of a name starts and ends, null for an empty name
+function lastWord(name: string): { start: number; end: number } | null {
+  const match = /\S+(?=\s*$)/.exec(name)
+  return match ? { start: match.index, end: match.index + match[0].length } : null
+}
+
 const nameParts = computed(() => {
-  const words = props.profile.name.trim().split(/\s+/)
-  return { first: words.slice(0, -1).join(" "), last: words[words.length - 1] ?? "" }
+  const name = props.profile.name
+  const last = lastWord(name)
+  return last
+    ? { first: name.slice(0, last.start).trim(), last: name.slice(last.start, last.end) }
+    : { first: "", last: "" }
 })
-const headline = computed(() => props.profile.headline[lang.value])
 
 //Hide the hint once the visitor scrolled a quarter of the screen
 const scrolled = ref(false)
@@ -32,7 +41,7 @@ onBeforeUnmount(() => window.removeEventListener("scroll", onScroll))
 </script>
 
 <template>
-  <section id="home" class="hero" aria-labelledby="hero-title">
+  <section id="home" tabindex="-1" class="hero" aria-labelledby="hero-title">
     <span class="hero__glow hero__glow--top" aria-hidden="true"></span>
     <span class="hero__glow hero__glow--bottom" aria-hidden="true"></span>
 
@@ -43,12 +52,20 @@ onBeforeUnmount(() => window.removeEventListener("scroll", onScroll))
         <div class="hero__content">
           <h1 id="hero-title" class="hero__heading">
             <span class="hero__title">{{ t("heroTitle") }}</span>{{ " " }}
-            <span class="hero__name">
+            <InlineText kind="profile" field="name" :value="profile.name" :label="t('fieldName')" :accent="lastWord" class="hero__name">
               <span v-if="nameParts.first">{{ nameParts.first }}</span>{{ " " }}
               <span class="hero__name-last">{{ nameParts.last }}</span>
-            </span>
+            </InlineText>
           </h1>
-          <p v-if="headline" class="hero__role">{{ headline }}</p>
+          <InlineText
+            kind="profile"
+            field="headline"
+            :value="profile.headline"
+            :label="t('fieldHeadline')"
+            tag="p"
+            optional
+            class="hero__role"
+          />
         </div>
       </EditableRegion>
     </div>

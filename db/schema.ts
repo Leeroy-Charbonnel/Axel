@@ -1,4 +1,6 @@
-import { pgTable, serial, text, integer, jsonb, uuid, timestamp, boolean, unique, primaryKey, index } from "drizzle-orm/pg-core"
+import { sql } from "drizzle-orm"
+import { pgTable, serial, text, integer, jsonb, uuid, timestamp, boolean, unique, primaryKey, index, check, type AnyPgColumn } from "drizzle-orm/pg-core"
+import type { DetailGridSettings } from "../src/types/portfolio"
 
 type Bilingual = { en: string; fr: string }
 const EMPTY_BILINGUAL: Bilingual = { en: "", fr: "" }
@@ -52,9 +54,13 @@ export const file = pgTable("file", {
   height:           integer("height"),
   kind:             text("kind").notNull().default("other"),
   uploadedBy:       text("uploaded_by").references(() => user.id, { onDelete: "set null" }),
+  //the project whose folder holds the file (projects/{id}/...); null = shared/
+  //typed: file and main_project reference each other
+  mainProjectId:    integer("main_project_id").references((): AnyPgColumn => mainProject.id, { onDelete: "set null" }),
   createdAt:        timestamp("created_at").notNull().defaultNow(),
 }, (t) => [
   index("file_uploaded_by_idx").on(t.uploadedBy),
+  index("file_main_project_id_idx").on(t.mainProjectId),
 ])
 
 //SOFTWARE - logos shown next to a main project (Blender, Substance, etc.)
@@ -127,22 +133,23 @@ export const mainProject = pgTable("main_project", {
                           description:     Bilingual
                         }[]>().notNull().default([]),
   //DETAIL PAGE - bento-style grid of content blocks for the per-project
-  //detail page. 3-col grid on desktop, 1-col stack on mobile. mobileY
-  //orders blocks vertically and mobileH sets the row span; when absent,
+  //detail page. The page's own column count on desktop, 1-col stack on mobile.
+  //mobileY orders blocks vertically and mobileH sets the row span; when absent,
   //rendering falls back to desktop y / h.
   detailPage:           jsonb("detail_page").$type<{
                           blocks: Array<{
                             id:       string
                             type:     string
-                            x:        number   //grid col start (0..2)
-                            y:        number   //grid row start
-                            w:        number   //col span (1..3)
-                            h:        number   //row span (>=1)
-                            mobileY?: number   //mobile row start (single col)
-                            mobileH?: number   //mobile row span
+                            x:        number   //Grid col start (0 based)
+                            y:        number   //Grid row start
+                            w:        number   //Col span, x + w within the grid columns
+                            h:        number   //Row span (>=1)
+                            mobileY?: number   //Mobile row start (single col)
+                            mobileH?: number   //Mobile row span
                             style?:   Record<string, unknown>
                             content:  Record<string, unknown>
                           }>
+                          grid?: DetailGridSettings
                         }>().notNull().default({ blocks: [] }),
   stats:                jsonb("stats").$type<{ vertices: number; edges: number; faces?: number; triangles?: number }>().notNull(),
   sortOrder:            integer("sort_order").notNull().default(0),
@@ -221,6 +228,16 @@ export const profile = pgTable("profile", {
 }, (t) => [
   index("profile_cv_file_id_idx").on(t.cvFileId),
 ])
+
+//Only id of the single site theme row
+export const SITE_THEME_ID = 1
+
+//Site theme: base CSS token values by name, { "--primary": "185 65% 51%" }
+export const siteTheme = pgTable("site_theme", {
+  id:        integer("id").primaryKey().default(SITE_THEME_ID),
+  vars:      jsonb("vars").$type<Record<string, string>>().notNull().default({}),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (t) => [check("site_theme_single_row", sql`${t.id} = ${sql.raw(String(SITE_THEME_ID))}`)])
 
 //AUTH TABLES (required by better-auth)
 export const user = pgTable("user", {

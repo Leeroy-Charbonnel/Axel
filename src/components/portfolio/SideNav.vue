@@ -6,20 +6,23 @@ import { useLanguage } from "../../composables/useLanguage"
 import { usePortfolio } from "../../composables/usePortfolio"
 import { useSectionNav } from "../../composables/useSectionNav"
 import LangSwitch from "./LangSwitch.vue"
+import TickRail from "./nav/TickRail.vue"
 
-//SITE CHROME. Above 1024px: the vertical rail of the page's section labels on
-//the left (the home's, or a project's headings), the language switch top right. At 1024px and below: a top bar with the name
-//and a menu button opening a modal <dialog> (focus held inside, Escape closes,
-//focus returns to the button).
+//Site chrome: the left rail and language above 768px, a top bar and menu dialog below
 const { t } = useLanguage()
 const { data } = usePortfolio()
-const { sections, activeId, ownPage, go } = useSectionNav()
+const { sections, activeId, ownPage, pageList, go } = useSectionNav()
 const route = useRoute()
 
 const name = computed(() => data.value?.profile?.name ?? "")
+const navLabel = computed(() => t(pageList.value ? "navContents" : "navSections"))
 
-//FIT - a page with many sections (a project) shrinks the labels until the
-//whole list fits the rail's height, never above their normal size
+//Fewer page sections than this show no ticks
+const MIN_TICKS = 2
+//Hidden until the router resolves the first page
+const railShown = computed(() => route.matched.length > 0 && (!pageList.value || sections.value.length >= MIN_TICKS))
+
+//Fit: a short window shrinks the home labels, never above full size; ticks scroll instead
 const railEl = ref<HTMLElement | null>(null)
 const listEl = ref<HTMLElement | null>(null)
 const fit = ref(1)
@@ -60,7 +63,7 @@ function pick(id: string) {
 }
 
 //a resize to desktop leaves no menu open behind the rail
-const desktop = typeof window !== "undefined" ? window.matchMedia("(min-width: 1025px)") : null
+const desktop = typeof window !== "undefined" ? window.matchMedia("(min-width: 769px)") : null
 function onDesktopChange(e: MediaQueryListEvent) { if (e.matches) closeMenu() }
 onMounted(() => desktop?.addEventListener("change", onDesktopChange))
 onBeforeUnmount(() => desktop?.removeEventListener("change", onDesktopChange))
@@ -69,12 +72,13 @@ watch(() => route.fullPath, closeMenu)
 
 <template>
   <!--DESKTOP RAIL-->
-  <nav ref="railEl" class="rail" :aria-label="t('navSections')" :style="{ '--rail-fit': fit }">
-    <ul ref="listEl" class="rail__list">
+  <nav v-show="railShown" ref="railEl" class="rail" :class="{ 'rail--ticks': pageList }" :aria-label="navLabel" :style="{ '--rail-fit': fit }">
+    <TickRail v-if="pageList" />
+    <ul v-else ref="listEl" class="rail__list">
       <li v-for="section in sections" :key="section.id">
         <a
           :href="`/#${section.id}`"
-          class="rail__link"
+          class="site-rail-link rail__link"
           :aria-current="ownPage && activeId === section.id ? 'true' : undefined"
           @click.prevent="go(section.id)"
         >{{ section.label }}</a>
@@ -100,14 +104,14 @@ watch(() => route.fullPath, closeMenu)
     </button>
   </header>
 
-  <dialog id="site-menu" ref="menu" class="menu" :aria-label="t('navSections')" @cancel.prevent="closeMenu">
+  <dialog id="site-menu" ref="menu" class="menu" :aria-label="navLabel" @cancel.prevent="closeMenu">
     <div class="menu__head">
       <span class="topbar__name">{{ name }}</span>
       <button type="button" class="topbar__menu-button" :aria-label="t('navMenuClose')" @click="closeMenu">
         <X aria-hidden="true" />
       </button>
     </div>
-    <nav :aria-label="t('navSections')">
+    <nav :aria-label="navLabel">
       <ul class="menu__list">
         <li v-for="section in sections" :key="section.id">
           <a
@@ -140,6 +144,9 @@ to read bottom to top*/
   scrollbar-width: none;
 }
 
+/*The ticks panel is wider than its strip: only the panel takes the pointer*/
+.rail--ticks { pointer-events: none; }
+
 /*centred in the rail*/
 .rail__list {
   margin-block: auto;
@@ -157,15 +164,12 @@ to read bottom to top*/
   writing-mode: vertical-rl;
   transform: rotate(180deg);
   font-size: calc(var(--site-fs-rail) * var(--rail-fit));
-  font-weight: var(--font-weight-bold);
-  letter-spacing: var(--site-tracking-label);
-  text-transform: uppercase;
-  color: var(--site-text-caption);
-  transition: color var(--site-duration-fast) ease;
 }
 
-.rail__link:hover { color: var(--site-text-heading); }
-.rail__link[aria-current="true"] { color: var(--site-accent); }
+/*Below 1025px the editor's bottom sheets cover the rail*/
+@media (max-width: 1024px) {
+  html.editor-editing .rail { display: none; }
+}
 
 .corner-lang {
   position: fixed;
@@ -267,7 +271,7 @@ rather than hiding its last links*/
   margin-left: calc(-1 * var(--spacing-sm));
 }
 
-@media (max-width: 1024px) {
+@media (max-width: 768px) {
   .rail,
   .corner-lang { display: none; }
 

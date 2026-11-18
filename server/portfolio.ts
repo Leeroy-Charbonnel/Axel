@@ -6,11 +6,12 @@ import {
   galleryProject, experience, profile, model3d,
 } from "../db/schema"
 import type {
-  DetailBlock, MainProjectDto, PortfolioDto, SoftwareDto,
+  DetailBlock, DetailGridSettings, MainProjectDto, PortfolioDto, SoftwareDto,
 } from "../src/types/portfolio"
 import type { ImageSizes } from "../src/lib/media"
 import { describeIssues, isAdmin, sessionUser } from "./http"
-import { detailBlock } from "./validation"
+import { detailBlock, detailGrid } from "./validation"
+import { readTheme } from "./routes/theme"
 
 //PORTFOLIO - the whole site in one payload, file ids resolved to /media URLs.
 //Visitors get published rows only, and the models those rows show, from an
@@ -31,7 +32,7 @@ function logMissingFile(modelId: string, fileId: string): string {
 async function buildPortfolio(admin: boolean): Promise<PortfolioDto> {
   const [
     fileRows, softwareRows, projectRows, junctionRows, galleryRows,
-    experienceRows, profileRows, prefRows, modelRows,
+    experienceRows, profileRows, prefRows, modelRows, theme,
   ] = await Promise.all([
     db.select({ id: fileTable.id, storedFilename: fileTable.storedFilename, width: fileTable.width, height: fileTable.height })
       .from(fileTable),
@@ -55,6 +56,7 @@ async function buildPortfolio(admin: boolean): Promise<PortfolioDto> {
       .where(and(eq(user.role, "admin"), like(settings.key, "editor3d_%")))
       .orderBy(asc(settings.userId), asc(settings.key)),
     db.select().from(model3d).orderBy(asc(model3d.name), asc(model3d.id)),
+    readTheme(),
   ])
 
   const urlById = new Map(fileRows.map((f) => [f.id, `/media/${f.storedFilename}`]))
@@ -83,6 +85,15 @@ async function buildPortfolio(admin: boolean): Promise<PortfolioDto> {
       console.error(`[portfolio] project ${projectId}, block ${(b as { id?: unknown }).id}: ${describeIssues(result.error)}`)
       return admin ? [b as Block] : []
     })
+  }
+
+  //A stored grid that does not match its schema is logged and left out: the page gets the default grid
+  function checkedGrid(projectId: number, grid: unknown): DetailGridSettings | undefined {
+    if (grid === undefined) return undefined
+    const result = detailGrid.safeParse(grid)
+    if (result.success) return result.data
+    console.error(`[portfolio] project ${projectId}, grid: ${describeIssues(result.error)}`)
+    return undefined
   }
 
   //DETAIL PAGE blocks carry file ids; the url next to each one is for rendering
@@ -124,7 +135,10 @@ async function buildPortfolio(admin: boolean): Promise<PortfolioDto> {
       wireframeUrl:    urlOf(t.wireframeFileId),
       description:     t.description,
     })),
-    detailPage:          { blocks: checkedBlocks(p.id, p.detailPage.blocks).map(resolveBlock) as unknown as DetailBlock[] },
+    detailPage:          {
+      blocks: checkedBlocks(p.id, p.detailPage.blocks).map(resolveBlock) as unknown as DetailBlock[],
+      grid:   checkedGrid(p.id, p.detailPage.grid),
+    },
     stats:               p.stats,
     software: junctionRows
       .filter((j) => j.mainProjectId === p.id)
@@ -195,6 +209,7 @@ async function buildPortfolio(admin: boolean): Promise<PortfolioDto> {
       wireframeMaterial:  prefs.get("editor3d_wireframe_material")   ?? null,
       wireframeLineWidth: prefs.get("editor3d_wireframe_line_width") ?? null,
     },
+    theme,
   }
   const images: ImageSizes = {}
   for (const url of used) {

@@ -6,3 +6,9 @@ export const LANG_DEFAULT: Lang = "fr"
 export const LANG_COOKIE = "language"
 
 export const isLang = (value: unknown): value is Lang => value === "fr" || value === "en"
+
+//Every language of the site, each named in itself
+export const LANGS: { code: Lang; name: string }[] = [
+  { code: "fr", name: "Français" },
+  { code: "en", name: "English" },
+]

@@ -4,6 +4,7 @@ import { useProjectCard } from "../../composables/useProjectCard"
 import { IMAGE_SIZES } from "../../lib/media"
 import { statRows } from "../../lib/portfolio-utils"
 import EditableRegion from "../admin/EditableRegion.vue"
+import InlineText from "../admin/InlineText.vue"
 import SiteImage from "../SiteImage.vue"
 import AnimatedCounter from "./AnimatedCounter.vue"
 import ProjectMedia from "./ProjectMedia.vue"
@@ -27,7 +28,7 @@ const props = withDefaults(defineProps<{ project: MainProjectDto; number: number
 const wireframe = ref(false)
 //wireframe or clay: the thumbnails turn to their clay renders in both
 const plain = ref(false)
-const { lang, t, title, description, openThumbnail } = useProjectCard(toRef(props, "project"), wireframe, plain)
+const { lang, t, title, openThumbnail } = useProjectCard(toRef(props, "project"), wireframe, plain)
 
 //S F A T: vertices, faces, edges, triangles, each with the initial of its label
 const STAT_ORDER = ["vertices", "faces", "edges", "triangles"]
@@ -76,11 +77,46 @@ const longestWord = computed(() => Math.max(...title.value.split(/\s+/).map((wor
 
       <div class="case__info">
         <span class="case__number" aria-hidden="true">{{ String(number).padStart(2, "0") }}</span>
-        <h1 v-if="detail" :id="titleId" class="case__title case__title--page" :style="{ '--title-word': longestWord }">{{ title }}</h1>
-        <h3 v-else :id="titleId" class="case__title">
-          <RouterLink :to="`/project/${project.id}`">{{ title }}</RouterLink>
-        </h3>
-        <p v-if="description" class="case__description">{{ description }}</p>
+        <InlineText
+          v-if="detail"
+          :id="titleId"
+          kind="mainProject"
+          :item-id="project.id"
+          field="title"
+          :value="project.title"
+          :label="t('fieldTitle')"
+          tag="h1"
+          fallback
+          class="case__title case__title--page"
+          :style="{ '--title-word': longestWord }"
+        />
+        <InlineText
+          v-else
+          :id="titleId"
+          v-slot="{ text }"
+          kind="mainProject"
+          :item-id="project.id"
+          field="title"
+          :value="project.title"
+          :label="t('fieldTitle')"
+          tag="h3"
+          fallback
+          class="case__title"
+        >
+          <RouterLink :to="`/project/${project.id}`">{{ text }}</RouterLink>
+        </InlineText>
+        <InlineText
+          kind="mainProject"
+          :item-id="project.id"
+          field="description"
+          :value="project.description"
+          :label="t('fieldDescription')"
+          tag="p"
+          multiline
+          optional
+          fallback
+          class="case__description"
+        />
 
         <dl v-if="stats.length" class="case__stats" :aria-label="t('projectSpecs')">
           <div v-for="s in stats" :key="s.key" class="case__stat">
@@ -109,7 +145,7 @@ const longestWord = computed(() => Math.max(...title.value.split(/\s+/).map((wor
 
 <style scoped>
 /*desktop: facts | thumbnails | model, mirrored on a flipped card; below
-1025px the model, then the thumbnails in a row, then the facts*/
+a 690px frame the model, then the thumbnails in a row, then the facts*/
 .case {
   position: relative;
   display: grid;
@@ -283,8 +319,8 @@ the line x + y = t, t growing over the column's width plus height.*/
 
 .case-frame { container: case-frame / inline-size; }
 
-/*the three columns need a laptop's width: below it, stacked*/
-@container case-frame (max-width: 960px) {
+/*690px is the frame of a 768px viewport with a classic scrollbar, less the two gutters: below it, stacked*/
+@container case-frame (max-width: 690px) {
   .case,
   .case--flipped,
   .case--detail {

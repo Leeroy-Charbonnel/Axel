@@ -9,7 +9,7 @@ const TYPE = ["display", "h1", "h2", "h3", "body", "small", "label"]
 const HSL = ["background", "foreground", "card", "muted", "muted-foreground", "primary", "border-color", "destructive", "success", "warning"]
 const TEXT = ["site-text-heading", "site-text-body", "site-text-caption", "site-accent", "site-line"]
 const SPACING = ["spacing-xxs", "spacing-xs", "spacing-sm", "spacing-md", "spacing-lg", "spacing-xl", "spacing-2xl", "spacing-3xl", "spacing-5xl"]
-const LAYOUT = ["site-gutter", "site-col-gap", "detail-gap", "site-touch-target"]
+const LAYOUT = ["site-gutter", "site-col-gap", "detail-gap-phone", "site-touch-target"]
 </script>
 
 <template>

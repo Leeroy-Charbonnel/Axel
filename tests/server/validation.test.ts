@@ -1,11 +1,12 @@
 import { describe, expect, test } from "bun:test"
-import { detailBlock, mainProjectPatch } from "../../server/validation"
+import { detailBlock, detailGrid, mainProjectPatch } from "../../server/validation"
 import { llmsFullTxt, projectPage } from "../../server/seo"
 import { BLOCK_TYPES } from "../../src/components/portfolio/detail/block-types"
 import { CASE_STUDY_VIEWS, caseStudyBlocks } from "../../src/lib/case-study"
 import { sheetBlocks, type SheetMedia } from "../../src/lib/project-sheet"
 import { SECTION_PRESETS, insertSection } from "../../src/lib/section-presets"
-import { layoutRects, rowAfter } from "../../src/lib/bento-layout"
+import { fitBlocks, fitToCols, layoutRects, overlaps, rowAfter, type Rects } from "../../src/lib/bento-layout"
+import { DEFAULT_GRID, GRID_SETTINGS } from "../../src/lib/detail-grid"
 import type { DetailBlock, MainProjectDto, PortfolioDto } from "../../src/types/portfolio"
 
 const ID = "7004bd48-4c6b-43da-9bb3-c63a1e64e0cc"
@@ -70,9 +71,9 @@ describe("detail block content schemas", () => {
     const sheet = sheetBlocks(full)
     const mid = sheet[Math.floor(sheet.length / 2)]!
     for (const preset of SECTION_PRESETS) {
-      pages.push(insertSection([], preset, newId, { y: 0, phoneY: 0 }))
+      pages.push(insertSection([], preset, newId, { y: 0, phoneY: 0 }, DEFAULT_GRID.cols))
       const at = { y: rowAfter(layoutRects(sheet, "desktop"), mid.id), phoneY: rowAfter(layoutRects(sheet, "phone"), mid.id) }
-      pages.push(insertSection(sheet, preset, newId, at))
+      pages.push(insertSection(sheet, preset, newId, at, DEFAULT_GRID.cols))
     }
     for (const blocks of pages) {
       expect(mainProjectPatch.safeParse({ detailPage: { blocks } }).success).toBe(true)
@@ -80,8 +81,80 @@ describe("detail block content schemas", () => {
       const height = Math.max(...blocks.map((b) => b.y + b.h))
       const cells = blocks.flatMap((b) => Array.from({ length: b.w * b.h }, (_, i) => `${b.x + (i % b.w)},${b.y + Math.floor(i / b.w)}`))
       expect(new Set(cells).size).toBe(cells.length)
-      expect(cells.length).toBe(height * 3)
+      expect(cells.length).toBe(height * DEFAULT_GRID.cols)
     }
+  })
+
+  test("a section on any column count is one band within the columns, with nothing over it", () => {
+    let n = 0
+    const newId = () => `s${++n}`
+    const cols = GRID_SETTINGS.find((g) => g.key === "cols")!
+    for (let count = cols.min; count <= cols.max; count++) {
+      const grid = { ...DEFAULT_GRID, cols: count }
+      //A page of one heading on every column, then a section after it
+      const page = insertSection([], SECTION_PRESETS[0]!, newId, { y: 0, phoneY: 0 }, count)
+      for (const preset of SECTION_PRESETS) {
+        const top = rowAfter(layoutRects(page, "desktop"), page[0]!.id)
+        const next = insertSection(page, preset, newId, { y: top, phoneY: 0 }, count)
+        const added = next.slice(page.length)
+        const bottom = Math.max(...added.map((b) => b.y + b.h))
+        expect(mainProjectPatch.safeParse({ detailPage: { blocks: next, grid } }).success).toBe(true)
+        expect(added.every((b) => b.y >= top && b.x + b.w <= count)).toBe(true)
+        //The headings of the section span every column
+        expect(added.filter((b) => b.type === "heading").every((b) => b.x === 0 && b.w === count)).toBe(true)
+        //No block of the page lies in the section's rows
+        expect(next.slice(0, page.length).every((b) => b.y + b.h <= top || b.y >= bottom)).toBe(true)
+        const rects = layoutRects(next, "desktop")
+        const all = [...rects.values()]
+        expect(all.every((a, i) => all.every((b, j) => i === j || !overlaps(a, b)))).toBe(true)
+      }
+    }
+  })
+})
+
+describe("detail grid", () => {
+  test("fitToCols keeps every block within the columns without overlap", () => {
+    const rects: Rects = new Map([
+      ["a", { x: 0, y: 0, w: 3, h: 1 }],
+      ["b", { x: 0, y: 1, w: 2, h: 2 }],
+      ["c", { x: 2, y: 1, w: 1, h: 2 }],
+      ["d", { x: 5, y: 3, w: 1, h: 1 }],
+    ])
+    for (const count of [1, 2, 3, 6]) {
+      const fitted = [...fitToCols(rects, count).values()]
+      expect(fitted.every((r) => r.x >= 0 && r.x + r.w <= count)).toBe(true)
+      expect(fitted.every((a, i) => fitted.every((b, j) => i === j || !overlaps(a, b)))).toBe(true)
+    }
+  })
+
+  test("a new column count keeps each block's share of the width, without overlap", () => {
+    for (const [from, to] of [[3, 6], [3, 2], [3, 1], [6, 5], [5, 3], [2, 6]] as const) {
+      const blocks = insertSection([], SECTION_PRESETS[0]!, () => crypto.randomUUID(), { y: 0, phoneY: 0 }, from)
+      fitBlocks(blocks, from, to)
+      expect(blocks.every((b) => b.x + b.w <= to)).toBe(true)
+      expect(blocks.filter((b) => b.type === "heading").every((b) => b.x === 0 && b.w === to)).toBe(true)
+      expect(blocks.every((a, i) => blocks.every((b, j) => i === j || !overlaps(a, b)))).toBe(true)
+    }
+  })
+
+  test("the grid settings are held to their registry limits and step", () => {
+    expect(detailGrid.safeParse(DEFAULT_GRID).success).toBe(true)
+    for (const g of GRID_SETTINGS) {
+      expect(detailGrid.safeParse({ ...DEFAULT_GRID, [g.key]: g.min - g.step }).success).toBe(false)
+      expect(detailGrid.safeParse({ ...DEFAULT_GRID, [g.key]: g.max + g.step }).success).toBe(false)
+      if (g.step > 1) expect(detailGrid.safeParse({ ...DEFAULT_GRID, [g.key]: g.min + 1 }).success).toBe(false)
+    }
+    expect(detailGrid.safeParse({ ...DEFAULT_GRID, extra: 1 }).success).toBe(false)
+  })
+
+  test("a block that ends past the page's last column is refused", () => {
+    const block = { ...frame, type: "text", content: { text: { fr: "", en: "" } } }
+    const page = (x: number, w: number, cols?: number) =>
+      ({ detailPage: { blocks: [{ ...block, x, w }], ...(cols ? { grid: { ...DEFAULT_GRID, cols } } : {}) } })
+    expect(mainProjectPatch.safeParse(page(0, DEFAULT_GRID.cols)).success).toBe(true)
+    expect(mainProjectPatch.safeParse(page(1, DEFAULT_GRID.cols)).success).toBe(false)
+    expect(mainProjectPatch.safeParse(page(4, 2, 6)).success).toBe(true)
+    expect(mainProjectPatch.safeParse(page(1, 2, 2)).success).toBe(false)
   })
 
   test("a content that does not match its type is refused", () => {

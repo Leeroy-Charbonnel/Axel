@@ -14,7 +14,10 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 //  VITE_MEDIA_BASE_URL  - optional override for /media only
 //
 //Unset both = everything goes to the local Express at :3001.
-export default defineConfig(({ mode }) => {
+//
+//xfwd on /api: the request reaches Express from 127.0.0.1, x-forwarded-for and
+//x-forwarded-host still name the real client for server/dev-login.ts.
+export default defineConfig(({ mode, command }) => {
   const env  = loadEnv(mode, process.cwd(), "")
   const base = env.VITE_BASE_PATH || "/"
   const apiTarget   = (env.VITE_API_BASE_URL   || "http://localhost:3001").replace(/\/$/, "")
@@ -25,6 +28,10 @@ export default defineConfig(({ mode }) => {
   return {
     base,
     plugins: [vue()],
+    //The server flag, given to the client in dev only: a build always gets false
+    define: {
+      "import.meta.env.DEV_AUTO_LOGIN": JSON.stringify(command === "serve" && env.DEV_AUTO_LOGIN === "true"),
+    },
     resolve: {
       alias: {
         "@": path.resolve(__dirname, "./src"),
@@ -32,7 +39,7 @@ export default defineConfig(({ mode }) => {
     },
     server: {
       proxy: {
-        "/api":   { target: apiTarget,   changeOrigin: true, secure: false },
+        "/api":   { target: apiTarget,   changeOrigin: true, secure: false, xfwd: true },
         "/media": { target: mediaTarget, changeOrigin: true, secure: false },
       },
     },

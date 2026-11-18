@@ -35,6 +35,7 @@ export interface KindDef<K extends EntityKind> {
   linked:     Record<string, string>
   //collections have create / order / delete routes and a published flag
   collection: { base: string; addKey: string } | null
+  //Sends the draft; first gives it, in place, the shape the server stores
   save:       (id: EntityId, patch: DraftOf<K>) => Promise<void>
 }
 
@@ -48,6 +49,21 @@ export function pickLang(text: Bilingual | undefined, lang: Lang): string {
 }
 
 const nonEmpty = (list: string[]) => list.filter((s) => s.trim() !== "")
+
+//The server trims these string fields; trimmed in the draft too, a saved draft equals the fresh data
+function trimFields(target: object | undefined, keys?: readonly string[]) {
+  if (!target) return
+  const fields = target as Record<string, unknown>
+  for (const key of keys ?? Object.keys(fields)) {
+    const value = fields[key]
+    if (typeof value === "string") fields[key] = value.trim()
+  }
+}
+
+//An experience has a bullet slot per line of its longer language
+export function bulletSlots(description: ExperienceDto["description"]): number {
+  return Math.max(description.fr.length, description.en.length)
+}
 
 //what an empty site edits before the profile row exists; PUT /api/profile creates it
 const EMPTY_PROFILE: ProfileDto = {
@@ -74,9 +90,11 @@ export const KINDS: { [K in EntityKind]: KindDef<K> } = {
     linked:     { cvFileId: "cvUrl" },
     collection: null,
     save: async (_id, patch) => {
-      const { cvUrl: _cv, ...rest } = patch
-      const body: Record<string, unknown> = { ...rest }
-      if (patch.interests) body.interests = { games: nonEmpty(patch.interests.games), art: nonEmpty(patch.interests.art) }
+      trimFields(patch, ["name", "location", "avatarUrl"])
+      trimFields(patch.contact, ["phone"])
+      trimFields(patch.links)
+      if (patch.interests) patch.interests = { ...patch.interests, games: nonEmpty(patch.interests.games), art: nonEmpty(patch.interests.art) }
+      const { cvUrl: _cv, ...body } = patch
       await apiJson("PUT", "/api/profile", body)
     },
   },
@@ -88,6 +106,7 @@ export const KINDS: { [K in EntityKind]: KindDef<K> } = {
     linked:     { mainImageFileId: "mainImageUrl", mainWireframeFileId: "mainWireframeUrl" },
     collection: { base: "/api/main-project", addKey: "editorAddMainProject" },
     save: async (id, patch) => {
+      trimFields(patch, ["year"])
       const { software, mainImageUrl: _image, mainWireframeUrl: _wireframe, thumbnails, ...rest } = patch
       const body: Record<string, unknown> = { ...rest }
       //the jsonb column stores ids only; urls are resolved on read
@@ -106,6 +125,7 @@ export const KINDS: { [K in EntityKind]: KindDef<K> } = {
     linked:     { imageFileId: "imageUrl" },
     collection: { base: "/api/gallery-project", addKey: "editorAddGalleryItem" },
     save: async (id, patch) => {
+      trimFields(patch, ["link"])
       const { imageUrl: _image, ...body } = patch
       await apiJson("PUT", `/api/gallery-project/${id}`, body)
     },
@@ -118,9 +138,8 @@ export const KINDS: { [K in EntityKind]: KindDef<K> } = {
     linked:     {},
     collection: { base: "/api/experience", addKey: "editorAddExperience" },
     save: async (id, patch) => {
-      const body: Record<string, unknown> = { ...patch }
-      if (patch.description) body.description = { fr: nonEmpty(patch.description.fr), en: nonEmpty(patch.description.en) }
-      await apiJson("PUT", `/api/experience/${id}`, body)
+      if (patch.description) patch.description = { ...patch.description, fr: nonEmpty(patch.description.fr), en: nonEmpty(patch.description.en) }
+      await apiJson("PUT", `/api/experience/${id}`, patch)
     },
   },
 }

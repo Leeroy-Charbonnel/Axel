@@ -4,6 +4,7 @@ import {
   ListCollapse, ListOrdered, MonitorPlay, MousePointerClick, Palette, Quote, Rows3, Table, Type,
 } from "lucide-vue-next"
 import { embedSrc } from "../../../lib/embed"
+import { SHEET_COLS } from "../../../lib/project-sheet"
 import { pickBilingual } from "../../../lib/markdown"
 import { safeUrl } from "../../../lib/safe-url"
 import type { Lang } from "../../../lib/lang"
@@ -21,6 +22,7 @@ export interface BlockTypeDef {
   type:     DetailBlockType
   labelKey: string
   icon:     Component
+  //Width on the sheet's columns, scaled to the page's own: the whole sheet is the full width
   size:     { w: number; h: number }
   inline:   boolean
   create:   () => DetailBlockContent
@@ -30,24 +32,24 @@ const empty = () => ({ fr: "", en: "" })
 
 export const BLOCK_TYPES: BlockTypeDef[] = [
   { type: "text",      labelKey: "blockTypeText",      icon: Type,      size: { w: 1, h: 2 }, inline: true,  create: () => ({ text: empty() }) },
-  { type: "heading",   labelKey: "blockTypeHeading",   icon: Heading1,   size: { w: 3, h: 1 }, inline: true,  create: () => ({ text: { fr: "Section", en: "Section" } }) },
+  { type: "heading",   labelKey: "blockTypeHeading",   icon: Heading1,   size: { w: SHEET_COLS, h: 1 }, inline: true,  create: () => ({ text: { fr: "Section", en: "Section" } }) },
   { type: "quote",     labelKey: "blockTypeQuote",     icon: Quote,     size: { w: 2, h: 1 }, inline: true,  create: () => ({ text: empty(), author: "" }) },
   { type: "image",     labelKey: "blockTypeImage",     icon: ImageIcon,     size: { w: 2, h: 2 }, inline: false, create: () => ({ fileId: null, url: null, alt: empty(), fit: "cover" }) },
   { type: "video",     labelKey: "blockTypeVideo",     icon: Film,     size: { w: 2, h: 2 }, inline: false, create: () => ({ fileId: null, url: null, autoplay: true, loop: true, muted: true, controls: false }) },
-  { type: "carousel",  labelKey: "blockTypeCarousel",  icon: Images,  size: { w: 3, h: 2 }, inline: false, create: () => ({ items: [], intervalMs: 0 }) },
-  { type: "marquee",   labelKey: "blockTypeMarquee",   icon: GalleryHorizontalEnd,   size: { w: 3, h: 1 }, inline: false, create: () => ({ items: [], speedPxs: 60 }) },
+  { type: "carousel",  labelKey: "blockTypeCarousel",  icon: Images,  size: { w: SHEET_COLS, h: 2 }, inline: false, create: () => ({ items: [], intervalMs: 0 }) },
+  { type: "marquee",   labelKey: "blockTypeMarquee",   icon: GalleryHorizontalEnd,   size: { w: SHEET_COLS, h: 1 }, inline: false, create: () => ({ items: [], speedPxs: 60 }) },
   { type: "compare",   labelKey: "blockTypeCompare",   icon: Columns2,   size: { w: 2, h: 2 }, inline: false, create: () => ({
       beforeFileId: null, beforeUrl: null, afterFileId: null, afterUrl: null,
       beforeLabel: { fr: "Avant", en: "Before" }, afterLabel: { fr: "Après", en: "After" }, followMouse: false,
     }) },
   { type: "accordion", labelKey: "blockTypeAccordion", icon: ListCollapse, size: { w: 1, h: 2 }, inline: false, create: () => ({ items: [{ title: empty(), body: empty() }] }) },
   { type: "specs",     labelKey: "blockTypeSpecs",     icon: Table,     size: { w: 1, h: 2 }, inline: false, create: () => ({ rows: [{ label: empty(), value: empty() }] }) },
-  { type: "counters",  labelKey: "blockTypeCounters",  icon: Hash,  size: { w: 3, h: 1 }, inline: false, create: () => ({ items: [{ label: empty(), value: 0 }] }) },
+  { type: "counters",  labelKey: "blockTypeCounters",  icon: Hash,  size: { w: SHEET_COLS, h: 1 }, inline: false, create: () => ({ items: [{ label: empty(), value: 0 }] }) },
   { type: "button",    labelKey: "blockTypeButton",    icon: MousePointerClick,    size: { w: 1, h: 1 }, inline: false, create: () => ({ label: empty(), url: "", newTab: true }) },
   { type: "embed",     labelKey: "blockTypeEmbed",     icon: MonitorPlay,     size: { w: 2, h: 2 }, inline: false, create: () => ({ url: "" }) },
-  { type: "viewer3d",  labelKey: "blockTypeViewer3d",  icon: Box,  size: { w: 3, h: 2 }, inline: false, create: () => ({ model3dId: null, desktopView: "", mobileView: "", look: "render" }) },
+  { type: "viewer3d",  labelKey: "blockTypeViewer3d",  icon: Box,  size: { w: SHEET_COLS, h: 2 }, inline: false, create: () => ({ model3dId: null, desktopView: "", mobileView: "", look: "render" }) },
   { type: "legend",    labelKey: "blockTypeLegend",    icon: ListOrdered, size: { w: 1, h: 2 }, inline: false, create: () => ({ marker: "number", items: [empty()] }) },
-  { type: "sequence",  labelKey: "blockTypeSequence",  icon: Rows3,  size: { w: 3, h: 1 }, inline: false, create: () => ({ numbered: true, items: [] }) },
+  { type: "sequence",  labelKey: "blockTypeSequence",  icon: Rows3,  size: { w: SHEET_COLS, h: 1 }, inline: false, create: () => ({ numbered: true, items: [] }) },
   { type: "materials", labelKey: "blockTypeMaterials", icon: Palette, size: { w: 1, h: 2 }, inline: false, create: () => ({ items: [] }) },
 ]
 
@@ -57,7 +59,7 @@ export function blockType(type: DetailBlockType): BlockTypeDef {
   return def
 }
 
-//the element id of a section heading on the public page, for the rail to reach it
+//The element id of a section heading on the public page, for the rail to reach it
 export function sectionAnchor(blockId: string): string {
   return `section-${blockId}`
 }
@@ -66,7 +68,7 @@ export function newBlockId(): string {
   return crypto.randomUUID().slice(0, 8)
 }
 
-//the content as stored: file ids are the truth, the urls next to them are
+//The content as stored: file ids are the truth, the urls next to them are
 //re-resolved by the server on every read, and list items without a file go
 export function storedContent(b: DetailBlock): DetailBlockContent {
   switch (b.type) {
@@ -103,13 +105,13 @@ export function storedContent(b: DetailBlock): DetailBlockContent {
   }
 }
 
-//the blocks whose media takes the size of the cell; every other block is
+//The blocks whose media takes the size of the cell; every other block is
 //text, and its cell grows to fit it
 export const FILL_TYPES: ReadonlySet<DetailBlockType> = new Set([
   "image", "video", "carousel", "marquee", "compare", "embed", "viewer3d",
 ])
 
-//whether a visitor has anything to see in this block: an unfinished one is
+//Whether a visitor has anything to see in this block: an unfinished one is
 //left out of the public page, and only the editor shows its placeholder
 export function hasContent(b: DetailBlock, lang: Lang, models: Model3dDto[]): boolean {
   const filled = (t: Parameters<typeof pickBilingual>[0]) => pickBilingual(t, lang).trim() !== ""

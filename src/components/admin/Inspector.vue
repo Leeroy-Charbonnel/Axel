@@ -2,6 +2,7 @@
 import { computed, nextTick, onBeforeUnmount, ref, watch, type Component } from "vue"
 import { ArrowDown, ArrowUp, ChevronDown, GripVertical, Trash2, X } from "lucide-vue-next"
 import ToggleField from "./fields/ToggleField.vue"
+import EditLangSwitch from "./EditLangSwitch.vue"
 import ProfileForm from "./forms/ProfileForm.vue"
 import MainProjectForm from "./forms/MainProjectForm.vue"
 import GalleryItemForm from "./forms/GalleryItemForm.vue"
@@ -12,6 +13,7 @@ import { useEditor } from "../../composables/useEditor"
 import { usePortfolio } from "../../composables/usePortfolio"
 import { useConfirm } from "../../composables/useConfirm"
 import { useTranslations } from "../../composables/useTranslations"
+import { useInspectorResize } from "./useInspectorResize"
 
 //THE INSPECTOR - the form of the selected entity. A side panel above 1024px
 //(the page makes room for it, see style.css), a bottom sheet below that can be
@@ -64,21 +66,36 @@ watch([selection, data], () => {
   if (selection.value && data.value && !entity.value) editor.clear()
 })
 
-watch(open, (isOpen) => document.documentElement.classList.toggle("editor-inspector-open", isOpen), { immediate: true })
+const panelEl = ref<HTMLElement | null>(null)
+const resize = useInspectorResize(() => panelEl.value)
+
+watch(open, async (isOpen) => {
+  document.documentElement.classList.toggle("editor-inspector-open", isOpen)
+  if (!isOpen) return resize.stop()
+  await nextTick()
+  resize.measure()
+}, { immediate: true })
 onBeforeUnmount(() => document.documentElement.classList.remove("editor-inspector-open"))
 
 function region(): HTMLElement | null {
   return document.querySelector<HTMLElement>(`[data-edit-key="${key.value}"]`)
 }
 
-//the selected item stays visible: beside the panel, or above the sheet
+//the selected item stays visible: beside the panel, or above the sheet; a text
+//typed in place keeps only itself in view
 watch(key, async (next) => {
   if (!next) return
   collapsed.value = false
   await nextTick()
   const sheet = window.matchMedia(SHEET_QUERY).matches
-  const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches
-  region()?.scrollIntoView({ block: sheet ? "start" : "nearest", behavior: reduced ? "auto" : "smooth" })
+  const behavior = window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth"
+  const target = region()
+  const focused = document.activeElement
+  if (target && focused instanceof HTMLElement && focused !== target && target.contains(focused)) {
+    focused.scrollIntoView({ block: "nearest", behavior })
+    return
+  }
+  target?.scrollIntoView({ block: sheet ? "start" : "nearest", behavior })
 })
 
 watch(editor.focusTick, async () => {
@@ -129,11 +146,28 @@ async function remove() {
   <Transition name="inspector">
     <aside
       v-if="open && kind && entity"
+      id="editor-inspector"
+      ref="panelEl"
       class="inspector ed-ui"
       :class="{ 'inspector--collapsed': collapsed }"
       :aria-label="t('editorInspector')"
       @keydown="onKeydown"
     >
+      <div
+        class="inspector__resize"
+        role="separator"
+        aria-orientation="vertical"
+        aria-controls="editor-inspector"
+        aria-valuemin="0"
+        aria-valuemax="100"
+        :aria-valuenow="resize.percent.value"
+        tabindex="0"
+        :aria-label="t('editorResizePanel')"
+        :title="t('editorResizePanel')"
+        @pointerdown="resize.start"
+        @keydown="resize.onKey"
+        @focus="resize.measure"
+      ></div>
       <header class="inspector__head">
         <button
           type="button"
@@ -151,6 +185,7 @@ async function remove() {
           </span>
           <h2 ref="heading" class="inspector__title" tabindex="-1">{{ title }}</h2>
         </div>
+        <EditLangSwitch />
         <button type="button" class="ed-btn ed-btn--ghost ed-btn--icon" :aria-label="t('editorClose')" @click="close">
           <X :size="16" />
         </button>
@@ -239,11 +274,33 @@ async function remove() {
   display: flex;
   align-items: center;
   gap: var(--vsui-space-xs);
-  padding: var(--vsui-space-sm) var(--vsui-space-xs) var(--vsui-space-sm) var(--vsui-space-md);
+  padding: var(--vsui-space-xs) var(--vsui-space-xs) var(--vsui-space-xs) var(--vsui-space-sm);
   border-bottom: var(--border-width) solid var(--editor-line-soft);
 }
 
 .inspector__grab { display: none; }
+
+/*The left edge, wider than the line it draws*/
+.inspector__resize {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: calc(-1 * var(--vsui-space-xs));
+  width: var(--vsui-space-sm);
+  cursor: col-resize;
+  touch-action: none;
+}
+
+.inspector__resize:hover,
+.inspector__resize:focus-visible {
+  outline: none;
+  background: linear-gradient(to right,
+    transparent calc(50% - var(--border-width)), var(--editor-accent) calc(50% - var(--border-width)),
+    var(--editor-accent) calc(50% + var(--border-width)), transparent calc(50% + var(--border-width)));
+}
+
+:global(html.editor-resizing) { cursor: col-resize; user-select: none; }
+:global(html.editor-resizing body) { transition: none; }
 
 .inspector__titles {
   display: flex;
@@ -277,7 +334,7 @@ async function remove() {
   align-items: center;
   justify-content: space-between;
   gap: var(--vsui-space-sm);
-  padding: var(--vsui-space-2xs) var(--vsui-space-xs) var(--vsui-space-2xs) var(--vsui-space-md);
+  padding: var(--vsui-space-2xs) var(--vsui-space-xs) var(--vsui-space-2xs) var(--vsui-space-sm);
   border-bottom: var(--border-width) solid var(--editor-line-soft);
 }
 
@@ -291,10 +348,10 @@ async function remove() {
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: var(--vsui-space-md);
+  gap: var(--vsui-space-sm);
   overflow-y: auto;
   overscroll-behavior: contain;
-  padding: var(--vsui-space-md);
+  padding: var(--vsui-space-sm);
 }
 
 /*ORDER LIST*/
@@ -302,7 +359,7 @@ async function remove() {
   display: flex;
   flex-direction: column;
   gap: var(--vsui-space-xs);
-  padding-bottom: var(--vsui-space-md);
+  padding-bottom: var(--vsui-space-sm);
   border-bottom: var(--border-width) solid var(--editor-line-soft);
 }
 
@@ -377,6 +434,7 @@ async function remove() {
   }
 
   .inspector__head { padding-left: var(--vsui-space-xs); }
+  .inspector__resize { display: none; }
 
   .inspector__grab {
     display: flex;

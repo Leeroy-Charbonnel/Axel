@@ -12,6 +12,7 @@ import SoftwareChips from "../components/portfolio/SoftwareChips.vue"
 import BlockButton from "../components/portfolio/detail/BlockButton.vue"
 import StyleguideFields from "../components/styleguide/StyleguideFields.vue"
 import StyleguideTokens from "../components/styleguide/StyleguideTokens.vue"
+import { DEFAULT_GRID } from "../lib/detail-grid"
 import type { DetailBlock } from "../types/portfolio"
 
 //STYLEGUIDE - every token, button, field, feedback and block of the site on
@@ -162,7 +163,7 @@ const sampleStats = { vertices: 48210, edges: 96030, faces: 0, triangles: 95640 
       <div class="sg__frame" :style="{ width: `${frameWidth}px` }">
         <article v-for="s in samples" :key="s.type" class="sg__block">
           <h3 class="sg__h3">{{ s.label }}</h3>
-          <DetailGrid :blocks="s.blocks" :lang="lang" />
+          <DetailGrid :blocks="s.blocks" :grid="DEFAULT_GRID" :lang="lang" />
         </article>
       </div>
     </section>

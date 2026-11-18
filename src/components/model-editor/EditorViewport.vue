@@ -4,7 +4,7 @@ import { Color, Group, Mesh, MeshBasicMaterial, OctahedronGeometry } from "three
 import { RotateCcw, TriangleAlert } from "lucide-vue-next"
 import { useToast } from "../../composables/useToast"
 import { useTranslations } from "../../composables/useTranslations"
-import { siteAccent } from "../../lib/accent"
+import { useTheme } from "../../composables/useTheme"
 import { disposeObject } from "../../three/dispose"
 import type { ModelViewer } from "../../three/modelViewer"
 import { useModelEditor } from "./useModelEditor"
@@ -19,6 +19,7 @@ const emit = defineEmits<{ ready: [viewer: ModelViewer, firstLoad: boolean] }>()
 const ed = useModelEditor()
 const toast = useToast()
 const { t } = useTranslations()
+const { accent } = useTheme()
 
 const MAX_PIXEL_RATIO = 2
 //a pointer that moved less than this between down and up is a click, not an orbit
@@ -26,12 +27,6 @@ const CLICK_SLOP_PX = 4
 //light markers, in model radii
 const MARKER_SIZE = 0.05
 const MARKER_COLOR = 0xffffff
-
-//the selected marker takes the site accent, read from its HSL token
-function accentColor(): Color {
-  const hsl = getComputedStyle(document.documentElement).getPropertyValue("--primary").trim().split(/\s+/).join(", ")
-  return new Color().setStyle(`hsl(${hsl})`)
-}
 
 type Phase = "loading" | "ready" | "error"
 
@@ -66,7 +61,7 @@ async function start(url: string | null | undefined) {
       touch: window.matchMedia("(pointer: coarse)").matches,
       reducedMotion: window.matchMedia("(prefers-reduced-motion: reduce)").matches,
       autoRotate: false,
-      glowColor: siteAccent(),
+      glowColor: accent.value,
     })
     current = v
     await v.load(url, ed.effective.value, (loaded, total) => {
@@ -117,11 +112,12 @@ function syncMarkers() {
   if (ed.showLights.value) {
     markers = new Group()
     const geometry = new OctahedronGeometry(setup.bounds.radius * MARKER_SIZE)
-    const accent = accentColor()
+    //The selected marker takes the site accent
+    const selectedColor = new Color(accent.value)
     for (const light of ed.doc.value.settings.lights ?? []) {
       if (light.enabled === false) continue
       const selected = light.id === ed.selectedLight.value
-      const mesh = new Mesh(geometry, new MeshBasicMaterial({ color: selected ? accent : MARKER_COLOR, wireframe: !selected }))
+      const mesh = new Mesh(geometry, new MeshBasicMaterial({ color: selected ? selectedColor : MARKER_COLOR, wireframe: !selected }))
       mesh.position.set(light.x, light.y, light.z)
       markers.add(mesh)
     }
@@ -160,7 +156,8 @@ function onPointerUp(e: PointerEvent) {
 watch(() => ed.model.value?.glbUrl, (url) => void start(url))
 watch(ed.effective, (s) => ed.viewer.value?.applySettings(s))
 watch(ed.preview, (m) => ed.viewer.value?.setMode(m))
-watch([ed.showLights, ed.selectedLight, () => ed.doc.value.settings.lights], syncMarkers)
+watch([ed.showLights, ed.selectedLight, () => ed.doc.value.settings.lights, accent], syncMarkers)
+watch(accent, (color) => current?.setGlowColor(color))
 
 onMounted(() => void start(ed.model.value?.glbUrl))
 onBeforeUnmount(() => {

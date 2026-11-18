@@ -14,7 +14,7 @@ const { t } = useLanguage()
 </script>
 
 <template>
-  <section id="experience" class="experience site-section" aria-labelledby="experience-title">
+  <section id="experience" tabindex="-1" class="experience site-section" aria-labelledby="experience-title">
     <div class="site-container">
       <h2 id="experience-title" class="experience__title">{{ t("experienceTitle") }}</h2>
 

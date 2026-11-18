@@ -123,10 +123,12 @@ export class ModelViewer {
   private labelPoints: Vector3[] = []
   private labelListener: ((points: LabelPoint[]) => void) | null = null
   private readonly opts: ModelViewerOptions
+  private glowColor: string
 
   //Throws when WebGL is unavailable.
   constructor(opts: ModelViewerOptions) {
     this.opts = opts
+    this.glowColor = opts.glowColor
     this.core = createViewerCore(opts.canvas, { maxPixelRatio: opts.maxPixelRatio, touch: opts.touch })
     //a lower quality level: smaller shadow maps, coarser texture filtering
     this.core.onQualityChange(() => {
@@ -255,7 +257,7 @@ export class ModelViewer {
       //the ambient occlusion pass would take the lines for surfaces: back once they are gone
       onLeft: () => this.core.setAmbientOcclusionAllowed(this.mode === "render"),
       requestRender: this.core.requestRender,
-      glowColor: this.opts.glowColor,
+      glowColor: this.glowColor,
     })
     const size = this.core.renderer.getSize(new Vector2())
     this.sweep.setResolution(size.x, size.y)
@@ -350,6 +352,12 @@ export class ModelViewer {
     const turn = to.theta - from.theta
     from.theta += Math.round(turn / (2 * Math.PI)) * 2 * Math.PI
     this.fly(from, to, target, RESET_MS)
+  }
+
+  //CSS colour of the wireframe lines along the sweep front
+  setGlowColor(color: string): void {
+    this.glowColor = color
+    this.sweep?.setGlowColor(color)
   }
 
   setActive(active: boolean): void {

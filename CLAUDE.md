@@ -158,28 +158,49 @@ for the built app.
 
 # Uploads
 
-`server/uploads.ts` receives files on the admin-only routes; `/media` serves
-`storage/files`. Three things are load-bearing:
+No file lives on the machine running the app. Every upload is an object in an
+S3 bucket (`server/storage.ts`, Bun's S3 client) served by rclone in the stack:
+one volume, one folder per environment (`prod/`, `dev/`), the same layout in
+both. Text stays in the database, the `file` table holds one row per object.
+
+    projects/{mainProjectId}/images|models|hdri/{uuid}{ext}   files of one main project
+    shared/images|models|hdri|docs/{uuid}{ext}                everything else
+    .cache/{format}/{width}/{stored}.{format}                 resized copies
+
+`server/uploads.ts` receives files on the admin-only routes (multer writes a
+temp file, it is measured, sent to the bucket, then removed); `/media` streams
+from the bucket with Range, ETag and immutable cache headers. Three things are
+load-bearing:
 
 - the file filter checks the extension against a list AND the declared type
   against a prefix list. `.svg` and `.html` are not on it: `/media` serves from
   the site's own origin, so either one would run its script as if the site had
   written it. PDF is accepted by `POST /api/profile/cv` and nowhere else.
-- the stored name is `{uuid}{ext}`, generated here, never the client's.
+- the stored name is `{folder}/{subdir}/{uuid}{ext}`, generated here, never
+  the client's; `/media` answers that shape only (no `..`, no `.cache`).
 - `/media` sends `X-Content-Type-Options: nosniff`.
 
-Files are never deleted from disk: rows can go from the `file` table, the bytes
-stay.
+`POST /api/files?project=<id>` files an upload in that project's folder,
+without it the file goes to `shared/`. `server/file-projects.ts` (run at boot
+by `scripts/file-projects.ts`, and at the end of `import-renders`) moves each
+file to the folder of the one project that uses it, or to `shared/`; a file
+nothing uses keeps its folder.
+
+Deleting a file deletes its row, its bytes and its resized copies. The sweep
+(`DELETE /api/files/orphans`, `?project=<id>` for one folder) deletes the
+unreferenced rows (HDRs and models excepted: the pickers swap between them)
+and every object no row names. `GET /api/files/storage` gives the total, the
+cache share and what the sweep would free. Never run the sweep while
+`file-projects` moves files: a copied object is row-less until its row moves.
 
 Resized images (`/media/{format}/{width}/{stored}`, `server/images.ts`) are
-encoded once into `storage/files/.cache`, on the uploads volume, so a redeploy
-keeps them. The `/media` static handler is set to `dotfiles: "ignore"`: the
-cache is only reached through the resize route, never raw. Deleting `.cache`
-is always safe. At most two encodes run at once, and a source sharp cannot
-read answers 404 until the process restarts, without a new attempt. The one unlink is the rollback of an upload whose row could not be
-written. A row cannot be deleted while `fileRefCountSql` in
-`server/routes/files.ts` counts a reference to it; every new place that holds
-a file id or a `/media` URL is added there.
+encoded once into `.cache` in the bucket. The cache is only reached through
+the resize route, never raw. Deleting `.cache` is always safe. At most two
+encodes run at once, and a source sharp cannot read answers 404 until the
+process restarts, without a new attempt. A row cannot be deleted while
+`fileRefCountSql` in `server/routes/files.ts` counts a reference to it; every
+new place that holds a file id or a `/media` URL is added there and in
+`server/file-projects.ts`.
 
 # Pages carry their content
 
@@ -212,12 +233,51 @@ port instead of a second service.
 | `app` | Traefik, through the Dokploy domain | none, `expose: 3000` |
 | `db` | the app, by service name | `127.0.0.1:5449`, for the SSH tunnel |
 | `db-dev` | nothing inside the stack | `127.0.0.1:5450`, for the SSH tunnel |
+| `storage` | the app, by service name (bucket `prod`) | none, `expose: 8080` |
+| `storage-dev` | nothing inside the stack (bucket `dev`) | `127.0.0.1:5460`, for the SSH tunnel |
 
-The app is wired to `db` and must stay that way. The standalone database this
-replaced published `0.0.0.0:5440`, which put it on the internet; both ports here
-are bound to loopback. The `storage` volume holds the uploads at
-`/app/storage/files` and replaces the mount that was declared in the Dokploy UI.
+The app is wired to `db` and `storage` and must stay that way. The standalone
+database this replaced published `0.0.0.0:5440`, which put it on the internet;
+every port here is bound to loopback. The `storage` volume holds `prod/` and
+`dev/`; each rclone mounts its own folder (compose `volume.subpath`), so the
+dev keys cannot reach production files.
 
 postgres:18 matches what production ran, and the volume is mounted at
 `/var/lib/postgresql`, not `.../data`: 18 stores the cluster in a version
 subdirectory and refuses to start when the mount sits on the old path.
+
+# Local dev signs the admin in
+
+With `DEV_AUTO_LOGIN=true` in `.env`, `src/main.ts` calls `GET /api/dev/login`
+(`server/dev-login.ts`) when the dev site loads signed out, then reloads once.
+The route answers only a request whose socket, every forwarded hop and every
+host name are this machine, and only on a database whose name ends in `_dev`.
+The server refuses to boot when the flag is set with `NODE_ENV=production`, and
+the production bundle holds no trace of it. Turn it off before exposing the dev
+server (tunnel, `vite --host`).
+
+# The editor
+
+- The language being edited is the site language (`useEditor().editLang` wraps
+  `useLang()`): one field per text, the FR / EN switch changes both.
+- Texts are typed on the page itself (`src/components/admin/InlineText.vue`) and
+  stay linked to the inspector field: both write `editor.patch`, one history.
+- The inspector is resizable; the width is clamped by the
+  `--editor-inspector-min` / `--editor-inspector-max` tokens.
+- The project page panel has tabs: Add, Properties (the selected block, or the
+  page grid when nothing is selected), Files (this project's folder only) and
+  CSS (the site theme).
+
+# Each project page has its own grid
+
+`detail_page.grid` holds the desktop column count, minimum row height and gap.
+`src/lib/detail-grid.ts` is the registry (defaults, limits, CSS variables) read
+by the public grid, the editor, the panel and the server validator. A new column
+count refits every block (`fitToCols`); full-width blocks and sections follow it.
+
+# One theme for the whole site
+
+The admin edits the base colour tokens (`src/lib/theme-vars.ts`); they are saved
+in the single-row `site_theme` table, sent in the public portfolio payload and in
+the server HTML, and applied as CSS variables on `<html>` for every visitor.
+Every other colour token derives from those base tokens.

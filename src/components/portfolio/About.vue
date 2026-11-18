@@ -6,13 +6,14 @@ import { safeUrl } from "../../lib/safe-url"
 import SiteImage from "../SiteImage.vue"
 import AnimatedReveal from "./AnimatedReveal.vue"
 import EditableRegion from "../admin/EditableRegion.vue"
+import InlineText from "../admin/InlineText.vue"
 import type { ProfileDto } from "../../types/portfolio"
 
 //ABOUT CARD, under the timeline: the portrait (to Sketchfab) and the bio, then
 //the contact details and the interests side by side
 const props = defineProps<{ profile: ProfileDto }>()
 
-const { t, lang } = useLanguage()
+const { t } = useLanguage()
 
 const avatarHref = computed(() => safeUrl(props.profile.links.sketchfab))
 const email      = computed(() => props.profile.contact.email.trim())
@@ -38,7 +39,7 @@ const interestGroups = computed(() => [
 
 <template>
   <EditableRegion kind="profile" :label="t('editorKindProfile')">
-    <div id="about" class="about">
+    <div id="about" tabindex="-1" class="about">
       <AnimatedReveal class="about__section">
         <h3 class="about__heading">{{ t("experienceAbout") }}</h3>
         <div class="about__intro">
@@ -52,12 +53,20 @@ const interestGroups = computed(() => [
           >
             <SiteImage :src="profile.avatarUrl" :alt="profile.name" :sizes="IMAGE_SIZES.avatar" />
           </component>
-          <p class="about__text">{{ profile.about[lang] }}</p>
+          <InlineText
+            kind="profile"
+            field="about"
+            :value="profile.about"
+            :label="t('fieldAbout')"
+            tag="p"
+            multiline
+            class="about__text"
+          />
         </div>
       </AnimatedReveal>
 
       <div class="about__columns">
-        <AnimatedReveal id="contact" :delay="0.2" class="about__contact">
+        <AnimatedReveal id="contact" tabindex="-1" :delay="0.2" class="about__contact">
           <h3 class="about__heading">{{ t("experienceContact") }}</h3>
           <ul class="about__list">
             <li v-if="telHref" class="about__item">
@@ -210,7 +219,7 @@ a.about__avatar:hover { box-shadow: 0 0 0 var(--border-width-md) var(--site-line
   color: var(--site-text-caption);
 }
 
-@media (max-width: 1024px) {
+@media (max-width: 768px) {
   .about__section { text-align: center; }
   .about__section .about__heading { margin-inline: auto; }
   .about__section .about__heading::after { left: 30%; }

@@ -7,9 +7,10 @@ import { PUBLIC_APP_URL } from "../env"
 import { db } from "../db/index"
 import { mainProject } from "../db/schema"
 import { isLang, LANG_COOKIE, LANG_DEFAULT, type Lang } from "../src/lib/lang"
+import type { ThemeVars } from "../src/lib/theme-vars"
 import { publicPortfolio } from "./portfolio"
 import {
-  appOnlyPage, homePage, llmsFullTxt, llmsTxt, notFoundPage, projectPage, robotsTxt, sitemapXml, type Page,
+  appOnlyPage, escapeHtml, homePage, llmsFullTxt, llmsTxt, notFoundPage, projectPage, robotsTxt, sitemapXml, type Page,
 } from "./seo"
 
 //THE BUILT APP, served by Express in production only: in dev Vite serves the
@@ -33,10 +34,16 @@ function loadTemplate(): string {
   return html
 }
 
+//Saved theme as an inline style on <html>, there from the first paint
+function themeStyle(theme: ThemeVars): string {
+  const declarations = Object.entries(theme).map(([name, value]) => `${name}: ${value}`).join("; ")
+  return declarations ? ` style="${escapeHtml(declarations)}"` : ""
+}
+
 //replacer functions, not strings: page content may hold "$&" and the like
-function render(template: string, page: Page): string {
+function render(template: string, page: Page, theme: ThemeVars): string {
   return template
-    .replace(/<html lang="[a-z]+"/, () => `<html lang="${page.lang}"`)
+    .replace(/<html lang="[a-z]+"/, () => `<html lang="${page.lang}"${themeStyle(theme)}`)
     .replace(/<title>[^<]*<\/title>/, "")
     .replace(/<meta name="description"[^>]*>/, "")
     .replace("</head>", () => `    ${page.head}\n  </head>`)
@@ -94,6 +101,6 @@ export function mountSite(app: Express): void {
     res.status(page.status)
     res.setHeader("Cache-Control", "no-cache")
     res.setHeader("Vary", "Cookie")
-    res.type("html").send(render(template, page))
+    res.type("html").send(render(template, page, data.theme))
   })
 }

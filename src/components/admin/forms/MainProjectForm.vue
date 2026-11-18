@@ -57,6 +57,7 @@ const newThumbnail = (): ThumbnailDto => ({
     <section class="ed-form__section">
       <h3 class="ed-form__title">{{ t('formSectionVisuals') }}</h3>
       <MediaField
+        :project="entity.id"
         :label="t('fieldMainImage')"
         accept="image"
         :url="p.mainImageUrl"
@@ -64,6 +65,7 @@ const newThumbnail = (): ThumbnailDto => ({
         @clear="set({ mainImageUrl: null, mainImageFileId: null })"
       />
       <MediaField
+        :project="entity.id"
         :label="t('fieldWireframeImage')"
         accept="image"
         :url="p.mainWireframeUrl"
@@ -78,25 +80,32 @@ const newThumbnail = (): ThumbnailDto => ({
         @update:model-value="(v) => set({ thumbnails: v })"
       >
         <template #item="{ item, update }">
-          <MediaField
-            :label="t('fieldImage')"
-            accept="image"
-            :url="item.url"
-            @pick="(f) => update({ ...item, url: f.url, fileId: f.id })"
-            @clear="update({ ...item, url: null, fileId: null })"
-          />
-          <MediaField
-            :label="t('fieldWireframeImage')"
-            accept="image"
-            :url="item.wireframeUrl"
-            @pick="(f) => update({ ...item, wireframeUrl: f.url, wireframeFileId: f.id })"
-            @clear="update({ ...item, wireframeUrl: null, wireframeFileId: null })"
-          />
-          <BilingualField
-            :label="t('fieldCaption')"
-            :model-value="item.description"
-            @update:model-value="(v) => update({ ...item, description: v })"
-          />
+          <div class="ed-thumb">
+            <MediaField
+        :project="entity.id"
+              compact
+              :label="t('fieldImage')"
+              accept="image"
+              :url="item.url"
+              @pick="(f) => update({ ...item, url: f.url, fileId: f.id })"
+              @clear="update({ ...item, url: null, fileId: null })"
+            />
+            <MediaField
+        :project="entity.id"
+              compact
+              :label="t('fieldWireframeImage')"
+              accept="image"
+              :url="item.wireframeUrl"
+              @pick="(f) => update({ ...item, wireframeUrl: f.url, wireframeFileId: f.id })"
+              @clear="update({ ...item, wireframeUrl: null, wireframeFileId: null })"
+            />
+            <BilingualField
+              class="ed-thumb__caption"
+              :label="t('fieldCaption')"
+              :model-value="item.description"
+              @update:model-value="(v) => update({ ...item, description: v })"
+            />
+          </div>
         </template>
       </ListField>
     </section>
@@ -121,3 +130,17 @@ const newThumbnail = (): ThumbnailDto => ({
     </section>
   </div>
 </template>
+
+<style scoped>
+/*One thumbnail on one line: image, wireframe, caption*/
+.ed-thumb {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--vsui-space-sm);
+}
+
+.ed-thumb__caption {
+  flex: 1;
+  min-width: 0;
+}
+</style>

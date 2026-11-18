@@ -1,7 +1,4 @@
 import { randomUUID } from "crypto"
-import { unlinkSync, writeFileSync } from "fs"
-import { readFile } from "fs/promises"
-import { join } from "path"
 import { Worker } from "worker_threads"
 import { and, eq, isNull } from "drizzle-orm"
 import { db } from "../db/index"
@@ -9,11 +6,12 @@ import { file as fileTable, model3d } from "../db/schema"
 import type { OptimizeReport } from "./glb-optimize"
 import type { OptimizeReply } from "./glb-optimize.worker"
 import { HttpError } from "./http"
-import { type FileRow, STORAGE_DIR, type Tx } from "./uploads"
+import { deleteObject, readObject, writeObject } from "./storage"
+import { type FileRow, type Tx } from "./uploads"
 
 //THE OPTIMIZED COPY OF A STORED GLB, shared by the model routes and
-//scripts/optimize-models.ts. The copy is a new file row and new bytes under
-//storage/files/models; the original row and bytes stay, the model keeps them
+//scripts/optimize-models.ts. The copy is a new file row and new bytes next to
+//the source in the bucket; the original row and bytes stay, the model keeps them
 //in source_glb_file_id.
 
 export type ModelRow = typeof model3d.$inferSelect
@@ -64,7 +62,7 @@ export async function optimizeStoredGlb(source: FileRow): Promise<{ output: Uint
   if (!isGlb(source)) {
     throw new HttpError(422, `only a .glb can be optimized, ${source.originalFilename} is not one`)
   }
-  return enqueue(async () => optimizeInWorker(source.originalFilename, await readFile(join(STORAGE_DIR, source.storedFilename))))
+  return enqueue(async () => optimizeInWorker(source.originalFilename, new Uint8Array(await readObject(source.storedFilename))))
 }
 
 //Writes the bytes, then the file row and whatever `link` writes, in one
@@ -75,8 +73,9 @@ export async function saveOptimizedGlb(
   link: (tx: Tx, optimized: FileRow) => Promise<void>,
 ): Promise<FileRow> {
   const id = randomUUID()
-  const stored = `models/${id}.glb`
-  writeFileSync(join(STORAGE_DIR, stored), output)
+  //next to its source: same project folder
+  const stored = `${source.storedFilename.slice(0, source.storedFilename.lastIndexOf("/"))}/${id}.glb`
+  await writeObject(stored, output)
   try {
     return await db.transaction(async (tx) => {
       const [row] = await tx.insert(fileTable).values({
@@ -87,12 +86,13 @@ export async function saveOptimizedGlb(
         sizeBytes:        output.byteLength,
         kind:             source.kind,
         uploadedBy:       source.uploadedBy,
+        mainProjectId:    source.mainProjectId,
       }).returning()
       await link(tx, row!)
       return row!
     })
   } catch (e) {
-    unlinkSync(join(STORAGE_DIR, stored))
+    await deleteObject(stored)
     throw e
   }
 }

@@ -1,10 +1,10 @@
 <script setup lang="ts">
-import { computed, useId } from "vue"
+import { computed, ref, useId } from "vue"
 import AutoDot from "./AutoDot.vue"
 
 //A number on a slider, with its value typed in beside it and the auto mark,
 //on one property row. The slider bounds are a comfortable range, not a limit:
-//a typed value may leave them.
+//a typed value may leave them, unless the field is strict.
 
 const props = withDefaults(defineProps<{
   label:      string
@@ -12,26 +12,58 @@ const props = withDefaults(defineProps<{
   min:        number
   max:        number
   step?:      number
-  //shown after the value: "×R", "%", "°"...
+  //Shown after the value: "×R", "%", "°"...
   unit?:      string
-  //the automatic value; the mark shows while the value differs from it
+  //The automatic value; the mark shows while the value differs from it
   auto?:      number
   hint?:      string
-}>(), { step: 0.01, unit: "", auto: undefined, hint: undefined })
+  //The value is sent when the slider is released; the number follows the drag
+  lazy?:      boolean
+  //The bounds and the step are limits: a typed value is brought onto them
+  strict?:    boolean
+}>(), { step: 0.01, unit: "", auto: undefined, hint: undefined, lazy: false, strict: false })
 
 const emit = defineEmits<{ "update:modelValue": [value: number] }>()
 
 const id = useId()
+//The slider value during a lazy drag
+const dragged = ref<number | null>(null)
 const decimals = computed(() => {
   const s = String(props.step)
   return s.includes(".") ? s.length - s.indexOf(".") - 1 : 0
 })
-const shown = computed(() => Number(props.modelValue.toFixed(decimals.value)))
+const round = (v: number) => Number(v.toFixed(decimals.value))
+const shown = computed(() => round(dragged.value ?? props.modelValue))
 const differs = computed(() => props.auto !== undefined && Math.abs(props.modelValue - props.auto) > props.step / 2)
 
-function onInput(raw: string) {
+function parse(raw: string): number | null {
   const v = Number(raw)
-  if (raw.trim() !== "" && Number.isFinite(v)) emit("update:modelValue", v)
+  if (raw.trim() === "" || !Number.isFinite(v)) return null
+  if (!props.strict) return v
+  const snapped = props.min + Math.round((v - props.min) / props.step) * props.step
+  return round(Math.min(props.max, Math.max(props.min, snapped)))
+}
+
+function onSlide(raw: string) {
+  const v = parse(raw)
+  if (v === null) return
+  if (props.lazy) dragged.value = v
+  else emit("update:modelValue", v)
+}
+
+function onRelease(raw: string) {
+  dragged.value = null
+  const v = parse(raw)
+  if (props.lazy && v !== null) emit("update:modelValue", v)
+}
+
+//A typed value out of the limits shows where it landed
+function onType(e: Event) {
+  const input = e.target as HTMLInputElement
+  const v = parse(input.value)
+  if (v === null) return
+  input.value = String(v)
+  emit("update:modelValue", v)
 }
 </script>
 
@@ -48,8 +80,9 @@ function onInput(raw: string) {
       :min="min"
       :max="max"
       :step="step"
-      :value="modelValue"
-      @input="onInput(($event.target as HTMLInputElement).value)"
+      :value="dragged ?? modelValue"
+      @input="onSlide(($event.target as HTMLInputElement).value)"
+      @change="onRelease(($event.target as HTMLInputElement).value)"
     />
     <span class="slider__value">
       <input
@@ -58,7 +91,7 @@ function onInput(raw: string) {
         :step="step"
         :value="shown"
         :aria-label="label"
-        @change="onInput(($event.target as HTMLInputElement).value)"
+        @change="onType"
       />
       <span v-if="unit" class="slider__unit">{{ unit }}</span>
     </span>

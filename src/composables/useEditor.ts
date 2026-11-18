@@ -3,7 +3,10 @@ import { usePortfolio, apiJson } from "./usePortfolio"
 import { useToast } from "./useToast"
 import { useConfirm } from "./useConfirm"
 import { useTranslations } from "./useTranslations"
-import { LANG_DEFAULT, type Lang } from "../lib/lang"
+import { useLang } from "./useLang"
+import { useTheme } from "./useTheme"
+import { type Lang } from "../lib/lang"
+import type { ThemeVarName, ThemeVars } from "../lib/theme-vars"
 import { KINDS, entityKey, type DraftOf, type EntityId, type EntityKind, type EntityOf } from "../components/admin/entities"
 
 export type { DraftOf, EntityId, EntityKind, EntityOf }
@@ -21,6 +24,12 @@ interface DraftEntry {
   patch: Record<string, unknown>
 }
 type Drafts = Record<string, DraftEntry>
+
+//One undo step: the drafts and the theme draft
+interface Snapshot {
+  drafts: Drafts
+  theme:  ThemeVars
+}
 
 export interface Selection {
   kind: EntityKind
@@ -41,26 +50,40 @@ export interface PageActions {
 //typing in one field within this window is one undo step
 const COALESCE_MS   = 800
 const HISTORY_LIMIT = 100
+//History key of the theme edits, and the field of a reset of every token
+const THEME_KEY      = "theme"
+const ALL_THEME_VARS = "*"
 
 const editMode  = ref(false)
-const editLang  = ref<Lang>(LANG_DEFAULT)
+const siteLang  = useLang()
+//The language being edited is the site's language: switching one switches the other
+const editLang  = computed<Lang>({
+  get: () => siteLang.lang.value,
+  set: (l) => { void siteLang.setLang(l) },
+})
 const selection = shallowRef<Selection | null>(null)
 //bumped when a keyboard selection should move focus into the inspector
 const focusTick = ref(0)
 const drafts    = ref<Drafts>({})
-const past      = shallowRef<Drafts[]>([])
-const future    = shallowRef<Drafts[]>([])
+const past      = shallowRef<Snapshot[]>([])
+const future    = shallowRef<Snapshot[]>([])
 const saving    = ref(false)
 const pageActions = shallowRef<PageActions | null>(null)
 let lastPatch = { key: "", fields: "", at: 0 }
 
 const portfolio = usePortfolio()
 const toast     = useToast()
+const theme     = useTheme()
 const { confirm } = useConfirm()
 const { t }     = useTranslations()
 
 const clone = <T>(v: T): T => JSON.parse(JSON.stringify(v)) as T
-const same  = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b)
+//Object keys sorted, so {fr, en} and {en, fr} compare equal
+const sortedKeys = (_key: string, v: unknown) =>
+  v && typeof v === "object" && !Array.isArray(v)
+    ? Object.fromEntries(Object.entries(v as Record<string, unknown>).sort(([x], [y]) => x.localeCompare(y)))
+    : v
+const same  = (a: unknown, b: unknown) => JSON.stringify(a, sortedKeys) === JSON.stringify(b, sortedKeys)
 
 function find<K extends EntityKind>(kind: K, id: EntityId): EntityOf[K] | null {
   const data = portfolio.data.value
@@ -70,9 +93,26 @@ function find<K extends EntityKind>(kind: K, id: EntityId): EntityOf[K] | null {
 }
 
 //HISTORY - whole-draft snapshots: drafts are small and this cannot drift
+function current(): Snapshot {
+  return { drafts: clone(drafts.value), theme: theme.snapshot() }
+}
+
+function restore(snapshot: Snapshot) {
+  drafts.value = snapshot.drafts
+  theme.restore(snapshot.theme)
+}
+
 function pushHistory() {
-  past.value = [...past.value, clone(drafts.value)].slice(-HISTORY_LIMIT)
+  past.value = [...past.value, current()].slice(-HISTORY_LIMIT)
   future.value = []
+}
+
+//One undo step per field; quick edits of the same field join it
+function record(key: string, fields: string) {
+  const now = Date.now()
+  const coalesce = lastPatch.key === key && lastPatch.fields === fields && now - lastPatch.at < COALESCE_MS
+  if (!coalesce) pushHistory()
+  lastPatch = { key, fields, at: now }
 }
 
 function resetHistory() {
@@ -85,11 +125,11 @@ function resetHistory() {
 //draft whose entity is gone, its save would 404 forever
 function forget(key: string) {
   delete drafts.value[key]
-  const strip = (list: Drafts[]) => list.map((snapshot) => {
-    if (!(key in snapshot)) return snapshot
-    const copy = { ...snapshot }
+  const strip = (list: Snapshot[]) => list.map((snapshot) => {
+    if (!(key in snapshot.drafts)) return snapshot
+    const copy = { ...snapshot.drafts }
     delete copy[key]
-    return copy
+    return { ...snapshot, drafts: copy }
   })
   past.value = strip(past.value)
   future.value = strip(future.value)
@@ -99,7 +139,7 @@ function forget(key: string) {
 function forgetMissing() {
   if (!portfolio.data.value) return
   const entries = new Map<string, DraftEntry>()
-  for (const snapshot of [drafts.value, ...past.value, ...future.value]) {
+  for (const snapshot of [drafts.value, ...[...past.value, ...future.value].map((step) => step.drafts)]) {
     for (const [key, entry] of Object.entries(snapshot)) entries.set(key, entry)
   }
   for (const [key, entry] of entries) {
@@ -123,13 +163,8 @@ function prune(key: string) {
 }
 
 function patch<K extends EntityKind>(kind: K, id: EntityId, partial: DraftOf<K>) {
-  const key    = entityKey(kind, id)
-  const fields = Object.keys(partial).sort().join(",")
-  const now    = Date.now()
-  const coalesce = lastPatch.key === key && lastPatch.fields === fields && now - lastPatch.at < COALESCE_MS
-  if (!coalesce) pushHistory()
-  lastPatch = { key, fields, at: now }
-
+  const key = entityKey(kind, id)
+  record(key, Object.keys(partial).sort().join(","))
   const entry = drafts.value[key] ?? { kind, id, patch: {} }
   entry.patch = { ...entry.patch, ...clone(partial) }
   drafts.value[key] = entry
@@ -149,10 +184,21 @@ function isDirty(kind: EntityKind, id: EntityId): boolean {
   return entityKey(kind, id) in drafts.value
 }
 
+//THEME - its draft shares the undo history and the save
+function setThemeVar(name: ThemeVarName, value: string) {
+  record(THEME_KEY, name)
+  theme.set(name, value)
+}
+
+function resetTheme() {
+  record(THEME_KEY, ALL_THEME_VARS)
+  theme.resetAll()
+}
+
 const draftCount = computed(() => Object.keys(drafts.value).length)
 const pageActive = computed(() => pageActions.value !== null)
 const pageDirty  = computed(() => pageActions.value?.dirty.value ?? false)
-const dirty      = computed(() => draftCount.value > 0 || pageDirty.value)
+const dirty      = computed(() => draftCount.value > 0 || theme.dirty.value || pageDirty.value)
 const canUndo    = computed(() => past.value.length > 0 || (pageActions.value?.canUndo?.value ?? false))
 const canRedo    = computed(() => future.value.length > 0 || (pageActions.value?.canRedo?.value ?? false))
 export type EditorStatus = "saved" | "dirty" | "saving"
@@ -162,9 +208,9 @@ const status = computed<EditorStatus>(() => saving.value ? "saving" : dirty.valu
 function undo() {
   const prev = past.value[past.value.length - 1]
   if (prev) {
-    future.value = [...future.value, clone(drafts.value)]
+    future.value = [...future.value, current()]
     past.value = past.value.slice(0, -1)
-    drafts.value = prev
+    restore(prev)
     lastPatch = { key: "", fields: "", at: 0 }
     return
   }
@@ -174,13 +220,24 @@ function undo() {
 function redo() {
   const next = future.value[future.value.length - 1]
   if (next) {
-    past.value = [...past.value, clone(drafts.value)]
+    past.value = [...past.value, current()]
     future.value = future.value.slice(0, -1)
-    drafts.value = next
+    restore(next)
     lastPatch = { key: "", fields: "", at: 0 }
     return
   }
   pageActions.value?.redo?.()
+}
+
+//True when the save worked; a failure is logged
+async function trySave(what: string, run: () => Promise<void>): Promise<boolean> {
+  try {
+    await run()
+    return true
+  } catch (e) {
+    console.error(`[editor] save of ${what} failed:`, e)
+    return false
+  }
 }
 
 //SAVE - every dirty entity in turn; whatever fails keeps its draft
@@ -190,22 +247,11 @@ async function saveAll(): Promise<boolean> {
   let failed = 0
   try {
     for (const entry of Object.values(drafts.value)) {
-      try {
-        await KINDS[entry.kind].save(entry.id, entry.patch as never)
-      } catch (e) {
-        failed++
-        console.error(`[editor] save of ${entityKey(entry.kind, entry.id)} failed:`, e)
-      }
+      if (!(await trySave(entityKey(entry.kind, entry.id), () => KINDS[entry.kind].save(entry.id, entry.patch as never)))) failed++
     }
+    if (theme.dirty.value && !(await trySave(THEME_KEY, theme.save))) failed++
     const page = pageActions.value
-    if (page?.dirty.value) {
-      try {
-        await page.save()
-      } catch (e) {
-        failed++
-        console.error("[editor] page save failed:", e)
-      }
-    }
+    if (page?.dirty.value && !(await trySave("page", page.save))) failed++
     await portfolio.reload()
     //saved fields now equal the fresh data and fall away; failed ones stay, with their history
     for (const key of Object.keys(drafts.value)) prune(key)
@@ -220,6 +266,7 @@ async function saveAll(): Promise<boolean> {
 //confirmed before it runs, so it is final: no undo brings a discarded draft back
 function discardAll() {
   drafts.value = {}
+  theme.discard()
   resetHistory()
   pageActions.value?.discard()
 }
@@ -314,24 +361,42 @@ function registerPageActions(actions: PageActions): () => void {
 
 //GLOBAL GUARDS - a reload or a closed tab with pending edits asks first, and
 //the editor shortcuts work anywhere on the page while editing
-function isTextTarget(target: EventTarget | null): boolean {
-  const el = target as HTMLElement | null
-  return Boolean(el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.tagName === "SELECT" || el.isContentEditable))
+const INSPECTOR_SELECTOR = "#editor-inspector"
+
+//A form field; with editable, also a text typed in place
+export function isTextTarget(target: EventTarget | null, opts: { editable: boolean }): boolean {
+  if (!(target instanceof HTMLElement)) return false
+  const field = target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.tagName === "SELECT"
+  return field || (opts.editable && target.isContentEditable)
+}
+
+//Form fields keep their own undo, except the inspector's: they show the drafts
+function usesEditorHistory(target: EventTarget | null): boolean {
+  return !isTextTarget(target, { editable: false }) || (target as HTMLElement).closest(INSPECTOR_SELECTOR) !== null
 }
 
 function onKeydown(e: KeyboardEvent) {
-  if (!editMode.value || !(e.ctrlKey || e.metaKey)) return
+  if (!editMode.value || e.isComposing || !(e.ctrlKey || e.metaKey)) return
   const k = e.key.toLowerCase()
   if (k === "s") {
     e.preventDefault()
     void saveAll()
     return
   }
-  if ((k === "z" || k === "y") && !isTextTarget(e.target)) {
+  if ((k === "z" || k === "y") && usesEditorHistory(e.target)) {
     e.preventDefault()
     if (k === "y" || e.shiftKey) redo()
     else undo()
   }
+}
+
+//An undo or a redo picked from a menu instead of a key
+function onBeforeInput(e: InputEvent) {
+  const history = e.inputType === "historyUndo" || e.inputType === "historyRedo"
+  if (!editMode.value || !history || !usesEditorHistory(e.target)) return
+  e.preventDefault()
+  if (e.inputType === "historyUndo") undo()
+  else redo()
 }
 
 function onBeforeUnload(e: BeforeUnloadEvent) {
@@ -346,6 +411,7 @@ watch(portfolio.data, forgetMissing)
 
 if (typeof window !== "undefined") {
   window.addEventListener("keydown", onKeydown)
+  window.addEventListener("beforeinput", onBeforeInput)
   window.addEventListener("beforeunload", onBeforeUnload)
 }
 
@@ -354,6 +420,7 @@ export function useEditor() {
     editMode, editLang, selection, focusTick, saving, status, dirty, canUndo, canRedo,
     setEditMode, select, clear, isSelected,
     find, draft, patch, display, isDirty,
+    setThemeVar, resetTheme,
     saveAll, discardAll, confirmDiscard, undo, redo,
     createItem, removeItem, reorder, move,
     registerPageActions, pageActive,

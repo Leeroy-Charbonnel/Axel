@@ -1,5 +1,6 @@
 import { ref } from "vue"
 import { useToast } from "./useToast"
+import { receiveSavedTheme } from "./useTheme"
 import type { PortfolioDto } from "../types/portfolio"
 
 //SHARED portfolio state - one fetch per page load, cached in module scope so
@@ -65,7 +66,9 @@ async function fetchPortfolio() {
     try {
       const res = await fetch("/api/portfolio", { credentials: "include" })
       if (!res.ok) throw new Error(`/api/portfolio returned ${res.status}`)
-      data.value = await res.json()
+      const portfolio: PortfolioDto = await res.json()
+      data.value = portfolio
+      receiveSavedTheme(portfolio.theme)
       loaded.value = true
       rememberSectionCounts(data.value)
     } catch (e) {

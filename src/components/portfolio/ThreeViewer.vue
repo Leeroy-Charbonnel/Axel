@@ -4,7 +4,7 @@ import { Box, Cylinder, Grid3x3, Maximize, Minimize, TriangleAlert } from "lucid
 import { useLanguage } from "../../composables/useLanguage"
 import SiteImage from "../SiteImage.vue"
 import { inLoadTurn } from "../../three/loadQueue"
-import { siteAccent } from "../../lib/accent"
+import { useTheme } from "../../composables/useTheme"
 import type { LabelPoint, ModelViewer } from "../../three/modelViewer"
 import type { ViewerMode, ViewerSettings } from "../../three/types"
 
@@ -37,6 +37,7 @@ const props = withDefaults(defineProps<{
 const emit = defineEmits<{ "update:wireframe": [on: boolean]; "update:plain": [on: boolean] }>()
 
 const { t } = useLanguage()
+const { accent } = useTheme()
 
 //start loading this far before the viewer scrolls into view
 const PRELOAD_MARGIN = "200px"
@@ -154,7 +155,7 @@ async function start() {
         touch,
         reducedMotion,
         autoRotate: props.autoRotate,
-        glowColor: siteAccent(),
+        glowColor: accent.value,
       })
       viewer.value = created
       syncActive()
@@ -273,6 +274,7 @@ watch(mode, (m) => {
 watch(() => props.settings, (s) => {
   if (phase.value === "ready" && s) viewer.value?.applySettings(s)
 }, { deep: true })
+watch(accent, (color) => viewer.value?.setGlowColor(color))
 watch(() => props.glbUrl, () => {
   teardown(false)
   phase.value = "idle"

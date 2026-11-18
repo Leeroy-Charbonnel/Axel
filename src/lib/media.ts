@@ -4,33 +4,40 @@ export const IMAGE_WIDTHS = [320, 640, 960, 1200, 1440, 1920]
 export const IMAGE_FORMATS = ["webp", "jpeg"] as const
 export type ImageFormat = (typeof IMAGE_FORMATS)[number]
 
-//width and height of each image in a payload, keyed by its /media URL
+//Width and height of each image in a payload, keyed by its /media URL
 export type ImageSizes = Record<string, [number, number]>
 
 //HOW WIDE EACH KIND OF IMAGE IS DRAWN, the `sizes` the browser picks a copy
-//with. They follow the layout: a 1280px container (--site-max-width), one
-//column up to 1024px, and the image tokens of style.css.
+//with. They follow the layout: a 1280px container (--site-max-width), the
+//project card's columns, and the image tokens of style.css.
 const CONTAINER = 1280
+//The project card stacks its columns up to this viewport width
+const CARD_STACKED_MAX = 768
+//The viewport width where the card reaches the full container
+const CARD_FULL_VIEWPORT = 1400
+//The card's media column: its share of the viewport, then its widest size
+const CARD_MEDIA_VW = 50
+const CARD_MEDIA_MAX = 700
 export const IMAGE_SIZES = {
-  still:    `(max-width: 1024px) 100vw, ${Math.round(CONTAINER * 8 / 12)}px`,
+  still:    `(max-width: ${CARD_STACKED_MAX}px) 100vw, (max-width: ${CARD_FULL_VIEWPORT}px) ${CARD_MEDIA_VW}vw, ${CARD_MEDIA_MAX}px`,
   gallery:  "(max-width: 640px) 100vw, 360px",
   lightbox: "100vw",
   thumb:    "160px",
   avatar:   "96px",
   icon:     "18px",
-  //a media library tile, --editor-media-tile and its share of the free space
+  //A media library tile, --editor-media-tile and its share of the free space
   tile:     "200px",
 }
 
-//a detail-page block spans w of the 3 grid columns, one column on a phone
-export function blockSizes(w: number): string {
-  const share = Math.min(w, 3) / 3
+//A detail-page block spans w of the page's columns, one column on a phone
+export function blockSizes(w: number, cols: number): string {
+  const share = Math.min(w, cols) / cols
   return `(max-width: 640px) 100vw, (max-width: ${CONTAINER}px) ${Math.round(share * 100)}vw, ${Math.round(CONTAINER * share)}px`
 }
 
-//an upload the server can resize: a still under /media/images. A GIF keeps
+//An upload the server can resize: a still under {folder}/images. A GIF keeps
 //its frames by being served as it is.
-const DERIVABLE = /^\/media\/(images\/[0-9a-f-]{36}\.(?:jpe?g|png|webp|avif))$/
+const DERIVABLE = /^\/media\/((?:(?:projects\/\d+|shared)\/)?images\/[0-9a-f-]{36}\.(?:jpe?g|png|webp|avif))$/
 
 export function storedImage(url: string): string | null {
   return DERIVABLE.exec(url)?.[1] ?? null
@@ -40,7 +47,7 @@ export function derivativeUrl(stored: string, width: number, format: ImageFormat
   return `/media/${format}/${width}/${stored}`
 }
 
-//the widths worth offering for an image this wide: every smaller step, then
+//The widths worth offering for an image this wide: every smaller step, then
 //one step that serves the image at its own width (the server never enlarges)
 export function widthSteps(naturalWidth: number | null): Array<{ step: number; width: number }> {
   if (naturalWidth === null) return IMAGE_WIDTHS.map((w) => ({ step: w, width: w }))

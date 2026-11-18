@@ -1,30 +1,22 @@
 import type express from "express"
 import multer from "multer"
-import { join, extname, relative } from "path"
-import { mkdirSync, readdirSync, unlinkSync } from "fs"
-import { fileURLToPath } from "url"
+import { join, extname } from "path"
+import { mkdirSync, unlinkSync } from "fs"
+import { tmpdir } from "os"
 import { randomUUID } from "crypto"
 import sharp from "sharp"
 import { db } from "../db/index"
 import { file as fileTable } from "../db/schema"
 import { HttpError } from "./http"
+import { deleteObject, writeObject } from "./storage"
 
-//UPLOADS. Every file lands at storage/files/{subdir}/{uuid}{ext}, a name
-//generated here and never the client's, and is served under /media.
-//Files are never deleted from disk: a row can leave the `file` table, the
-//bytes stay. The one unlink is the rollback of an upload whose row could not
-//be written, so no row ever pointed at those bytes.
-export const STORAGE_DIR = fileURLToPath(new URL("../storage/files", import.meta.url))
-
-
-//mkdir failing on the volume must not take the boot down: uploads then fail
-//one by one and the rest of the site is served
-try {
-  mkdirSync(STORAGE_DIR, { recursive: true })
-  console.log(`[boot] storage ready at ${STORAGE_DIR}, ${readdirSync(STORAGE_DIR).length} entry(ies)`)
-} catch (e) {
-  console.error(`[boot] storage mkdir FAILED at ${STORAGE_DIR} - every upload will fail:`, e)
-}
+//UPLOADS. Every file is stored under {folder}/{subdir}/{uuid}{ext} in the
+//storage bucket (server/storage.ts), a name generated here and never the
+//client's, and is served under /media. The folder is projects/{id} for a
+//file of one main project, shared for the rest. multer writes the upload to
+//a temp file first: it is measured there, sent to the bucket, then removed.
+const UPLOAD_TMP_DIR = join(tmpdir(), "portfolio-uploads")
+mkdirSync(UPLOAD_TMP_DIR, { recursive: true })
 
 
 //200 MB - a .glb can be chunky
@@ -51,12 +43,12 @@ function subdirFor(filename: string): string {
   return "images"
 }
 
+export function folderFor(mainProjectId: number | null): string {
+  return mainProjectId === null ? "shared" : `projects/${mainProjectId}`
+}
+
 const storage = multer.diskStorage({
-  destination: (_req, file, cb) => {
-    const dir = join(STORAGE_DIR, subdirFor(file.originalname))
-    mkdirSync(dir, { recursive: true })
-    cb(null, dir)
-  },
+  destination: (_req, _file, cb) => cb(null, UPLOAD_TMP_DIR),
   filename: (_req, file, cb) => {
     cb(null, `${randomUUID()}${extname(file.originalname).toLowerCase()}`)
   },
@@ -118,8 +110,8 @@ export function isRaster(path: string): boolean {
   return RASTER_EXTENSIONS.has(extname(path).toLowerCase())
 }
 
-export async function measureImage(path: string): Promise<{ width: number; height: number }> {
-  const { autoOrient } = await sharp(path).metadata()
+export async function measureImage(input: string | Buffer): Promise<{ width: number; height: number }> {
+  const { autoOrient } = await sharp(input).metadata()
   return { width: autoOrient.width, height: autoOrient.height }
 }
 
@@ -142,17 +134,21 @@ function kindOf(mimeType: string): "image" | "video" | "document" | "other" {
 export type FileRow = typeof fileTable.$inferSelect
 export type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0]
 
-//Writes the row for a received file, then runs `link` (the row that points
-//at it) when given. Either failing removes the bytes and the row: nothing
-//referenced them yet.
+//Measures the received file, sends it to the bucket, then writes its row and
+//runs `link` (the row that points at it) when given. Either failing removes
+//the bytes and the row: nothing referenced them yet. The temp file always goes.
 export async function recordUpload(
   file: Express.Multer.File,
   uploadedBy: string,
   link?: (tx: Tx, row: FileRow) => Promise<void>,
+  mainProjectId: number | null = null,
 ): Promise<FileRow & { url: string }> {
-  const stored = relative(STORAGE_DIR, join(file.destination, file.filename)).split("\\").join("/")
+  const stored = `${folderFor(mainProjectId)}/${subdirFor(file.originalname)}/${file.filename}`
+  let sent = false
   try {
-    const size = await rasterSize(join(STORAGE_DIR, stored))
+    const size = await rasterSize(file.path)
+    await writeObject(stored, Bun.file(file.path))
+    sent = true
     return await db.transaction(async (tx) => {
       const [row] = await tx.insert(fileTable).values({
         //the uuid in the stored name is the row id
@@ -164,16 +160,21 @@ export async function recordUpload(
         ...size,
         kind:             kindOf(file.mimetype),
         uploadedBy,
+        mainProjectId,
       }).returning()
       if (link) await link(tx, row!)
       return { ...row!, url: `/media/${row!.storedFilename}` }
     })
   } catch (e) {
-    try {
-      unlinkSync(join(STORAGE_DIR, stored))
-    } catch (unlinkErr) {
-      console.error(`[files] rollback unlink failed for ${stored}:`, unlinkErr)
+    if (sent) {
+      try {
+        await deleteObject(stored)
+      } catch (deleteErr) {
+        console.error(`[files] rollback delete failed for ${stored}:`, deleteErr)
+      }
     }
     throw e
+  } finally {
+    unlinkSync(file.path)
   }
 }

@@ -1,7 +1,7 @@
 import type { DetailBlock } from "../types/portfolio"
 
 //BENTO LAYOUT - pure geometry of the detail-page grid, shared by the public
-//render, the editor and the case-study builder. Desktop is 3 columns of rows with a
+//render, the editor and the case-study builder. Desktop is the page's columns of rows with a
 //minimum height that grow with their text; phone is one column whose rows come
 //from mobileY / mobileH.
 
@@ -9,23 +9,90 @@ export type GridLayout = "desktop" | "phone"
 export interface Rect { x: number; y: number; w: number; h: number }
 export type Rects = Map<string, Rect>
 
-export const GRID_COLS: Record<GridLayout, number> = { desktop: 3, phone: 1 }
+const PHONE_COLS = 1
+
+//Columns of a layout: the page's own count on desktop, one on a phone
+export function gridCols(layout: GridLayout, desktopCols: number): number {
+  return layout === "desktop" ? desktopCols : PHONE_COLS
+}
+
+type Entry = [string, Rect]
+const byReading = ([, a]: Entry, [, b]: Entry) => a.y - b.y || a.x - b.x
+
+//Lays the rects down in the given order over the ones already placed: a rect
+//that lands on another moves down below it, until it lands on none. With
+//keepOrder, a rect never lands before the one laid down just before it.
+function pushDown(out: Rects, placed: Rect[], ordered: Entry[], keepOrder: boolean): Rects {
+  let prev: Rect | null = null
+  for (const [id, r] of ordered) {
+    const next = { ...r }
+    if (keepOrder && prev && (next.y < prev.y || (next.y === prev.y && next.x < prev.x))) {
+      next.y = next.x < prev.x ? prev.y + 1 : prev.y
+    }
+    let hit = placed.find((p) => overlaps(next, p))
+    while (hit) {
+      next.y = hit.y + hit.h
+      hit = placed.find((p) => overlaps(next, p))
+    }
+    out.set(id, next)
+    placed.push(next)
+    prev = next
+  }
+  return out
+}
+
+//Every block fits in `cols` columns: too wide ones shrink, too far right ones
+//move left, and a block that then lands on another moves down below it. The
+//blocks keep their reading order.
+export function fitToCols(rects: Rects, cols: number): Rects {
+  const fitted = [...rects.entries()].sort(byReading).map(([id, r]): Entry => {
+    const w = Math.min(r.w, cols)
+    return [id, { ...r, w, x: Math.min(r.x, cols - w) }]
+  })
+  return pushDown(new Map(), [], fitted, true)
+}
+
+//A column edge of a `from`-column grid on a `to`-column grid
+function scaleEdge(col: number, from: number, to: number): number {
+  return Math.round(col * to / from)
+}
+
+//A span of a `from`-column grid on a `to`-column grid, never under one column
+export function scaleSpan(w: number, from: number, to: number): number {
+  return Math.max(1, scaleEdge(w, from, to))
+}
+
+//Every rect keeps its share of the width: a block on every column of `from` spans every column of `to`
+function scaleRects(rects: Rects, from: number, to: number): Rects {
+  const out: Rects = new Map()
+  for (const [id, r] of rects) {
+    const x = scaleEdge(r.x, from, to)
+    out.set(id, { ...r, x, w: Math.max(1, scaleEdge(r.x + r.w, from, to) - x) })
+  }
+  return out
+}
+
+//Moves the desktop layout of the blocks from `from` to `to` columns, in place:
+//each block keeps its share of the width, then the blocks are fitted
+export function fitBlocks(blocks: DetailBlock[], from: number, to: number): void {
+  writeRects(blocks, "desktop", fitToCols(scaleRects(layoutRects(blocks, "desktop"), from, to), to))
+}
 
 export function overlaps(a: Rect, b: Rect): boolean {
   return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y
 }
 
-//the phone layout is authored once every block carries its own row and span
+//The phone layout is authored once every block carries its own row and span
 export function phoneAuthored(blocks: DetailBlock[]): boolean {
   return blocks.length > 0 && blocks.every((b) => b.mobileY !== undefined && b.mobileH !== undefined)
 }
 
-//desktop reading order, row by row then left to right
+//Desktop reading order, row by row then left to right
 export function readingOrder(blocks: DetailBlock[]): DetailBlock[] {
   return [...blocks].sort((a, b) => a.y - b.y || a.x - b.x)
 }
 
-//until the phone layout is authored, phones stack the blocks in reading order
+//Until the phone layout is authored, phones stack the blocks in reading order
 export function layoutRects(blocks: DetailBlock[], layout: GridLayout): Rects {
   const rects: Rects = new Map()
   if (layout === "desktop") {
@@ -44,7 +111,7 @@ export function layoutRects(blocks: DetailBlock[], layout: GridLayout): Rects {
   return rects
 }
 
-//a row no block covers is taken out and the rows below move up: what the
+//A row no block covers is taken out and the rows below move up: what the
 //public page draws once the blocks it leaves out are gone
 export function closeEmptyRows(rects: Rects): Rects {
   const covered = new Set<number>()
@@ -65,7 +132,7 @@ export function bottomOf(rects: Iterable<Rect>): number {
   return max
 }
 
-//first top-left cell, row by row, where a w x h block fits without overlap
+//First top-left cell, row by row, where a w x h block fits without overlap
 export function firstFree(rects: Iterable<Rect>, cols: number, w: number, h: number): { x: number; y: number } {
   const taken = [...rects]
   const width = Math.min(w, cols)
@@ -77,27 +144,14 @@ export function firstFree(rects: Iterable<Rect>, cols: number, w: number, h: num
   }
 }
 
-//the anchor keeps its place; every block it lands on moves down below it,
+//The anchor keeps its place; every block it lands on moves down below it,
 //and so on in reading order, so nothing ever overlaps and no gap is closed
 export function reflow(rects: Rects, anchorId: string): Rects {
   const anchor = rects.get(anchorId)
   if (!anchor) throw new Error(`[bento] reflow anchor ${anchorId} is not in the layout`)
-  const out: Rects = new Map([[anchorId, { ...anchor }]])
-  const placed: Rect[] = [out.get(anchorId)!]
-  const rest = [...rects.entries()]
-    .filter(([id]) => id !== anchorId)
-    .sort(([, a], [, b]) => a.y - b.y || a.x - b.x)
-  for (const [id, r] of rest) {
-    const next = { ...r }
-    let hit = placed.find((p) => overlaps(next, p))
-    while (hit) {
-      next.y = hit.y + hit.h
-      hit = placed.find((p) => overlaps(next, p))
-    }
-    out.set(id, next)
-    placed.push(next)
-  }
-  return out
+  const placed = { ...anchor }
+  const rest = [...rects.entries()].filter(([id]) => id !== anchorId).sort(byReading)
+  return pushDown(new Map([[anchorId, placed]]), [placed], rest, false)
 }
 
 //THE PHONE STACK - one column has no use for gaps or pushes: the anchor goes
@@ -125,7 +179,7 @@ export function restack(rects: Rects, anchorId: string): Rects {
   return out
 }
 
-//writes a layout back onto the blocks; a phone write authors every block
+//Writes a layout back onto the blocks; a phone write authors every block
 export function writeRects(blocks: DetailBlock[], layout: GridLayout, rects: Rects): void {
   for (const b of blocks) {
     const r = rects.get(b.id)
@@ -138,7 +192,7 @@ export function writeRects(blocks: DetailBlock[], layout: GridLayout, rects: Rec
   }
 }
 
-//grid-template-rows, one track per row: a row that holds headings and nothing
+//Grid-template-rows, one track per row: a row that holds headings and nothing
 //else is only as high as its title, every other row is at least minHeight and
 //grows with its text. The public grid and the editor draw the same rows.
 export function rowTracks(blocks: DetailBlock[], rects: Rects, rows: number, minHeight: string): string {
@@ -155,7 +209,7 @@ export function rowTracks(blocks: DetailBlock[], rects: Rects, rows: number, min
   return heading.map((h, row) => (h && !other[row] ? "auto" : `minmax(${minHeight}, auto)`)).join(" ")
 }
 
-//the first row at or below the bottom of a block that no block crosses: where
+//The first row at or below the bottom of a block that no block crosses: where
 //a section can be slid in after it without cutting another block in two
 export function rowAfter(rects: Rects, id: string): number {
   const r = rects.get(id)

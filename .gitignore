@@ -37,3 +37,7 @@ todo.txt
 !.env.example
 
 .claude/worktrees/
+
+# Old Next.js leftovers
+.next/
+next-env.d.ts

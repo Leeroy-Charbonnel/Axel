@@ -2,7 +2,7 @@
 import { computed, useId } from "vue"
 
 //THE FIELD SHELL - label, control, then the error or the hint. A single
-//control gets a <label for>; a group (bilingual, list, media) gets a labelled
+//control gets a <label for>; a group (list, media) gets a labelled
 //region instead.
 
 const props = defineProps<{

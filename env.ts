@@ -14,10 +14,15 @@ const REQUIRED: Record<string, string> = {
   EMAIL_FROM:         "the sender every letter goes out under; server/email.ts refuses to load without it, and refuses the Resend sandbox sender, which delivers to nobody but the account owner",
   GOOGLE_CLIENT_ID:     "auth.ts declares the google provider with it; missing, the button on /login sends the admin to a Google error page",
   GOOGLE_CLIENT_SECRET: "auth.ts exchanges the google code with it; missing, every google sign-in fails at the callback",
+  STORAGE_ENDPOINT:   "server/storage.ts reads and writes every uploaded file through this S3 endpoint; missing, no image, model or video can be served",
+  STORAGE_BUCKET:     "the bucket of this environment, prod or dev: one volume on the server, one folder each",
+  STORAGE_ACCESS_KEY: "the S3 access key of the storage service",
+  STORAGE_SECRET_KEY: "the S3 secret key of the storage service",
 }
 
 //OPTIONAL ON PURPOSE, and each already says so where it is read: RESEND_API_KEY
-//(server/email.ts warns and logs the link instead), PORT, NODE_ENV.
+//(server/email.ts warns and logs the link instead), PORT, NODE_ENV,
+//DEV_AUTO_LOGIN (server/dev-login.ts, refused in production).
 //PROD_DATABASE_URL is checked by drizzle.config.prod.ts, which is the only file
 //that reads it.
 //VITE_AUTH_MODE is gone with the auth modes: this site has one account and one
@@ -40,3 +45,7 @@ export const PUBLIC_APP_URL     = process.env.PUBLIC_APP_URL!
 export const ALLOWED_ORIGINS    = process.env.ALLOWED_ORIGINS!.split(",").map(o => o.trim())
 export const GOOGLE_CLIENT_ID     = process.env.GOOGLE_CLIENT_ID!
 export const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET!
+export const STORAGE_ENDPOINT     = process.env.STORAGE_ENDPOINT!
+export const STORAGE_BUCKET       = process.env.STORAGE_BUCKET!
+export const STORAGE_ACCESS_KEY   = process.env.STORAGE_ACCESS_KEY!
+export const STORAGE_SECRET_KEY   = process.env.STORAGE_SECRET_KEY!

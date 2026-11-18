@@ -3,7 +3,7 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch, type Compon
 import { useRoute } from "vue-router"
 import { ArrowLeft, Box, Grid3x3, Info, Palette, SlidersHorizontal, Sparkles, Sun, X } from "lucide-vue-next"
 import { useConfirm } from "../composables/useConfirm"
-import { useEditor } from "../composables/useEditor"
+import { isTextTarget, useEditor } from "../composables/useEditor"
 import { useLang } from "../composables/useLang"
 import { usePortfolio } from "../composables/usePortfolio"
 import { useToast } from "../composables/useToast"
@@ -14,6 +14,7 @@ import EditorToolbar from "../components/model-editor/EditorToolbar.vue"
 import EditorViewport from "../components/model-editor/EditorViewport.vue"
 import MaterialsPanel from "../components/model-editor/MaterialsPanel.vue"
 import ModelPanel from "../components/model-editor/ModelPanel.vue"
+import EditorTabs, { type EditorTab } from "../components/admin/EditorTabs.vue"
 import ViewStrip from "../components/model-editor/ViewStrip.vue"
 import WireframePanel from "../components/model-editor/WireframePanel.vue"
 import { applyAutoSetup, type AutoSummary } from "../components/model-editor/autoSettings"
@@ -45,6 +46,10 @@ const TABS: Record<PanelKey, { icon: Component; label: string }> = {
   wireframe:  { icon: Grid3x3, label: "modelEditorPanelWireframe" },
   model:      { icon: Info,    label: "modelEditorPanelModel" },
 }
+//Each tab's title carries its number key
+const tabs = computed<EditorTab<PanelKey>[]>(() => PANELS.map((key, i) => ({
+  key, icon: TABS[key].icon, label: t(TABS[key].label), title: `${t(TABS[key].label)} (${i + 1})`,
+})))
 
 //AUTO SETUP - one undo step, previewed at once; material overrides go only
 //when the admin says so
@@ -126,13 +131,8 @@ const summaryLines = computed(() => {
 })
 
 //KEYBOARD - F frames, 1 to 4 pick a panel, ? toggles the help, Escape closes
-function isTextTarget(target: EventTarget | null): boolean {
-  const el = target as HTMLElement | null
-  return Boolean(el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.tagName === "SELECT" || el.isContentEditable))
-}
-
 function onKeydown(e: KeyboardEvent) {
-  if (e.ctrlKey || e.metaKey || e.altKey || isTextTarget(e.target)) return
+  if (e.ctrlKey || e.metaKey || e.altKey || isTextTarget(e.target, { editable: true })) return
   if (e.key === "f" || e.key === "F") {
     e.preventDefault()
     frameModel()
@@ -237,33 +237,17 @@ onBeforeUnmount(() => {
       <button v-if="drawer" type="button" class="me__scrim" :aria-label="t('modelEditorClose')" @click="drawer = false"></button>
 
       <aside id="me-panel" class="me__panel" :class="{ 'me__panel--open': drawer }" :aria-label="t('modelEditorSettings')">
-        <div class="me__tabs" role="tablist" :aria-label="t('modelEditorSettings')">
-          <button
-            v-for="(key, i) in PANELS"
-            :id="`me-tab-${key}`"
-            :key="key"
-            type="button"
-            role="tab"
-            class="me__tab"
-            :class="{ 'me__tab--on': ed.panel.value === key }"
-            :aria-selected="ed.panel.value === key"
-            :aria-controls="`me-tabpanel-${key}`"
-            :title="`${t(TABS[key].label)} (${i + 1})`"
-            @click="ed.panel.value = key"
-          >
-            <component :is="TABS[key].icon" :size="14" class="me__tab-icon" aria-hidden="true" />
-            <span class="me__tab-label">{{ t(TABS[key].label) }}</span>
-          </button>
-          <button type="button" class="ed-btn ed-btn--ghost ed-btn--icon me__panel-close" :aria-label="t('modelEditorClose')" @click="drawer = false">
-            <X :size="16" />
-          </button>
-        </div>
-        <div :id="`me-tabpanel-${ed.panel.value}`" class="me__panel-body" role="tabpanel" :aria-labelledby="`me-tab-${ed.panel.value}`">
-          <AppearancePanel v-if="ed.panel.value === 'appearance'" />
-          <MaterialsPanel v-else-if="ed.panel.value === 'materials'" />
-          <WireframePanel v-else-if="ed.panel.value === 'wireframe'" />
-          <ModelPanel v-else />
-        </div>
+        <EditorTabs v-model="ed.panel.value" class="me__tabs" :tabs="tabs" :label="t('modelEditorSettings')" id-prefix="me" padded>
+          <template #end>
+            <button type="button" class="ed-btn ed-btn--ghost ed-btn--icon me__panel-close" :aria-label="t('modelEditorClose')" @click="drawer = false">
+              <X :size="16" />
+            </button>
+          </template>
+          <template #appearance><AppearancePanel /></template>
+          <template #materials><MaterialsPanel /></template>
+          <template #wireframe><WireframePanel /></template>
+          <template #model><ModelPanel /></template>
+        </EditorTabs>
       </aside>
     </div>
 
@@ -382,58 +366,12 @@ onBeforeUnmount(() => {
   border-left: var(--border-width) solid var(--editor-line);
 }
 
-/*TABS - a compact row, the open one raised*/
 .me__tabs {
-  display: flex;
-  align-items: center;
-  gap: var(--vsui-space-2xs);
-  padding: var(--vsui-space-xs);
-  border-bottom: var(--border-width) solid var(--editor-line);
-}
-
-.me__tab {
-  display: flex;
-  flex: 1 1 auto;
-  align-items: center;
-  justify-content: center;
-  gap: var(--vsui-space-xs);
-  min-width: 0;
-  min-height: var(--editor-control);
-  padding: 0 var(--vsui-space-xs);
-  font-size: var(--editor-fs-sm);
-  color: var(--editor-text-muted);
-  border-radius: var(--editor-radius);
-  cursor: pointer;
-  transition: color var(--transition-fast) ease, background-color var(--transition-fast) ease;
-}
-
-.me__tab:hover { color: var(--editor-text); }
-.me__tab--on {
-  color: var(--editor-text);
-  background-color: var(--editor-surface-raised);
-}
-.me__tab--on .me__tab-icon { color: var(--editor-accent); }
-.me__tab:focus-visible { outline: none; box-shadow: var(--editor-focus); }
-
-.me__tab-icon { flex-shrink: 0; }
-
-.me__tab-label {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  flex: 1;
+  min-height: 0;
 }
 
 .me__panel-close { display: none; }
-
-.me__panel-body {
-  flex: 1;
-  min-height: 0;
-  padding: var(--vsui-space-md);
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  scrollbar-width: thin;
-}
 
 .me__scrim { display: none; }
 
@@ -502,14 +440,11 @@ onBeforeUnmount(() => {
   }
 }
 
-/*PHONE - only the open tab spells its name; the others keep their icon and title*/
+/*PHONE*/
 @media (max-width: 640px) {
   .me__drawer-label,
   .me__eyebrow { display: none; }
   .me__head { gap: var(--vsui-space-xs); }
-  .me__tab { flex: 0 0 auto; min-width: var(--editor-control); }
-  .me__tab--on { flex: 1 1 auto; }
-  .me__tab:not(.me__tab--on) .me__tab-label { display: none; }
 }
 
 @media (prefers-reduced-motion: reduce) {

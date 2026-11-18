@@ -12,7 +12,7 @@ const { t } = useLanguage()
 </script>
 
 <template>
-  <section id="projects" class="projects site-section" aria-labelledby="projects-title">
+  <section id="projects" tabindex="-1" class="projects site-section" aria-labelledby="projects-title">
     <div class="site-container">
       <SectionHeader id="projects-title" :title="t('projectsTitle')" />
 

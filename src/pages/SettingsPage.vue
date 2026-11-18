@@ -1,25 +1,27 @@
 <script setup lang="ts">
 import { computed } from "vue"
 import { useRoute, useRouter } from "vue-router"
-import { ArrowLeft, Box, Folder, Wrench } from "lucide-vue-next"
+import { ArrowLeft, Box, Folder, Palette, Wrench } from "lucide-vue-next"
 import SoftwareEditor from "../components/portfolio/SoftwareEditor.vue"
 import Models3dTab    from "../components/portfolio/Models3dTab.vue"
 import MediaBrowser   from "../components/admin/media/MediaBrowser.vue"
+import ThemeSettings  from "../components/admin/theme/ThemeSettings.vue"
 import { useTranslations } from "../composables/useTranslations"
 
 //ADMIN SETTINGS - the catalogues the pages draw from: software, 3D models and
-//uploaded files. The open tab lives in the address (?tab=models) so the edit
+//uploaded files, and the site theme. The open tab lives in the address (?tab=models) so the edit
 //bar menu can link straight to it.
 
 const route  = useRoute()
 const router = useRouter()
 const { t } = useTranslations()
 
-type TabKey = "software" | "models" | "files"
+type TabKey = "software" | "models" | "files" | "theme"
 const TABS: { key: TabKey; labelKey: string; icon: typeof Box }[] = [
   { key: "software", labelKey: "settingsTabSoftware", icon: Wrench },
   { key: "models",   labelKey: "settingsTabModels",   icon: Box },
   { key: "files",    labelKey: "settingsTabFiles",    icon: Folder },
+  { key: "theme",    labelKey: "settingsTabTheme",    icon: Palette },
 ]
 
 const currentTab = computed<TabKey>(() => TABS.find((tab) => tab.key === route.query.tab)?.key ?? "software")
@@ -57,6 +59,7 @@ function openTab(key: TabKey) {
     <section class="settings-page__panel">
       <SoftwareEditor v-if="currentTab === 'software'" />
       <Models3dTab    v-else-if="currentTab === 'models'" />
+      <ThemeSettings  v-else-if="currentTab === 'theme'" />
       <MediaBrowser   v-else mode="manage" />
     </section>
   </div>

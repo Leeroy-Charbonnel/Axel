@@ -29,6 +29,27 @@
       "when": 1793584169630,
       "tag": "0003_drop_legacy_project_fields",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1795005928065,
+      "tag": "0004_bitter_scalphunter",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1795006438823,
+      "tag": "0005_low_starfox",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1795008263755,
+      "tag": "0006_great_pestilence",
+      "breakpoints": true
     }
   ]
 }

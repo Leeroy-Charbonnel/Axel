@@ -98,8 +98,8 @@ select.ed-input { cursor: pointer; }
 .ed-form__section {
   display: flex;
   flex-direction: column;
-  gap: var(--vsui-space-md);
-  padding: var(--vsui-space-md) 0;
+  gap: var(--vsui-space-sm);
+  padding: var(--vsui-space-sm) 0;
   border-top: var(--border-width) solid var(--editor-line-soft);
 }
 .ed-form__section:first-child { padding-top: 0; border-top: none; }

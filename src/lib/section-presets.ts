@@ -1,4 +1,5 @@
 import type { Bilingual, DetailBlock } from "../types/portfolio"
+import { bottomOf, phoneAuthored } from "./bento-layout"
 import {
   SheetWriter, bandBlocking, bandExploded, bandMaterials, bandPlans, bandProcess, bandShaders, bandSpecs,
   imageTile, legendTile, sequenceTile, shaderTitle, textTile, videoTile, viewerTile,
@@ -28,23 +29,24 @@ export const SECTION_PRESETS: SectionPreset[] = [
       { type: "specs", content: { rows: [{ label: empty(), value: empty() }] } }, textTile(empty())) },
 ]
 
-//the preset's blocks, set below the given rows of the page (desktop and phone):
-//everything from there down moves below the new section
+//The preset's blocks on the page's `cols` columns, set below the given rows of
+//the page (desktop and phone): everything from there down moves below the new section
 export function insertSection(
-  blocks: DetailBlock[], preset: SectionPreset, newId: () => string, at: { y: number; phoneY: number },
+  blocks: DetailBlock[], preset: SectionPreset, newId: () => string, at: { y: number; phoneY: number }, cols: number,
 ): DetailBlock[] {
-  const w = new SheetWriter(newId)
+  const w = new SheetWriter(newId, cols)
   preset.build(w)
-  const height = w.y
-  const phoneHeight = w.blocks.reduce((sum, b) => sum + b.mobileH!, 0)
-  //the phone rows only exist once every block has its own
-  const phone = blocks.length === 0 || blocks.every((b) => b.mobileY !== undefined && b.mobileH !== undefined)
+  const section = w.fitted()
+  const height = bottomOf(section)
+  const phoneHeight = section.reduce((sum, b) => sum + b.mobileH!, 0)
+  //The phone rows only exist once every block has its own
+  const phone = blocks.length === 0 || phoneAuthored(blocks)
   const moved = blocks.map((b) => ({
     ...b,
     y: b.y >= at.y ? b.y + height : b.y,
     ...(phone ? { mobileY: b.mobileY! >= at.phoneY ? b.mobileY! + phoneHeight : b.mobileY } : {}),
   }))
-  const added = w.blocks.map((b) => phone
+  const added = section.map((b) => phone
     ? { ...b, y: b.y + at.y, mobileY: b.mobileY! + at.phoneY }
     : { ...b, y: b.y + at.y, mobileY: undefined, mobileH: undefined })
   return [...moved, ...added]

@@ -5,6 +5,7 @@ import TextField from "../fields/TextField.vue"
 import ListField from "../fields/ListField.vue"
 import { useEditor, type DraftOf } from "../../../composables/useEditor"
 import { useTranslations } from "../../../composables/useTranslations"
+import { bulletSlots } from "../entities"
 import type { Bilingual, ExperienceDto } from "../../../types/portfolio"
 
 const props = defineProps<{ entity: ExperienceDto }>()
@@ -19,7 +20,7 @@ function set(partial: DraftOf<"experience">) {
 //one bullet edits both languages together; the stored shape is one list per language
 const bullets = computed<Bilingual[]>(() => {
   const { fr, en } = e.value.description
-  return Array.from({ length: Math.max(fr.length, en.length) }, (_, i) => ({ fr: fr[i] ?? "", en: en[i] ?? "" }))
+  return Array.from({ length: bulletSlots(e.value.description) }, (_, i) => ({ fr: fr[i] ?? "", en: en[i] ?? "" }))
 })
 function setBullets(list: Bilingual[]) {
   set({ description: { fr: list.map((b) => b.fr), en: list.map((b) => b.en) } })

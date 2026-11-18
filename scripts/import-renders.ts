@@ -16,7 +16,7 @@
 //
 //Usage: bun scripts/import-renders.ts <root> --main=a,b,c [--retire] [--only]
 
-import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, statSync } from "node:fs"
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs"
 import { createHash, randomUUID } from "node:crypto"
 import { basename, extname, join } from "node:path"
 import { and, eq, notInArray, sql } from "drizzle-orm"
@@ -27,7 +27,9 @@ import { MeshoptDecoder } from "meshoptimizer"
 import { db } from "../db/index"
 import { file, galleryProject, mainProject, mainProjectSoftware, model3d, software, user } from "../db/schema"
 import { galleryProjectPatch, mainProjectPatch } from "../server/validation"
-import { measureImage, STORAGE_DIR } from "../server/uploads"
+import { folderFor, measureImage } from "../server/uploads"
+import { fileIntoProjects } from "../server/file-projects"
+import { readObject, writeObject } from "../server/storage"
 import { optimizeModel } from "../server/model-optimize"
 import { CASE_STUDY_VIEWS, caseStudyBlocks, type CaseStudyStep, type CaseStudyView, type ModelShape } from "../src/lib/case-study"
 import { sheetBlocks, type SheetImage } from "../src/lib/project-sheet"
@@ -135,8 +137,8 @@ async function adminId(): Promise<string> {
   return admin.id
 }
 
-function sha256(path: string): string {
-  return createHash("sha256").update(readFileSync(path)).digest("hex")
+function sha256(bytes: Buffer): string {
+  return createHash("sha256").update(bytes).digest("hex")
 }
 
 //the file row for one file of a folder, created on first import
@@ -145,19 +147,20 @@ async function storeFile(dir: string, slug: string, name: string, uploader: stri
   const bytes = statSync(join(dir, name)).size
   //same name and size is not enough: a file re-exported with parts moved can
   //keep its size to the byte, so the content decides
-  const digest = sha256(join(dir, name))
+  const digest = sha256(readFileSync(join(dir, name)))
   const candidates = await db.select({ id: file.id, stored: file.storedFilename }).from(file)
     .where(and(eq(file.originalFilename, original), eq(file.sizeBytes, bytes)))
-  const known = candidates.find((c) => sha256(join(STORAGE_DIR, c.stored)) === digest)
-  if (known) return known.id
+  for (const c of candidates) {
+    if (sha256(await readObject(c.stored)) === digest) return c.id
+  }
 
   const type = MIME[extname(name).toLowerCase()]
   if (!type) throw new Error(`${original}: extension not imported`)
   const id = randomUUID()
-  const stored = `${type.dir}/${id}${extname(name).toLowerCase()}`
-  mkdirSync(join(STORAGE_DIR, type.dir), { recursive: true })
-  copyFileSync(join(dir, name), join(STORAGE_DIR, stored))
-  const size = type.kind === "image" ? await measureImage(join(STORAGE_DIR, stored)) : { width: null, height: null }
+  //shared/ first: the project row may not exist yet, fileIntoProjects moves it at the end
+  const stored = `${folderFor(null)}/${type.dir}/${id}${extname(name).toLowerCase()}`
+  const size = type.kind === "image" ? await measureImage(join(dir, name)) : { width: null, height: null }
+  await writeObject(stored, Bun.file(join(dir, name)))
   await db.insert(file).values({
     id, originalFilename: original, storedFilename: stored, mimeType: type.mime,
     sizeBytes: bytes, ...size, kind: type.kind, uploadedBy: uploader,
@@ -169,10 +172,10 @@ async function storeFile(dir: string, slug: string, name: string, uploader: stri
 //ground, centred on the vertical axis (modelViewer.ts), so the camera moves by
 //the same offset. Its distance is scaled to the viewer's field of view, so the
 //model fills the frame as it fills main.jpg.
-async function glbBounds(glbPath: string): Promise<{ min: Vec3; max: Vec3 }> {
+async function glbBounds(glb: Uint8Array): Promise<{ min: Vec3; max: Vec3 }> {
   await MeshoptDecoder.ready
   const io = new NodeIO().registerExtensions(ALL_EXTENSIONS).registerDependencies({ "meshopt.decoder": MeshoptDecoder })
-  const { min, max } = getBounds((await io.read(glbPath)).getRoot().getDefaultScene()!)
+  const { min, max } = getBounds((await io.readBinary(glb)).getRoot().getDefaultScene()!)
   return { min: min as Vec3, max: max as Vec3 }
 }
 
@@ -248,7 +251,7 @@ async function importMain(dir: string, uploader: string, startRight: boolean): P
   }
 
   //MODEL - one per GLB, optimized once, the main render as its thumbnail
-  const bounds = await glbBounds(join(dir, "model.glb"))
+  const bounds = await glbBounds(readFileSync(join(dir, "model.glb")))
   const view = viewerView(bounds, m.camera)
   const views = [{ name: VIEW, position: view.position, target: view.target, wireframe: false }]
   let [model] = await db.select().from(model3d).where(eq(model3d.sourceGlbFileId, glbId))
@@ -310,7 +313,7 @@ async function explodedModel(
   const [source] = await db.select().from(file).where(eq(file.id, row!.sourceGlbFileId ?? row!.glbFileId))
   if (!source) throw new Error(`${name}: its GLB file row is missing`)
   const views = camera
-    ? [{ name: VIEW, ...viewerView(await glbBounds(join(STORAGE_DIR, source.storedFilename)), camera), wireframe: false, aspect }]
+    ? [{ name: VIEW, ...viewerView(await glbBounds(await readObject(source.storedFilename)), camera), wireframe: false, aspect }]
     : []
   const settings = { ...(row!.viewerSettings ?? {}), labels }
   await db.update(model3d).set({ name, views, viewerSettings: settings, updatedAt: new Date() }).where(eq(model3d.id, row!.id))
@@ -416,6 +419,9 @@ async function main() {
       console.log(`unpublished ${r.length} other gallery card(s)`)
     }
   }
+
+  //each imported file into the folder of the project that uses it
+  await fileIntoProjects(console.log)
 }
 
 main()

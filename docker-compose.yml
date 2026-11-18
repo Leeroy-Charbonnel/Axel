@@ -27,14 +27,11 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      storage:
+        condition: service_started
     expose:
       - 3000
-    volumes:
-      #UPLOADED FILES. server.ts writes to /app/storage/files and serves the same
-      #directory under /media. This is the volume the old application service
-      #mounted at the same path, carried over: without it every image, model and
-      #HDRI goes away with the next deploy.
-      - storage:/app/storage/files
+    #no volume: every uploaded file goes through the storage service below
     environment:
       #production only. The app has no route to db-dev and must not get one:
       #one running process, one database.
@@ -48,8 +45,49 @@ services:
       EMAIL_FROM: ${EMAIL_FROM}
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
+      #production files only: the app has no route to storage-dev
+      STORAGE_ENDPOINT: http://storage:8080
+      STORAGE_BUCKET: prod
+      STORAGE_ACCESS_KEY: ${STORAGE_ACCESS_KEY}
+      STORAGE_SECRET_KEY: ${STORAGE_SECRET_KEY}
       NODE_ENV: production
       PORT: 3000
+
+  #FILES. One volume, one folder per environment (prod/, dev/), the same
+  #layout in both: projects/{id}/..., shared/..., .cache/. Each folder is served
+  #as an S3 bucket by its own rclone, the way db and db-dev split the data:
+  #storage sees prod/ only and is reached by the app on the private network;
+  #storage-dev sees dev/ only and publishes on loopback for the SSH tunnel.
+  #The keys travel as RCLONE_AUTH_KEY, never on the command line.
+  storage:
+    image: rclone/rclone:1.68.2
+    restart: unless-stopped
+    command: ["serve", "s3", "/data", "--addr", ":8080", "--etag-hash", "", "--vfs-cache-mode", "off"]
+    expose:
+      - 8080
+    volumes:
+      - type: volume
+        source: storage
+        target: /data/prod
+        volume:
+          subpath: prod
+    environment:
+      RCLONE_AUTH_KEY: ${STORAGE_ACCESS_KEY},${STORAGE_SECRET_KEY}
+
+  storage-dev:
+    image: rclone/rclone:1.68.2
+    restart: unless-stopped
+    command: ["serve", "s3", "/data", "--addr", ":8080", "--etag-hash", "", "--vfs-cache-mode", "off"]
+    ports:
+      - "127.0.0.1:${STORAGE_DEV_HOST_PORT}:8080"
+    volumes:
+      - type: volume
+        source: storage
+        target: /data/dev
+        volume:
+          subpath: dev
+    environment:
+      RCLONE_AUTH_KEY: ${STORAGE_DEV_ACCESS_KEY},${STORAGE_DEV_SECRET_KEY}
 
   db:
     #postgres 18, matching the database this replaces: a dump taken from 18 does

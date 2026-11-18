@@ -8,14 +8,16 @@ import compression from "compression"
 import { toNodeHandler } from "better-auth/node"
 import { auth, enforceSingleAccount } from "./auth"
 import { HttpError, requireAdmin } from "./server/http"
-import { STORAGE_DIR } from "./server/uploads"
+import { checkStorage, sendObject } from "./server/storage"
 import { imagesRouter } from "./server/images"
 import { invalidateOnWrite, portfolioRouter } from "./server/portfolio"
 import { filesRouter } from "./server/routes/files"
 import { contentRouter } from "./server/routes/content"
 import { modelsRouter, putViewerSettings } from "./server/routes/models"
 import { settingsRouter } from "./server/routes/settings"
+import { themeRouter } from "./server/routes/theme"
 import { mountSite } from "./server/site"
+import { mountDevLogin } from "./server/dev-login"
 
 const isProd = process.env.NODE_ENV === "production"
 console.log(`[boot] Portfolio-Axel starting, NODE_ENV=${process.env.NODE_ENV}`)
@@ -60,22 +62,23 @@ app.use(cors({ origin: ALLOWED_ORIGINS, credentials: true }))
 //copies under /media/{format}/{width}/{stored_filename}. Mounted before
 //compression: models, videos and encoded images are served as they are.
 app.use(imagesRouter)
-app.use("/media", express.static(STORAGE_DIR, {
-  immutable: true,
-  maxAge:    "30d",
-  //storage/files/.cache holds the image derivatives, served by imagesRouter only
-  dotfiles:  "ignore",
-  //belt on top of the upload allow-list: the browser must not sniff a stored
-  //file into active content on this origin
-  setHeaders: (res) => {
-    res.setHeader("X-Content-Type-Options", "nosniff")
-  },
-}))
+//one stored file, {folder}/{subdir}/{uuid}{ext} as uploads.ts names it, and
+//nothing else: no "..", no .cache (the derivatives go through imagesRouter
+//only). A name without folder is a file not yet moved by file-projects.ts.
+//sendObject sends nosniff: the browser must not sniff a stored file into
+//active content on this origin.
+const STORED_KEY = /^(?:(?:projects\/\d+|shared)\/)?(?:images|models|hdri|docs)\/[0-9a-f-]{36}\.[a-z0-9]+$/
+const MEDIA_MAX_AGE_SECONDS = 60 * 60 * 24 * 30
+app.get("/media/*path", async (req, res) => {
+  const key = (req.params.path as string[]).join("/")
+  if (!STORED_KEY.test(key) || !(await sendObject(req, res, key, MEDIA_MAX_AGE_SECONDS))) res.status(404).end()
+})
 
 app.use(compression())
 
 //AUTH HANDLER - before any body parser, better-auth reads the body itself
 app.all("/api/auth/{*path}", toNodeHandler(auth))
+mountDevLogin(app, isProd)
 
 //clears the public portfolio memo once an admin write has succeeded
 app.use("/api", invalidateOnWrite)
@@ -85,7 +88,7 @@ app.use("/api", invalidateOnWrite)
 app.put("/api/models/:id/viewer-settings", requireAdmin, express.json({ limit: "10mb" }), putViewerSettings)
 app.use(express.json({ limit: "1mb" }))
 
-app.use(portfolioRouter, filesRouter, contentRouter, modelsRouter, settingsRouter)
+app.use(portfolioRouter, filesRouter, contentRouter, modelsRouter, settingsRouter, themeRouter)
 app.use("/api", (_req, res) => {
   res.status(404).json({ error: "not found" })
 })
@@ -109,6 +112,14 @@ const port = process.env.PORT ?? 3001
 
 app.listen(port, async () => {
   console.log(`server running on http://localhost:${port}`)
+
+  //not fatal: the site still serves its text, and every /media request will
+  //fail loudly on its own
+  try {
+    console.log(`[boot] ${await checkStorage()}`)
+  } catch (err) {
+    console.error("[boot] storage is unreachable - no file can be served or uploaded:", err)
+  }
 
   //ONE ACCOUNT ON THIS SITE. Promotion to admin is an UPDATE run in the
   //database, so this is the first moment the app can see it: once an admin

@@ -1,4 +1,5 @@
 import { z } from "zod"
+import { GRID_SETTINGS, gridOf, type GridSettingDef } from "../src/lib/detail-grid"
 
 //BODY ALLOW-LISTS. Every POST / PUT body goes through one of these: strict
 //objects, so an unknown key is a 400 instead of a column written by accident.
@@ -104,6 +105,11 @@ const blockFrame = {
   }).optional(),
 }
 
+//Each grid setting within the limits and on the step of its registry entry
+export const detailGrid = z.strictObject(Object.fromEntries(
+  GRID_SETTINGS.map((g) => [g.key, z.int().min(g.min).max(g.max).multipleOf(g.step)]),
+) as Record<GridSettingDef["key"], z.ZodInt>)
+
 type BlockType = keyof typeof BLOCK_CONTENT
 const blockOf = <T extends BlockType>(type: T) =>
   z.strictObject({ ...blockFrame, type: z.literal(type), content: BLOCK_CONTENT[type] })
@@ -114,6 +120,14 @@ export const detailBlock = z.discriminatedUnion("type", [
   blockOf("counters"), blockOf("button"), blockOf("embed"), blockOf("viewer3d"),
   blockOf("legend"), blockOf("sequence"), blockOf("materials"),
 ])
+
+//Every block ends within the page's columns
+const detailPage = z.strictObject({ blocks: z.array(detailBlock), grid: detailGrid.optional() }).superRefine((page, ctx) => {
+  const cols = gridOf(page).cols
+  page.blocks.forEach((b, i) => {
+    if (b.x + b.w > cols) ctx.addIssue({ code: "custom", path: ["blocks", i], message: `block ${b.id} ends past column ${cols}` })
+  })
+})
 
 export const mainProjectPatch = z.strictObject({
   title:              bilingual,
@@ -131,7 +145,7 @@ export const mainProjectPatch = z.strictObject({
                         wireframeFileId: fileId.nullable(),
                         description:     bilingual,
                       })),
-  detailPage:         z.strictObject({ blocks: z.array(detailBlock) }),
+  detailPage:         detailPage,
   stats,
 }).partial()
 

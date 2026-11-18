@@ -2,8 +2,8 @@
 //OPTIMIZE EVERY 3D MODEL IN THE DATABASE DATABASE_URL POINTS AT.
 //
 //For each model_3d row not optimized yet (source_glb_file_id empty): reads its
-//GLB from storage/files, writes the optimized copy as a new file row and file
-//under storage/files/models, points glb_file_id at it, and keeps the original
+//GLB from the storage bucket, writes the optimized copy as a new file row and
+//file under models/ in the bucket, points glb_file_id at it, and keeps the original
 //in source_glb_file_id. Nothing is deleted. A row already optimized is skipped.
 //
 //Usage: bun scripts/optimize-models.ts
