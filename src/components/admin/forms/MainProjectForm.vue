@@ -82,7 +82,7 @@ const newThumbnail = (): ThumbnailDto => ({
         <template #item="{ item, update }">
           <div class="ed-thumb">
             <MediaField
-        :project="entity.id"
+              :project="entity.id"
               compact
               :label="t('fieldImage')"
               accept="image"
@@ -91,7 +91,7 @@ const newThumbnail = (): ThumbnailDto => ({
               @clear="update({ ...item, url: null, fileId: null })"
             />
             <MediaField
-        :project="entity.id"
+              :project="entity.id"
               compact
               :label="t('fieldWireframeImage')"
               accept="image"

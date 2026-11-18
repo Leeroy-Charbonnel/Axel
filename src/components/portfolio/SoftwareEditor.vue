@@ -97,6 +97,7 @@ async function add() {
         <UrlField :label="t('softwareUrl')" :model-value="draft.url" @update:model-value="(v) => (draft.url = v)" />
       </div>
       <MediaField
+        :project="null"
         :label="t('softwareLogo')"
         accept="image"
         :url="draft.logo?.url ?? null"
@@ -115,6 +116,7 @@ async function add() {
     <ul v-else class="software__list">
       <li v-for="sw in software" :key="sw.id" class="software__row">
         <MediaField
+          :project="null"
           :label="t('softwareLogo')"
           accept="image"
           :clearable="false"

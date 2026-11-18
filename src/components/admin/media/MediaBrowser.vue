@@ -1,8 +1,12 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from "vue"
+import { computed, nextTick, onMounted, ref, watch } from "vue"
 import { Box, Brush, Check, FileText, Film, ImageIcon, RefreshCw, Sun, Trash2, Upload } from "lucide-vue-next"
-import { MEDIA_TYPES, acceptFor, inScope, mediaTypeOf, useMediaLibrary, type MediaFile, type MediaType, type StorageSummary } from "./useMediaLibrary"
+import {
+  MEDIA_TYPES, acceptFor, inScope, mediaTypeOf, mediaTypeOfUpload, reportFailure, useMediaLibrary,
+  type MediaFile, type MediaType, type StorageSummary,
+} from "./useMediaLibrary"
 import { useConfirm } from "../../../composables/useConfirm"
+import { useEditor } from "../../../composables/useEditor"
 import { useToast } from "../../../composables/useToast"
 import { useTranslations } from "../../../composables/useTranslations"
 import { formatBytes } from "../../../lib/format"
@@ -13,11 +17,18 @@ import SiteImage from "../../SiteImage.vue"
 //and a project's files panel ("manage"). Search, type filter, upload (button
 //or drop), previews. With a project: manage shows its files only, pick shows
 //its files and the shared ones, and uploads go to its folder. Manage mode
-//also shows the storage used and sweeps the orphans. compact: inside a panel.
+//also shows the storage used and sweeps the orphans, never while an edit is
+//unsaved: a file it picked has no reference yet. compact: inside a panel.
 
 const ICONS = { image: ImageIcon, video: Film, model: Box, hdr: Sun, document: FileText }
 //placeholders drawn before the very first answer; later loads keep the last list on screen
 const SKELETON_TILES = 8
+//Tiles drawn at once, "show more" adds as many
+const PAGE_SIZE = 60
+const ICON_SIZE = 16
+const SMALL_ICON_SIZE = 14
+const PREVIEW_ICON_SIZE = 24
+const CHECK_ICON_SIZE = 12
 
 const props = withDefaults(defineProps<{
   mode:      "pick" | "manage"
@@ -30,25 +41,48 @@ const props = withDefaults(defineProps<{
 const emit = defineEmits<{ pick: [files: MediaFile[]] }>()
 const { t } = useTranslations()
 const { confirm } = useConfirm()
+const { dirty } = useEditor()
 const toast = useToast()
 const library = useMediaLibrary()
 const { files, loading, uploading, error } = library
 
-const filter   = ref<MediaType | "all">(props.accept ?? "all")
-const query    = ref("")
-const chosen   = ref<string[]>([])
+const filter    = ref<MediaType | "all">(props.accept ?? "all")
+const query     = ref("")
+const chosen    = ref<string[]>([])
 const fileInput = ref<HTMLInputElement | null>(null)
-const dropping = ref(false)
+const search    = ref<HTMLInputElement | null>(null)
+const grid      = ref<HTMLElement | null>(null)
+const dropping  = ref(false)
+const limit     = ref(PAGE_SIZE)
+
+//This folder's files, before the search and the type filter
+const scoped = computed(() => files.value.filter(visible))
 
 const shown = computed(() => {
   const q = query.value.trim().toLowerCase()
-  return files.value.filter((f) =>
-    visible(f) &&
+  return scoped.value.filter((f) =>
     (filter.value === "all" || mediaTypeOf(f) === filter.value) &&
     (!q || f.originalFilename.toLowerCase().includes(q)))
 })
 
+const paged = computed(() => shown.value.slice(0, limit.value))
+watch([query, filter, () => props.project], () => { limit.value = PAGE_SIZE })
+
 const firstLoad = computed(() => loading.value && files.value.length === 0)
+
+//Nothing matches the search, or the folder holds nothing yet
+const emptyText = computed(() => {
+  if (scoped.value.length) return t("mediaNoMatch")
+  return props.compact ? t("mediaDropHint") : t("mediaEmpty")
+})
+
+const uploadLabel = computed(() => uploading.value ? t("mediaUploading") : t("mediaUpload"))
+const saveFirst = computed(() => dirty.value ? t("mediaSaveFirst") : undefined)
+
+function metaText(f: MediaFile): string {
+  const use = f.referenceCount ? t("mediaUsed").replace("{n}", String(f.referenceCount)) : t("mediaUnused")
+  return `${formatBytes(f.sizeBytes)} · ${use}`
+}
 
 function visible(f: MediaFile): boolean {
   if (props.mode === "pick" && props.project !== null) return f.projectId === props.project || f.projectId === null
@@ -73,8 +107,19 @@ function confirmChosen() {
   emit("pick", chosen.value.map((id) => byId.get(id)).filter((f): f is MediaFile => Boolean(f)))
 }
 
+//In pick mode only files of the asked type are sent
+function acceptable(list: File[]): File[] {
+  if (props.mode !== "pick" || props.accept === null) return list
+  const refused = list.filter((f) => mediaTypeOfUpload(f) !== props.accept)
+  if (refused.length) toast.error(refused.map((f) => f.name).join(", "), t("mediaWrongType"))
+  return list.filter((f) => !refused.includes(f))
+}
+
 async function uploadList(list: File[]) {
-  const added = await library.upload(list, props.project)
+  const sendable = acceptable(list)
+  if (!sendable.length) return
+  const added = await library.upload(sendable, props.project)
+  void refreshSummary()
   if (!added.length || props.mode !== "pick") return
   const usable = added.filter(allowed)
   if (!props.multiple && usable[0]) emit("pick", [usable[0]])
@@ -87,12 +132,37 @@ function onFileInput(e: Event) {
   input.value = ""
 }
 
+//DROP - enter and leave fire on every child: a counter keeps the highlight on
+let dragDepth = 0
+const hasFiles = (e: DragEvent) => Boolean(e.dataTransfer?.types.includes("Files"))
+
+function onDragEnter(e: DragEvent) {
+  if (!hasFiles(e)) return
+  e.preventDefault()
+  dragDepth++
+  dropping.value = true
+}
+
+function onDragOver(e: DragEvent) {
+  if (hasFiles(e)) e.preventDefault()
+}
+
+function onDragLeave(e: DragEvent) {
+  if (!hasFiles(e)) return
+  dragDepth = Math.max(0, dragDepth - 1)
+  if (!dragDepth) dropping.value = false
+}
+
 function onDrop(e: DragEvent) {
+  if (!hasFiles(e)) return
+  e.preventDefault()
+  dragDepth = 0
   dropping.value = false
   void uploadList(Array.from(e.dataTransfer?.files ?? []))
 }
 
-async function onDelete(f: MediaFile) {
+async function onDelete(f: MediaFile, index: number) {
+  if (dirty.value) return
   const ok = await confirm({
     title:       t("mediaDeleteTitle"),
     what:        f.originalFilename,
@@ -103,25 +173,60 @@ async function onDelete(f: MediaFile) {
   try {
     await library.remove(f)
   } catch (e) {
-    console.error("[media] delete failed:", e)
+    reportFailure(e, `${t("mediaDeleteAction")} ${f.originalFilename}`)
+    return
   }
+  void refreshSummary()
+  await nextTick()
+  focusNear(index)
+}
+
+//After a delete: the nearest delete button left, else the search
+function focusNear(index: number) {
+  const tiles = [...(grid.value?.querySelectorAll<HTMLElement>(".media__tile") ?? [])]
+  const next = [...tiles.slice(index), ...tiles.slice(0, index).reverse()]
+    .map((tile) => tile.querySelector<HTMLElement>(".media__delete"))
+    .find((button) => button !== null)
+  ;(next ?? search.value)?.focus()
 }
 
 //STORAGE - what the files take on the server, and the orphans the sweep frees
 const summary  = ref<StorageSummary | null>(null)
 const sweeping = ref(false)
-const orphanCount = computed(() => summary.value ? summary.value.orphans.rows + summary.value.orphans.strayFiles : 0)
+const orphanCount = computed(() => summary.value?.orphans.files ?? 0)
+//Something the trash or the sweep could take
+const deletable = computed(() => orphanCount.value > 0 || scoped.value.some((f) => f.referenceCount === 0))
+
+const orphanText = computed(() => {
+  const s = summary.value
+  if (!s) return ""
+  if (!s.orphans.files) return t("mediaNoOrphans")
+  const n = String(s.orphans.files)
+  return props.compact
+    ? t("mediaOrphansCount").replace("{n}", n)
+    : t("mediaOrphans").replace("{n}", n).replace("{size}", formatBytes(s.orphans.bytes))
+})
+
+//Only the latest answer is drawn: the project can change on the way
+let summarySeq = 0
 
 async function refreshSummary() {
   if (props.mode !== "manage") return
-  summary.value = await library.storage(props.project)
+  const seq = ++summarySeq
+  try {
+    const answer = await library.storage(props.project)
+    if (seq === summarySeq) summary.value = answer
+  } catch (e) {
+    reportFailure(e, "GET /api/files/storage")
+  }
 }
 
 async function onSweep() {
-  if (!summary.value) return
+  if (!summary.value || dirty.value) return
+  const what = props.project === null ? "mediaOrphansWhatSite" : "mediaOrphansWhatProject"
   const ok = await confirm({
     title:       t("mediaOrphansTitle"),
-    what:        t("mediaOrphansWhat").replace("{n}", String(orphanCount.value)).replace("{size}", formatBytes(summary.value.orphans.bytes)),
+    what:        t(what).replace("{n}", String(orphanCount.value)).replace("{size}", formatBytes(summary.value.orphans.bytes)),
     action:      t("mediaOrphansDelete"),
     destructive: true,
   })
@@ -129,41 +234,60 @@ async function onSweep() {
   sweeping.value = true
   try {
     const done = await library.sweepOrphans(props.project)
-    toast.success(t("mediaOrphansDone").replace("{n}", String(done.deletedObjects)).replace("{size}", formatBytes(done.freedBytes)))
+    toast.success(t("mediaOrphansDone").replace("{n}", String(done.deletedFiles)).replace("{size}", formatBytes(done.freedBytes)))
+  } catch (e) {
+    reportFailure(e, t("mediaOrphansDelete"))
   } finally {
     sweeping.value = false
   }
+  void refreshSummary()
 }
 
-//every change to the list (upload, delete, sweep, reload) changes the sizes
-watch(files, () => { void refreshSummary() })
-watch(() => props.project, () => { void refreshSummary() })
+watch(() => props.project, () => {
+  summary.value = null
+  void refreshSummary()
+})
+//A save or a discard changes which files are orphans
+watch(dirty, (now) => { if (!now) void refreshSummary() })
 
-onMounted(() => { void library.load() })
+onMounted(() => {
+  void library.ensureLoaded()
+  void refreshSummary()
+})
 </script>
 
 <template>
   <div
     class="ed-ui media"
     :class="{ 'media--dropping': dropping, 'media--compact': compact }"
-    @dragover.prevent="dropping = true"
-    @dragleave.self="dropping = false"
-    @drop.prevent="onDrop"
+    @dragenter="onDragEnter"
+    @dragover="onDragOver"
+    @dragleave="onDragLeave"
+    @drop="onDrop"
   >
     <div class="media__toolbar">
       <input
+        ref="search"
         v-model="query"
         class="ed-input media__search"
         type="search"
         :placeholder="t('mediaSearch')"
         :aria-label="t('mediaSearch')"
       />
-      <button type="button" class="ed-btn ed-btn--primary" :disabled="uploading" @click="fileInput?.click()">
-        <Upload :size="16" />
-        <span>{{ uploading ? t('mediaUploading') : t('mediaUpload') }}</span>
+      <button
+        type="button"
+        class="ed-btn ed-btn--primary"
+        :class="{ 'ed-btn--icon': compact }"
+        :disabled="uploading"
+        :aria-label="compact ? uploadLabel : undefined"
+        :title="compact ? uploadLabel : undefined"
+        @click="fileInput?.click()"
+      >
+        <Upload :size="ICON_SIZE" />
+        <span v-if="!compact">{{ uploadLabel }}</span>
       </button>
-      <button type="button" class="ed-btn ed-btn--icon" :aria-label="t('mediaReload')" :disabled="loading" @click="library.load()">
-        <RefreshCw :size="16" />
+      <button v-if="!compact" type="button" class="ed-btn ed-btn--icon" :aria-label="t('mediaReload')" :disabled="loading" @click="library.load()">
+        <RefreshCw :size="ICON_SIZE" />
       </button>
       <input
         ref="fileInput"
@@ -200,31 +324,34 @@ onMounted(() => { void library.load() })
       </button>
     </div>
 
-    <div v-if="mode === 'manage' && summary" class="media__storage">
-      <span class="media__storage-total">{{ t('mediaStorage').replace('{size}', formatBytes(summary.totalBytes)) }}</span>
-      <span class="media__storage-meta">{{ t('mediaStorageCache').replace('{size}', formatBytes(summary.cacheBytes)) }}</span>
-      <span class="media__storage-meta">
-        {{ orphanCount
-          ? t('mediaOrphans').replace('{n}', String(orphanCount)).replace('{size}', formatBytes(summary.orphans.bytes))
-          : t('mediaNoOrphans') }}
-      </span>
-      <button
-        v-if="orphanCount"
-        type="button"
-        class="ed-btn ed-btn--ghost ed-btn--danger media__sweep"
-        :disabled="sweeping"
-        @click="onSweep"
-      >
-        <Brush :size="14" />
-        <span>{{ t('mediaOrphansDelete') }}</span>
-      </button>
+    <div v-if="mode === 'manage'" class="media__storage" :aria-busy="!summary">
+      <template v-if="summary">
+        <span class="media__storage-total">
+          {{ compact ? formatBytes(summary.totalBytes) : t('mediaStorage').replace('{size}', formatBytes(summary.totalBytes)) }}
+        </span>
+        <span v-if="!compact" class="media__storage-meta">{{ t('mediaStorageCache').replace('{size}', formatBytes(summary.cacheBytes)) }}</span>
+        <span class="media__storage-meta">{{ compact ? `· ${orphanText}` : orphanText }}</span>
+        <span v-if="saveFirst && deletable" class="media__storage-meta">{{ saveFirst }}</span>
+        <button
+          v-if="orphanCount"
+          type="button"
+          class="ed-btn ed-btn--ghost ed-btn--danger media__sweep"
+          :disabled="sweeping || dirty"
+          :title="saveFirst"
+          @click="onSweep"
+        >
+          <Brush :size="SMALL_ICON_SIZE" />
+          <span>{{ compact ? t('mediaOrphansClean') : t('mediaOrphansDelete') }}</span>
+        </button>
+      </template>
+      <span v-else class="media__storage-placeholder">&nbsp;</span>
     </div>
 
     <p v-if="error" class="ed-error" role="alert">{{ error }}</p>
     <p v-if="!compact" class="ed-hint">{{ t('mediaDropHint') }}</p>
 
-    <ul v-if="firstLoad" class="media__grid" aria-hidden="true">
-      <li v-for="i in SKELETON_TILES" :key="i" class="media__tile media__tile--skeleton">
+    <ul v-if="firstLoad" class="media__grid" aria-busy="true">
+      <li v-for="i in SKELETON_TILES" :key="i" class="media__tile media__tile--skeleton" aria-hidden="true">
         <span class="media__card">
           <span class="media__preview"></span>
           <span class="media__name">&nbsp;</span>
@@ -232,10 +359,10 @@ onMounted(() => { void library.load() })
         </span>
       </li>
     </ul>
-    <p v-else-if="!shown.length" class="media__empty">{{ t('mediaEmpty') }}</p>
-    <ul v-else class="media__grid">
+    <p v-else-if="!shown.length && !error" class="media__empty">{{ emptyText }}</p>
+    <ul v-else-if="shown.length" ref="grid" class="media__grid">
       <li
-        v-for="f in shown"
+        v-for="(f, index) in paged"
         :key="f.id"
         class="media__tile"
         :class="{ 'media__tile--chosen': chosen.includes(f.id), 'media__tile--blocked': !allowed(f) }"
@@ -250,26 +377,28 @@ onMounted(() => { void library.load() })
         >
           <span class="media__preview">
             <SiteImage v-if="mediaTypeOf(f) === 'image'" :src="f.url" :sizes="IMAGE_SIZES.tile" />
-            <component :is="ICONS[mediaTypeOf(f) ?? 'document']" v-else :size="24" aria-hidden="true" />
-            <span v-if="chosen.includes(f.id)" class="media__check"><Check :size="12" /></span>
+            <component :is="ICONS[mediaTypeOf(f) ?? 'document']" v-else :size="PREVIEW_ICON_SIZE" aria-hidden="true" />
+            <span v-if="chosen.includes(f.id)" class="media__check"><Check :size="CHECK_ICON_SIZE" /></span>
           </span>
           <span class="media__name" :title="f.originalFilename">{{ f.originalFilename }}</span>
-          <span class="media__meta">
-            {{ formatBytes(f.sizeBytes) }} ·
-            {{ f.referenceCount ? t('mediaUsed').replace('{n}', String(f.referenceCount)) : t('mediaUnused') }}
-          </span>
+          <span class="media__meta" :title="metaText(f)">{{ metaText(f) }}</span>
         </component>
         <button
           v-if="mode === 'manage' && f.referenceCount === 0"
           type="button"
           class="ed-btn ed-btn--ghost ed-btn--icon ed-btn--danger media__delete"
           :aria-label="`${t('mediaDeleteAction')} ${f.originalFilename}`"
-          @click="onDelete(f)"
+          :disabled="dirty"
+          :title="saveFirst"
+          @click="onDelete(f, index)"
         >
-          <Trash2 :size="14" />
+          <Trash2 :size="SMALL_ICON_SIZE" />
         </button>
       </li>
     </ul>
+    <button v-if="shown.length > paged.length" type="button" class="ed-btn ed-btn--ghost media__more" @click="limit += PAGE_SIZE">
+      {{ t('mediaShowMore').replace('{n}', String(shown.length - paged.length)) }}
+    </button>
 
     <div v-if="mode === 'pick' && multiple" class="media__footer">
       <button type="button" class="ed-btn ed-btn--primary" :disabled="!chosen.length" @click="confirmChosen">
@@ -288,19 +417,32 @@ onMounted(() => { void library.load() })
   border-radius: var(--editor-radius);
 }
 
-.media--dropping { box-shadow: var(--editor-focus); }
+/*Inset: a pane clips a ring drawn outside*/
+.media--dropping { box-shadow: inset var(--editor-focus); }
 
-/*COMPACT - inside a side panel: smaller tiles, no hint line*/
-.media--compact { --editor-media-tile: var(--editor-media-tile-compact); }
+/*COMPACT - inside a side panel: smaller tiles, no hint line, the whole pane catches a drop*/
+.media--compact {
+  --editor-media-tile: var(--editor-media-tile-compact);
+  min-height: 100%;
+}
 
-/*STORAGE - one line: total, cache share, orphans, the sweep*/
+/*STORAGE - one line: total, cache share, orphans, the sweep. As tall as the sweep button with or without it*/
 .media__storage {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: var(--vsui-space-2xs) var(--vsui-space-sm);
+  min-height: var(--editor-control);
   font-size: var(--editor-fs-xs);
 }
+
+.media__storage-placeholder {
+  width: var(--site-skeleton-short);
+  background-color: var(--editor-surface-raised);
+  border-radius: var(--editor-radius);
+}
+
+.media--compact .media__storage { gap: var(--vsui-space-2xs) var(--vsui-space-xs); }
 
 .media__storage-total {
   font-weight: var(--font-weight-semibold);
@@ -420,7 +562,12 @@ button.media__card:focus-visible { outline: none; box-shadow: var(--editor-focus
 .media__meta {
   font-size: var(--editor-fs-xs);
   color: var(--editor-text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
+
+.media__more { align-self: center; }
 
 .media__delete {
   position: absolute;

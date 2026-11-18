@@ -21,7 +21,6 @@ mkdirSync(UPLOAD_TMP_DIR, { recursive: true })
 
 //200 MB - a .glb can be chunky
 const MAX_UPLOAD_BYTES = 200 * 1024 * 1024
-const MAX_CV_BYTES     = 20 * 1024 * 1024
 
 //No .svg and no .html: both carry script, and /media serves this directory
 //on the site's own origin. The extension comes from the client and cannot be
@@ -31,10 +30,11 @@ const MEDIA_EXTENSIONS = new Set([
   ".mp4", ".webm",
   ".glb", ".gltf",
   ".hdr", ".exr", ".hdri",
+  ".pdf",
 ])
 //a .glb arrives as application/octet-stream or model/gltf-binary depending on
 //the browser, and an .hdr has no registered type at all
-const MEDIA_MIME_PREFIXES = ["image/", "video/", "model/", "application/octet-stream"]
+const MEDIA_MIME_PREFIXES = ["image/", "video/", "model/", "application/octet-stream", "application/pdf"]
 
 function subdirFor(filename: string): string {
   if (/\.(glb|gltf)$/i.test(filename))     return "models"
@@ -75,13 +75,6 @@ const mediaUpload = multer({
   fileFilter: filter(MEDIA_EXTENSIONS, MEDIA_MIME_PREFIXES),
 })
 
-//PDF only here, for the profile CV: nowhere else accepts it
-const cvUpload = multer({
-  storage,
-  limits:     { fileSize: MAX_CV_BYTES },
-  fileFilter: filter(new Set([".pdf"]), ["application/pdf"]),
-})
-
 //multer as a promise, so an async route handler awaits it and Express 5
 //forwards any rejection to the error handler
 function receive(handler: express.RequestHandler, req: express.Request, res: express.Response): Promise<Express.Multer.File> {
@@ -97,9 +90,6 @@ function receive(handler: express.RequestHandler, req: express.Request, res: exp
 
 export const receiveMedia = (field: string, req: express.Request, res: express.Response) =>
   receive(mediaUpload.single(field), req, res)
-
-export const receiveCv = (req: express.Request, res: express.Response) =>
-  receive(cvUpload.single("file"), req, res)
 
 //the stills a browser draws, measured on the way in: width and height as
 //displayed, EXIF rotation applied. An .exr is image/* to the upload but not

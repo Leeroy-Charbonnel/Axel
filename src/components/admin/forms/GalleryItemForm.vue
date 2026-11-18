@@ -25,6 +25,7 @@ function set(partial: DraftOf<"galleryItem">) {
       <BilingualField :label="t('fieldTitle')" :model-value="g.title" @update:model-value="(v) => set({ title: v })" />
       <UrlField :label="t('fieldLink')" :hint="t('fieldLinkHint')" :model-value="g.link" @update:model-value="(v) => set({ link: v })" />
       <MediaField
+        :project="null"
         :label="t('fieldImage')"
         accept="image"
         :url="g.imageUrl"

@@ -19,7 +19,7 @@ declare module "bun" {
     slice(start?: number, end?: number): S3File
   }
   interface S3ListObjectsResponse {
-    contents?: Array<{ key: string; size?: number }>
+    contents?: Array<{ key: string; size?: number; lastModified?: string }>
     isTruncated?: boolean
     nextContinuationToken?: string
   }

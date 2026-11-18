@@ -4,6 +4,8 @@ import { Box, FileText, Film, ImageIcon, Sun, X } from "lucide-vue-next"
 import Field from "./Field.vue"
 import { useMediaLibrary, type MediaFile, type MediaType } from "../media/useMediaLibrary"
 import { useTranslations } from "../../../composables/useTranslations"
+import { IMAGE_SIZES } from "../../../lib/media"
+import SiteImage from "../../SiteImage.vue"
 
 //ONE FILE OF AN ENTITY - preview, then choose (upload or reuse) through the
 //media library, or remove. The caller maps the picked file onto its fields.
@@ -20,7 +22,7 @@ const props = withDefaults(defineProps<{
   clearable?: boolean
   //A small tile only: click to choose, a corner button to remove
   compact?:   boolean
-  //Folder the picker opens and uploads to; left out, the current media project
+  //Folder the picker opens and uploads to (null = shared); left out, the project page being edited
   project?:   number | null
 }>(), { clearable: true, compact: false, project: undefined })
 
@@ -47,7 +49,7 @@ async function choose() {
 <template>
   <div v-if="compact" class="ed-media-tile" :title="url ? `${label} · ${fileName}` : label">
     <button type="button" class="ed-media__preview ed-media-tile__pick" :aria-label="tileLabel(pickText)" @click="choose">
-      <img v-if="url && accept === 'image'" :src="url" alt="" loading="lazy" />
+      <SiteImage v-if="url && accept === 'image'" :src="url" :sizes="IMAGE_SIZES.tile" />
       <component :is="ICONS[accept]" v-else :size="ICON_SIZE" aria-hidden="true" />
     </button>
     <span class="ed-media-tile__label">{{ label }}</span>
@@ -64,7 +66,7 @@ async function choose() {
   <Field v-else :label="label" :hint="hint" group v-slot="{ labelId }">
     <div class="ed-media" role="group" :aria-labelledby="labelId">
       <div class="ed-media__preview">
-        <img v-if="url && accept === 'image'" :src="url" alt="" loading="lazy" />
+        <SiteImage v-if="url && accept === 'image'" :src="url" :sizes="IMAGE_SIZES.tile" />
         <component :is="ICONS[accept]" v-else :size="ICON_SIZE" aria-hidden="true" />
       </div>
       <div class="ed-media__meta">

@@ -97,7 +97,8 @@ export async function planFiling(): Promise<Filing[]> {
 //old bytes and their resized copies. Run twice, it finds the copy done.
 async function move(f: Filing): Promise<void> {
   if (f.to !== f.from) {
-    if (!(await objectExists(f.to))) await writeObject(f.to, objectFile(f.from))
+    //Read whole, then write: streaming one object into another fails on large files
+    if (!(await objectExists(f.to))) await writeObject(f.to, new Uint8Array(await objectFile(f.from).arrayBuffer()))
   }
   const oldUrl = `/media/${f.from}`
   const newUrl = `/media/${f.to}`

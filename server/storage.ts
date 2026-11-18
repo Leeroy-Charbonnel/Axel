@@ -17,7 +17,8 @@ const client = new S3Client({
   secretAccessKey: STORAGE_SECRET_KEY,
 })
 
-export interface StoredObject { key: string; size: number }
+//lastModified: epoch milliseconds
+export interface StoredObject { key: string; size: number; lastModified: number }
 
 function isMissing(e: unknown): boolean {
   return (e as { code?: string })?.code === "NoSuchKey"
@@ -51,7 +52,10 @@ export async function listObjects(prefix = ""): Promise<StoredObject[]> {
   let token: string | undefined
   do {
     const page = await client.list({ prefix, continuationToken: token, maxKeys: 1000 })
-    for (const o of page.contents ?? []) out.push({ key: o.key, size: o.size ?? 0 })
+    for (const o of page.contents ?? []) {
+      if (!o.lastModified) throw new Error(`storage listed ${o.key} without a date`)
+      out.push({ key: o.key, size: o.size ?? 0, lastModified: Date.parse(o.lastModified) })
+    }
     token = page.isTruncated ? page.nextContinuationToken : undefined
   } while (token)
   return out

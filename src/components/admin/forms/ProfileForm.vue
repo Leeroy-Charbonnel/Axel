@@ -41,6 +41,7 @@ const INTERESTS: { key: keyof ProfileDto["interests"]; labelKey: string }[] = [
       <BilingualField :label="t('fieldHeadline')" :model-value="p.headline" @update:model-value="(v) => set({ headline: v })" />
       <TextField :label="t('fieldLocation')" :model-value="p.location" @update:model-value="(v) => set({ location: v })" />
       <MediaField
+        :project="null"
         :label="t('fieldAvatar')"
         accept="image"
         :url="p.avatarUrl || null"
@@ -103,6 +104,7 @@ const INTERESTS: { key: keyof ProfileDto["interests"]; labelKey: string }[] = [
         @update:model-value="(v) => set({ links: { ...p.links, [l.key]: v } })"
       />
       <MediaField
+        :project="null"
         :label="t('fieldCv')"
         accept="document"
         :url="p.cvUrl"

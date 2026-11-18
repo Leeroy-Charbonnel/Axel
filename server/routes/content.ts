@@ -9,7 +9,7 @@ import {
   experiencePatch, galleryProjectPatch, mainProjectPatch, orderBody, profilePatch,
   projectSoftwareBody, softwareCreate, softwarePatch,
 } from "../validation"
-import { receiveCv, receiveMedia, recordUpload } from "../uploads"
+import { receiveMedia, recordUpload } from "../uploads"
 import { fileRefCount } from "./files"
 
 //PORTFOLIO MUTATIONS, all admin only. PUT takes a partial body checked
@@ -207,16 +207,5 @@ contentRouter.put("/api/profile", requireAdmin, async (req, res) => {
     return
   }
   const [row] = await db.update(profile).set(patch).where(eq(profile.id, existing.id)).returning()
-  res.json(row)
-})
-
-//CV upload, multipart field "file", PDF only. Answers the file row and its url;
-//PUT /api/profile { cvFileId: null } detaches it.
-contentRouter.post("/api/profile/cv", requireAdmin, async (req, res) => {
-  const cv = await receiveCv(req, res)
-  const row = await recordUpload(cv, adminId(res), async (tx, fileRow) => {
-    const updated = await tx.update(profile).set({ cvFileId: fileRow.id }).returning({ id: profile.id })
-    if (updated.length === 0) throw new HttpError(409, "no profile row yet: save the profile once first")
-  })
   res.json(row)
 })

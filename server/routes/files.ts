@@ -101,14 +101,25 @@ filesRouter.get("/api/files", requireAdmin, async (req, res) => {
 const CACHE_PREFIX = ".cache/"
 const CACHE_KEY = /^\.cache\/[a-z]+\/\d+\/(.+)\.[a-z]+$/
 
+//Newer files are never orphans: a file picked in an unsaved edit has no reference yet
+const ORPHAN_MIN_AGE_MS = 60 * 60 * 1000
+//Bucket requests sent at once
+const BUCKET_BATCH = 8
+
 function sourceOf(key: string): string {
   return CACHE_KEY.exec(key)?.[1] ?? key
+}
+
+//The number of distinct source files behind these objects
+function sourceCount(objects: StoredObject[]): number {
+  return new Set(objects.map((o) => sourceOf(o.key))).size
 }
 
 //rows with no reference, as the sweep deletes them. HDRs and models are kept
 //even unreferenced: the editor picker swaps between them.
 const ORPHAN_ROWS = sql`
   f.original_filename !~* '\\.(hdr|exr|hdri|glb|gltf)$'
+  AND f.created_at < now() - make_interval(secs => ${ORPHAN_MIN_AGE_MS / 1000})
   AND ${fileRefCountSql(sql.raw("f.id"))} = 0
 `
 
@@ -117,15 +128,16 @@ async function storedNames(): Promise<Set<string>> {
   return new Set(rows.map((r) => r.stored))
 }
 
+//Objects with no row, past the grace period: an upload writes its bytes before its row
 function strayObjects(objects: StoredObject[], names: Set<string>): StoredObject[] {
-  return objects.filter((o) => !names.has(sourceOf(o.key)))
+  const cutoff = Date.now() - ORPHAN_MIN_AGE_MS
+  return objects.filter((o) => !names.has(sourceOf(o.key)) && o.lastModified < cutoff)
 }
 
-//deletes the objects a few at a time, so a big sweep does not open hundreds of requests at once
+//Deletes the objects a few at a time, so a big sweep does not open hundreds of requests at once
 async function deleteKeys(keys: string[]): Promise<void> {
-  const BATCH = 8
-  for (let i = 0; i < keys.length; i += BATCH) {
-    await Promise.all(keys.slice(i, i + BATCH).map(deleteObject))
+  for (let i = 0; i < keys.length; i += BUCKET_BATCH) {
+    await Promise.all(keys.slice(i, i + BUCKET_BATCH).map(deleteObject))
   }
 }
 
@@ -145,8 +157,9 @@ async function objectsOf(project: number | null): Promise<StoredObject[]> {
 //resized copies, and what the sweep would free
 filesRouter.get("/api/files/storage", requireAdmin, async (req, res) => {
   const project = await projectParam(req, false)
-  const [objects, names, orphanRows] = await Promise.all([
-    objectsOf(project),
+  //Objects first, rows after: an upload landing in between has its row read
+  const objects = await objectsOf(project)
+  const [names, orphanRows] = await Promise.all([
     storedNames(),
     db.execute<{ stored_filename: string }>(sql`
       SELECT f.stored_filename FROM file f WHERE ${ORPHAN_ROWS} AND ${projectFilter(project)}
@@ -159,9 +172,9 @@ filesRouter.get("/api/files/storage", requireAdmin, async (req, res) => {
     totalBytes:   sum(objects),
     cacheBytes:   sum(objects.filter((o) => o.key.startsWith(CACHE_PREFIX))),
     objectCount:  objects.length,
+    //Source files, a resized copy is counted with its source
     orphans: {
-      rows:        orphanNames.size,
-      strayFiles:  stray.length,
+      files:       orphanNames.size + sourceCount(stray),
       bytes:       sum(ofOrphanRows) + sum(stray),
     },
   })
@@ -169,33 +182,41 @@ filesRouter.get("/api/files/storage", requireAdmin, async (req, res) => {
 
 //THE SWEEP (or ?project=<id>, inside one project's folder). Deletes every
 //unreferenced row and its bytes with their resized copies, then every object
-//left without a row. Declared before the :id route so "orphans" is not read
-//as an id.
+//left without a row. Answers the source files deleted, the unit of the
+//storage summary. Declared before the :id route so "orphans" is not read as an id.
 filesRouter.delete("/api/files/orphans", requireAdmin, async (req, res) => {
   const project = await projectParam(req, false)
   const deleted = await db.execute<{ stored_filename: string }>(sql`
     DELETE FROM file f WHERE ${ORPHAN_ROWS} AND ${projectFilter(project)} RETURNING f.stored_filename
   `)
-  //listed after the rows are gone: their bytes are stray now, like any other
-  const [objects, names] = await Promise.all([objectsOf(project), storedNames()])
-  const stray = strayObjects(objects, names)
-  await deleteKeys(stray.map((o) => o.key))
-  res.json({ deletedRows: deleted.length, deletedObjects: stray.length, freedBytes: sum(stray) })
+  const deletedNames = new Set(deleted.map((r) => r.stored_filename))
+  //Objects first, rows after: an upload landing in between has its row read
+  const objects = await objectsOf(project)
+  const names = await storedNames()
+  //The deleted rows' objects go whatever their age, their copies can be recent
+  const ofDeleted = objects.filter((o) => deletedNames.has(sourceOf(o.key)))
+  const stray = strayObjects(objects.filter((o) => !deletedNames.has(sourceOf(o.key))), names)
+  const gone = [...ofDeleted, ...stray]
+  await deleteKeys(gone.map((o) => o.key))
+  res.json({ deletedFiles: deletedNames.size + sourceCount(stray), freedBytes: sum(gone) })
 })
 
 //Deletes the row, then its bytes and resized copies. 409 while anything
 //references it. A failure on the bytes leaves them stray: the sweep takes them.
 filesRouter.delete("/api/files/:id", requireAdmin, async (req, res) => {
   const id = uuidParam(req, "id")
-  const [row] = await db.select({ stored: fileTable.storedFilename }).from(fileTable).where(eq(fileTable.id, id))
-  if (!row) notFound()
-  const referenceCount = await fileRefCount(id)
-  if (referenceCount > 0) {
-    res.status(409).json({ error: "file is still referenced", referenceCount })
+  //One statement: a reference saved meanwhile keeps the row
+  const [row] = await db.execute<{ stored_filename: string }>(sql`
+    DELETE FROM file f WHERE f.id = ${id}::uuid AND ${fileRefCountSql(sql.raw("f.id"))} = 0
+    RETURNING f.stored_filename
+  `)
+  if (!row) {
+    const [exists] = await db.select({ id: fileTable.id }).from(fileTable).where(eq(fileTable.id, id))
+    if (!exists) notFound()
+    res.status(409).json({ error: "file is still referenced", referenceCount: await fileRefCount(id) })
     return
   }
-  await db.delete(fileTable).where(eq(fileTable.id, id))
-  await deleteKeys([row.stored, ...derivativeKeys(row.stored)])
+  await deleteKeys([row.stored_filename, ...derivativeKeys(row.stored_filename)])
   res.json({ ok: true })
 })
 

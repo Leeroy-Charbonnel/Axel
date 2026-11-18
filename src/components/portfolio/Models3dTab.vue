@@ -69,6 +69,7 @@ async function remove(id: string, name: string) {
       <TextField :label="t('modelsName')" :model-value="draft.name" @update:model-value="(v) => (draft.name = v)" />
       <div class="ed-form__grid">
         <MediaField
+          :project="null"
           :label="t('modelsGlb')"
           accept="model"
           :url="draft.glb?.url ?? null"
@@ -76,6 +77,7 @@ async function remove(id: string, name: string) {
           @clear="draft.glb = null"
         />
         <MediaField
+          :project="null"
           :label="t('modelsThumbnail')"
           accept="image"
           :url="draft.thumbnail?.url ?? null"

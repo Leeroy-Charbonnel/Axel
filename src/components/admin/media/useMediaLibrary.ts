@@ -1,5 +1,7 @@
-import { ref, shallowRef } from "vue"
-import { apiJson, uploadFile } from "../../../composables/usePortfolio"
+import { ref, shallowRef, watch, type WatchStopHandle } from "vue"
+import { apiJson, uploadFile, usePortfolio } from "../../../composables/usePortfolio"
+import { useToast } from "../../../composables/useToast"
+import { useTranslations } from "../../../composables/useTranslations"
 
 //THE MEDIA LIBRARY. One list of uploaded files (GET /api/files, every file
 //with its project), one upload path, and one picker: every "choose a file" in
@@ -21,12 +23,19 @@ export interface MediaFile {
   projectId:        number | null
 }
 
-//GET /api/files/storage: the bucket, or one project's folder
+//GET /api/files/storage: the bucket, or one project's folder. Orphans are
+//counted in source files, like the sweep's answer.
 export interface StorageSummary {
   totalBytes:  number
   cacheBytes:  number
   objectCount: number
-  orphans:     { rows: number; strayFiles: number; bytes: number }
+  orphans:     { files: number; bytes: number }
+}
+
+//DELETE /api/files/orphans
+export interface SweepResult {
+  deletedFiles: number
+  freedBytes:   number
 }
 
 //a project's files, or every file when project is null
@@ -41,29 +50,41 @@ function withProject(path: string, project: number | null): string {
 //REGISTRY of the file types: filter chips, upload accept attribute, detection
 type FileFacts = Pick<MediaFile, "originalFilename" | "mimeType">
 
-//uploadPath: a PDF is only accepted as the CV, which its route attaches to the profile
-export const MEDIA_TYPES: { type: MediaType; labelKey: string; accept: string; uploadPath: string; test: (f: FileFacts) => boolean }[] = [
-  { type: "image",    labelKey: "mediaTypeImage",    accept: "image/*",              uploadPath: "/api/files",      test: (f) => f.mimeType.startsWith("image/") && !/\.(hdr|exr|hdri)$/i.test(f.originalFilename) },
-  { type: "video",    labelKey: "mediaTypeVideo",    accept: "video/*",              uploadPath: "/api/files",      test: (f) => f.mimeType.startsWith("video/") },
-  { type: "model",    labelKey: "mediaTypeModel",    accept: ".glb,.gltf",           uploadPath: "/api/files",      test: (f) => /\.(glb|gltf)$/i.test(f.originalFilename) },
-  { type: "hdr",      labelKey: "mediaTypeHdr",      accept: ".hdr,.exr,.hdri",      uploadPath: "/api/files",      test: (f) => /\.(hdr|exr|hdri)$/i.test(f.originalFilename) },
-  { type: "document", labelKey: "mediaTypeDocument", accept: ".pdf,application/pdf", uploadPath: "/api/profile/cv", test: (f) => f.mimeType === "application/pdf" || /\.pdf$/i.test(f.originalFilename) },
+//Every type goes to /api/files; only the profile's CV field makes a PDF the CV
+export const MEDIA_TYPES: { type: MediaType; labelKey: string; accept: string; test: (f: FileFacts) => boolean }[] = [
+  { type: "image",    labelKey: "mediaTypeImage",    accept: "image/*",              test: (f) => f.mimeType.startsWith("image/") && !/\.(hdr|exr|hdri)$/i.test(f.originalFilename) },
+  { type: "video",    labelKey: "mediaTypeVideo",    accept: "video/*",              test: (f) => f.mimeType.startsWith("video/") },
+  { type: "model",    labelKey: "mediaTypeModel",    accept: ".glb,.gltf",           test: (f) => /\.(glb|gltf)$/i.test(f.originalFilename) },
+  { type: "hdr",      labelKey: "mediaTypeHdr",      accept: ".hdr,.exr,.hdri",      test: (f) => /\.(hdr|exr|hdri)$/i.test(f.originalFilename) },
+  { type: "document", labelKey: "mediaTypeDocument", accept: ".pdf,application/pdf", test: (f) => f.mimeType === "application/pdf" || /\.pdf$/i.test(f.originalFilename) },
 ]
 
 export function mediaTypeOf(f: FileFacts): MediaType | null {
   return MEDIA_TYPES.find((t) => t.test(f))?.type ?? null
 }
 
-//a file of no known type goes to the general route, which answers why it
-//refuses it. The CV route attaches to the profile, it takes no project.
-function uploadPathFor(f: File, project: number | null): string {
-  const type = mediaTypeOf({ originalFilename: f.name, mimeType: f.type })
-  const path = MEDIA_TYPES.find((t) => t.type === type)?.uploadPath ?? "/api/files"
-  return path === "/api/files" ? withProject(path, project) : path
+//The type of a file about to be sent
+export function mediaTypeOfUpload(f: File): MediaType | null {
+  return mediaTypeOf({ originalFilename: f.name, mimeType: f.type })
 }
 
 export function acceptFor(type: MediaType | null): string | undefined {
   return type ? MEDIA_TYPES.find((t) => t.type === type)?.accept : undefined
+}
+
+const toast = useToast()
+const { t } = useTranslations()
+
+//apiJson and uploadFile toast an HTTP failure; a request that got no answer is toasted here
+export function reportFailure(e: unknown, what: string): void {
+  console.error(`[media] ${what} failed:`, e)
+  if (e instanceof TypeError) toast.error(e.message, what)
+}
+
+//The HTTP status in uploadFile's error, or the network message
+function failureCode(e: unknown): string {
+  if (!(e instanceof Error)) return String(e)
+  return /failed: (\d{3}) /.exec(e.message)?.[1] ?? e.message
 }
 
 const files     = ref<MediaFile[]>([])
@@ -71,54 +92,75 @@ const loading   = ref(false)
 const uploading = ref(false)
 const error     = ref<string | null>(null)
 
-async function load() {
+//Only the latest call writes the list
+let loadSeq = 0
+
+async function load(): Promise<void> {
+  const seq = ++loadSeq
   loading.value = true
   error.value = null
   try {
-    files.value = await apiJson<MediaFile[]>("GET", "/api/files")
+    const list = await apiJson<MediaFile[]>("GET", "/api/files")
+    if (seq === loadSeq) files.value = list
   } catch (e) {
+    reportFailure(e, "GET /api/files")
+    if (seq !== loadSeq) return
     error.value = e instanceof Error ? e.message : String(e)
+    listed = null
   } finally {
-    loading.value = false
+    if (seq === loadSeq) loading.value = false
   }
 }
 
-//the list once per page load, for the fields that show original file names
+//The list once per page load, then only reloads after a change
 let listed: Promise<void> | null = null
+let stopSaveWatch: WatchStopHandle | null = null
+
 function ensureLoaded(): Promise<void> {
   listed ??= load()
+  //A save changes what uses each file
+  stopSaveWatch ??= watch(usePortfolio().data, () => { void load() })
   return listed
 }
 
-//THE PROJECT BEING EDITED, set by the project page and the inspector: the
-//folder pickers and uploads use when their caller names none. null = shared.
+//THE PROJECT BEING EDITED, set by the project page: the folder of pickers
+//whose caller names no project (the block editors). null = shared.
 const currentProject = ref<number | null>(null)
 
 function setMediaProject(id: number | null) {
   currentProject.value = id
 }
 
-//uploads one after the other, into the project's folder (the current one when
-//none is given; null = shared), and answers the new rows, as listed by the server
-async function upload(list: File[], project?: number | null): Promise<MediaFile[]> {
+//Uploads one after the other into the project's folder (null = shared). A
+//failed file does not stop the others: one toast lists the failures. Answers
+//the new rows, as listed by the server.
+async function upload(list: File[], project: number | null): Promise<MediaFile[]> {
   if (!list.length) return []
-  const folder = project === undefined ? currentProject.value : project
   uploading.value = true
   const ids: string[] = []
+  const failed: string[] = []
   try {
-    for (const f of list) ids.push((await uploadFile(f, uploadPathFor(f, folder))).id)
-  } catch (e) {
-    console.error("[media] upload stopped:", e)
+    for (const f of list) {
+      try {
+        ids.push((await uploadFile(f, withProject("/api/files", project))).id)
+      } catch (e) {
+        console.error(`[media] upload of ${f.name} failed:`, e)
+        failed.push(`${f.name} (${failureCode(e)})`)
+      }
+    }
   } finally {
     uploading.value = false
+  }
+  if (failed.length) {
+    toast.error(failed.join(", "), t("mediaUploadCount").replace("{ok}", String(ids.length)).replace("{total}", String(list.length)))
   }
   await load()
   return ids.map((id) => files.value.find((f) => f.id === id)).filter((f): f is MediaFile => Boolean(f))
 }
 
-async function remove(file: MediaFile) {
+async function remove(file: MediaFile): Promise<void> {
   await apiJson("DELETE", `/api/files/${file.id}`)
-  await load()
+  files.value = files.value.filter((f) => f.id !== file.id)
 }
 
 function storage(project: number | null): Promise<StorageSummary> {
@@ -126,14 +168,14 @@ function storage(project: number | null): Promise<StorageSummary> {
 }
 
 //deletes the unused rows and the bytes no row names, in the project's folder or everywhere
-async function sweepOrphans(project: number | null): Promise<{ deletedRows: number; deletedObjects: number; freedBytes: number }> {
-  const result = await apiJson<{ deletedRows: number; deletedObjects: number; freedBytes: number }>("DELETE", withProject("/api/files/orphans", project))
+async function sweepOrphans(project: number | null): Promise<SweepResult> {
+  const result = await apiJson<SweepResult>("DELETE", withProject("/api/files/orphans", project))
   await load()
   return result
 }
 
 //PICK REQUEST - like useConfirm: one open request, settled by the dialog
-export interface PickRequest {
+interface PickRequest {
   accept:   MediaType | null
   multiple: boolean
   //picking inside a project: its files and the shared ones, uploads go to its folder
@@ -161,7 +203,7 @@ export function useMediaLibrary() {
   return {
     files, loading, uploading, error,
     load, ensureLoaded, upload, remove, storage, sweepOrphans,
-    currentProject, setMediaProject,
+    setMediaProject,
     request, pickMedia,
     resolvePick: finish,
     cancelPick:  () => finish([]),
