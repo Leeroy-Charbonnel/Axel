@@ -662,6 +662,8 @@
     "themeTextBase": "Texte par défaut",
     "themeGrain": "Grain",
     "themeResetAll": "Tout réinitialiser",
+    "themeVarSearch": "Filtrer les variables",
+    "themeVarInvalid": "Valeur refusée pour {name}",
     "themeContrastLow": "Thème non enregistré : {text} sur {ground} a un contraste de {ratio}:1, il faut au moins {min}:1",
     "viewerFullscreen": "Plein écran",
     "viewerExitFullscreen": "Quitter le plein écran"
@@ -1329,6 +1331,8 @@
     "themeTextBase": "Default text",
     "themeGrain": "Film grain",
     "themeResetAll": "Reset all",
+    "themeVarSearch": "Filter variables",
+    "themeVarInvalid": "Value refused for {name}",
     "themeContrastLow": "Theme not saved: {text} on {ground} has a contrast of {ratio}:1, it needs at least {min}:1",
     "viewerFullscreen": "Fullscreen",
     "viewerExitFullscreen": "Exit fullscreen"

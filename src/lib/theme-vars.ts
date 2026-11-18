@@ -35,9 +35,30 @@ export type ThemeVarName   = ThemeVar["name"]
 export type NumberThemeVar = Extract<ThemeVar, { type: "number" }>
 
 //Values by name, a missing name keeps its default
-export type ThemeVars = Partial<Record<ThemeVarName, string>>
+//Registry tokens plus any other CSS variable of the site, by name
+export type ThemeVars = Record<string, string>
 
 export const THEME_VALUE_MAX_LENGTH = 32
+
+//Any other site variable: a plain name, a value without anything that leaves the declaration
+export const CSS_VAR_NAME = /^--[a-z][a-z0-9-]*$/
+const CSS_VAR_VALUE = /^[a-zA-Z0-9 .,%()+*/#-]+$/
+export const CSS_VAR_VALUE_MAX_LENGTH = 160
+export const MAX_THEME_VARS = 400
+
+export function isRegistered(name: string): boolean {
+  return THEME_VARS.some((v) => v.name === name)
+}
+
+export function isCssVarValue(value: string): boolean {
+  return value.length <= CSS_VAR_VALUE_MAX_LENGTH && CSS_VAR_VALUE.test(value) && !/url\s*\(/i.test(value)
+}
+
+//A registry token checked by its type, any other name by the plain-value rule
+export function isAnyThemeValue(name: string, value: string): boolean {
+  if (isRegistered(name)) return value.length <= THEME_VALUE_MAX_LENGTH && isThemeValue(themeVar(name), value)
+  return CSS_VAR_NAME.test(name) && isCssVarValue(value)
+}
 //WCAG AA for body text
 export const MIN_TEXT_CONTRAST = 4.5
 

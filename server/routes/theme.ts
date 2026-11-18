@@ -5,18 +5,10 @@ import { db } from "../../db/index"
 import { SITE_THEME_ID, siteTheme } from "../../db/schema"
 import { parse, requireAdmin } from "../http"
 import {
-  MIN_TEXT_CONTRAST, THEME_VALUE_MAX_LENGTH, THEME_VARS, contrastIssue, isThemeValue, type ThemeVarDef, type ThemeVars,
+  MAX_THEME_VARS, MIN_TEXT_CONTRAST, contrastIssue, isAnyThemeValue, type ThemeVars,
 } from "../../src/lib/theme-vars"
 
 //Site theme: read for the portfolio payload, replaced as a whole by the admin
-
-function expected(def: ThemeVarDef): string {
-  return def.type === "color" ? `must be "H S% L%"` : `must be a number from ${def.min} to ${def.max}`
-}
-
-function valueSchema(def: ThemeVarDef) {
-  return z.string().max(THEME_VALUE_MAX_LENGTH).refine((value) => isThemeValue(def, value), { message: expected(def) })
-}
 
 //Text readable on its ground, checked once every value is valid
 const readable = z.custom<ThemeVars>().superRefine((vars, ctx) => {
@@ -24,16 +16,22 @@ const readable = z.custom<ThemeVars>().superRefine((vars, ctx) => {
   if (issue) ctx.addIssue({ code: "custom", message: `${issue.text} on ${issue.ground}: contrast ${issue.ratio.toFixed(2)}:1, needs ${MIN_TEXT_CONTRAST}:1` })
 })
 
-//Only the registry's names, each with a value of its type
-const themeVars = z.object(Object.fromEntries(THEME_VARS.map((def) => [def.name, valueSchema(def).optional()]))).strict().pipe(readable)
+//Registry tokens by their type, any other CSS variable as a plain value
+const themeVars = z.record(z.string(), z.string())
+  .refine((vars) => Object.keys(vars).length <= MAX_THEME_VARS, { message: `at most ${MAX_THEME_VARS} variables` })
+  .superRefine((vars, ctx) => {
+    for (const [name, value] of Object.entries(vars)) {
+      if (!isAnyThemeValue(name, value)) ctx.addIssue({ code: "custom", message: `${name}: "${value}" is not a valid value` })
+    }
+  })
+  .pipe(readable)
 const themeBody = z.object({ vars: themeVars }).strict()
 
 //A stored value the registry refuses is logged and left out
 function checkedVars(stored: Record<string, string>): ThemeVars {
   const vars: ThemeVars = {}
   for (const [name, value] of Object.entries(stored)) {
-    const def = THEME_VARS.find((v) => v.name === name)
-    if (def && isThemeValue(def, value)) vars[def.name] = value
+    if (isAnyThemeValue(name, value)) vars[name] = value
     else console.error(`[theme] stored ${name}: "${value}" is not a theme value, left out`)
   }
   return vars

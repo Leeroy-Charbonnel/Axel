@@ -6,7 +6,7 @@ import { useTranslations } from "./useTranslations"
 import { useLang } from "./useLang"
 import { useTheme } from "./useTheme"
 import { type Lang } from "../lib/lang"
-import type { ThemeVarName, ThemeVars } from "../lib/theme-vars"
+import type { ThemeVars } from "../lib/theme-vars"
 import { KINDS, entityKey, type DraftOf, type EntityId, type EntityKind, type EntityOf } from "../components/admin/entities"
 
 export type { DraftOf, EntityId, EntityKind, EntityOf }
@@ -185,7 +185,7 @@ function isDirty(kind: EntityKind, id: EntityId): boolean {
 }
 
 //THEME - its draft shares the undo history and the save
-function setThemeVar(name: ThemeVarName, value: string) {
+function setThemeVar(name: string, value: string) {
   record(THEME_KEY, name)
   theme.set(name, value)
 }
