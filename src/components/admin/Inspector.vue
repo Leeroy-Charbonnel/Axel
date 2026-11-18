@@ -1,8 +1,12 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, ref, watch, type Component } from "vue"
-import { ArrowDown, ArrowUp, ChevronDown, GripVertical, Trash2, X } from "lucide-vue-next"
+import { useRoute } from "vue-router"
+import { ArrowDown, ArrowUp, ChevronDown, Folder, GripVertical, Palette, SlidersHorizontal, Trash2, X } from "lucide-vue-next"
 import ToggleField from "./fields/ToggleField.vue"
 import EditLangSwitch from "./EditLangSwitch.vue"
+import EditorTabs, { type EditorTab } from "./EditorTabs.vue"
+import MediaBrowser from "./media/MediaBrowser.vue"
+import ThemeEditor from "./theme/ThemeEditor.vue"
 import ProfileForm from "./forms/ProfileForm.vue"
 import MainProjectForm from "./forms/MainProjectForm.vue"
 import GalleryItemForm from "./forms/GalleryItemForm.vue"
@@ -15,10 +19,11 @@ import { useConfirm } from "../../composables/useConfirm"
 import { useTranslations } from "../../composables/useTranslations"
 import { useInspectorResize } from "./useInspectorResize"
 
-//THE INSPECTOR - the form of the selected entity. A side panel above 1024px
-//(the page makes room for it, see style.css), a bottom sheet below that can be
-//folded to its header. The header carries what every item shares: kind, title,
-//published, move, delete, and the order of its whole collection.
+//THE INSPECTOR - the home page's edit panel, open for the whole edit mode
+//(elsewhere only while an item is selected). Tabs: Properties (the selected
+//entity's form, or a hint when nothing is selected), Files (every file) and
+//CSS (the site theme). A side panel above 1024px (the page makes room for it,
+//see style.css), a bottom sheet below that can be folded.
 
 const FORMS: Record<EntityKind, Component> = {
   profile:     ProfileForm,
@@ -33,11 +38,22 @@ const { data } = usePortfolio()
 const { confirm } = useConfirm()
 const { t } = useTranslations()
 const { selection, editLang } = editor
+const route = useRoute()
+
+type TabKey = "props" | "files" | "css"
+const TABS: { key: TabKey; icon: Component; labelKey: string }[] = [
+  { key: "props", icon: SlidersHorizontal, labelKey: "detailTabProps" },
+  { key: "files", icon: Folder,            labelKey: "detailTabFiles" },
+  { key: "css",   icon: Palette,           labelKey: "themeTab" },
+]
+const tab  = ref<TabKey>("props")
+const tabs = computed<EditorTab<TabKey>[]>(() => TABS.map((tb) => ({ key: tb.key, icon: tb.icon, label: t(tb.labelKey) })))
 
 const kind   = computed(() => selection.value?.kind ?? null)
 const entity = computed(() => selection.value ? editor.find(selection.value.kind, selection.value.id) : null)
 const shown  = computed(() => kind.value && entity.value ? editor.display(kind.value, entity.value) : null)
-const open   = computed(() => editor.editMode.value && shown.value !== null)
+//The home page keeps the panel for the whole edit mode
+const open   = computed(() => editor.editMode.value && (route.path === "/" || shown.value !== null))
 const key    = computed(() => selection.value ? entityKey(selection.value.kind, selection.value.id) : "")
 const title  = computed(() => kind.value && shown.value ? titleOf(kind.value, shown.value, editLang.value) || t("editorUntitled") : "")
 const isCollection = computed(() => Boolean(kind.value && KINDS[kind.value].collection))
@@ -86,6 +102,7 @@ function region(): HTMLElement | null {
 watch(key, async (next) => {
   if (!next) return
   collapsed.value = false
+  tab.value = "props"
   await nextTick()
   const sheet = window.matchMedia(SHEET_QUERY).matches
   const behavior = window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth"
@@ -99,10 +116,12 @@ watch(key, async (next) => {
 })
 
 watch(editor.focusTick, async () => {
+  tab.value = "props"
   await nextTick()
   heading.value?.focus()
 })
 
+//Drops the selection; the home page keeps the panel open
 function close() {
   const target = region()
   editor.clear()
@@ -110,7 +129,7 @@ function close() {
 }
 
 function onKeydown(e: KeyboardEvent) {
-  if (e.key !== "Escape" || e.defaultPrevented) return
+  if (e.key !== "Escape" || e.defaultPrevented || !selection.value) return
   e.preventDefault()
   close()
 }
@@ -145,7 +164,7 @@ async function remove() {
 <template>
   <Transition name="inspector">
     <aside
-      v-if="open && kind && entity"
+      v-if="open"
       id="editor-inspector"
       ref="panelEl"
       class="inspector ed-ui"
@@ -168,90 +187,109 @@ async function remove() {
         @keydown="resize.onKey"
         @focus="resize.measure"
       ></div>
-      <header class="inspector__head">
-        <button
-          type="button"
-          class="inspector__grab"
-          :aria-expanded="!collapsed"
-          :aria-label="collapsed ? t('editorExpand') : t('editorCollapse')"
-          @click="collapsed = !collapsed"
-        >
-          <span class="inspector__grip"></span>
-        </button>
-        <div class="inspector__titles">
-          <span class="inspector__kind">
-            {{ t(KINDS[kind].labelKey) }}
-            <span v-if="selection && editor.isDirty(kind, selection.id)" class="inspector__dirty">{{ t('editorStatusDirty') }}</span>
-          </span>
-          <h2 ref="heading" class="inspector__title" tabindex="-1">{{ title }}</h2>
-        </div>
-        <EditLangSwitch />
-        <button type="button" class="ed-btn ed-btn--ghost ed-btn--icon" :aria-label="t('editorClose')" @click="close">
-          <X :size="16" />
-        </button>
-      </header>
+      <button
+        type="button"
+        class="inspector__grab"
+        :aria-expanded="!collapsed"
+        :aria-label="collapsed ? t('editorExpand') : t('editorCollapse')"
+        @click="collapsed = !collapsed"
+      >
+        <span class="inspector__grip"></span>
+      </button>
 
-      <div v-if="isCollection" class="inspector__tools">
-        <ToggleField :label="t('editorPublished')" :model-value="published" @update:model-value="setPublished" />
-        <div class="inspector__tools-end">
-          <button type="button" class="ed-btn ed-btn--ghost ed-btn--icon" :aria-label="t('editorMoveUp')" :title="t('editorMoveUp')" :disabled="index <= 0" @click="move(-1)">
-            <ArrowUp :size="14" />
-          </button>
-          <button
-            type="button"
-            class="ed-btn ed-btn--ghost ed-btn--icon"
-            :aria-label="t('editorMoveDown')"
-            :title="t('editorMoveDown')"
-            :disabled="index < 0 || index >= items.length - 1"
-            @click="move(1)"
-          >
-            <ArrowDown :size="14" />
-          </button>
-          <button type="button" class="ed-btn ed-btn--ghost ed-btn--icon ed-btn--danger" :aria-label="t('editorDeleteAction')" :title="t('editorDeleteAction')" @click="remove">
-            <Trash2 :size="14" />
-          </button>
-        </div>
-      </div>
+      <EditorTabs v-model="tab" class="inspector__tabs" :tabs="tabs" :label="t('editorInspector')" id-prefix="inspector" keep rail>
+        <template #end>
+          <EditLangSwitch />
+        </template>
 
-      <div class="inspector__body">
-        <section v-if="isCollection" class="inspector__order">
-          <button
-            type="button"
-            class="inspector__order-toggle"
-            :aria-expanded="orderOpen"
-            @click="orderOpen = !orderOpen"
-          >
-            <span>{{ t('editorOrder') }} ({{ items.length }})</span>
-            <ChevronDown :size="14" class="inspector__chevron" :class="{ 'inspector__chevron--open': orderOpen }" />
-          </button>
-          <ol v-if="orderOpen" ref="orderList" class="inspector__order-list">
-            <li
-              v-for="(item, i) in orderShown"
-              :key="i"
-              class="inspector__order-item"
-              :class="{
-                'inspector__order-item--current': item.id === selection?.id,
-                'inspector__order-item--dragging': sortable.draggingIndex.value === i,
-              }"
-            >
-              <button
-                type="button"
-                class="ed-btn ed-btn--ghost ed-btn--icon"
-                :aria-label="`${t('fieldReorder')} ${item.title}`"
-                v-bind="sortable.handleProps(i)"
-              >
-                <GripVertical :size="14" />
+        <template #props>
+          <div v-if="kind && entity" class="inspector__props">
+            <header class="inspector__head">
+              <div class="inspector__titles">
+                <span class="inspector__kind">
+                  {{ t(KINDS[kind].labelKey) }}
+                  <span v-if="selection && editor.isDirty(kind, selection.id)" class="inspector__dirty">{{ t('editorStatusDirty') }}</span>
+                </span>
+                <h2 ref="heading" class="inspector__title" tabindex="-1">{{ title }}</h2>
+              </div>
+              <button type="button" class="ed-btn ed-btn--ghost ed-btn--icon" :aria-label="t('editorClose')" :title="t('editorClose')" @click="close">
+                <X :size="16" />
               </button>
-              <button type="button" class="inspector__order-title" @click="editor.select(kind, item.id)">
-                <span class="inspector__order-index">{{ String(i + 1).padStart(2, "0") }}</span>
-                <span>{{ item.title }}</span>
-              </button>
-            </li>
-          </ol>
-        </section>
+            </header>
 
-        <component :is="FORMS[kind]" :key="key" :entity="entity" />
-      </div>
+            <div v-if="isCollection" class="inspector__tools">
+              <ToggleField :label="t('editorPublished')" :model-value="published" @update:model-value="setPublished" />
+              <div class="inspector__tools-end">
+                <button type="button" class="ed-btn ed-btn--ghost ed-btn--icon" :aria-label="t('editorMoveUp')" :title="t('editorMoveUp')" :disabled="index <= 0" @click="move(-1)">
+                  <ArrowUp :size="14" />
+                </button>
+                <button
+                  type="button"
+                  class="ed-btn ed-btn--ghost ed-btn--icon"
+                  :aria-label="t('editorMoveDown')"
+                  :title="t('editorMoveDown')"
+                  :disabled="index < 0 || index >= items.length - 1"
+                  @click="move(1)"
+                >
+                  <ArrowDown :size="14" />
+                </button>
+                <button type="button" class="ed-btn ed-btn--ghost ed-btn--icon ed-btn--danger" :aria-label="t('editorDeleteAction')" :title="t('editorDeleteAction')" @click="remove">
+                  <Trash2 :size="14" />
+                </button>
+              </div>
+            </div>
+
+            <div class="inspector__body">
+              <section v-if="isCollection" class="inspector__order">
+                <button
+                  type="button"
+                  class="inspector__order-toggle"
+                  :aria-expanded="orderOpen"
+                  @click="orderOpen = !orderOpen"
+                >
+                  <span>{{ t('editorOrder') }} ({{ items.length }})</span>
+                  <ChevronDown :size="14" class="inspector__chevron" :class="{ 'inspector__chevron--open': orderOpen }" />
+                </button>
+                <ol v-if="orderOpen" ref="orderList" class="inspector__order-list">
+                  <li
+                    v-for="(item, i) in orderShown"
+                    :key="i"
+                    class="inspector__order-item"
+                    :class="{
+                      'inspector__order-item--current': item.id === selection?.id,
+                      'inspector__order-item--dragging': sortable.draggingIndex.value === i,
+                    }"
+                  >
+                    <button
+                      type="button"
+                      class="ed-btn ed-btn--ghost ed-btn--icon"
+                      :aria-label="`${t('fieldReorder')} ${item.title}`"
+                      v-bind="sortable.handleProps(i)"
+                    >
+                      <GripVertical :size="14" />
+                    </button>
+                    <button type="button" class="inspector__order-title" @click="editor.select(kind, item.id)">
+                      <span class="inspector__order-index">{{ String(i + 1).padStart(2, "0") }}</span>
+                      <span>{{ item.title }}</span>
+                    </button>
+                  </li>
+                </ol>
+              </section>
+
+              <component :is="FORMS[kind]" :key="key" :entity="entity" />
+            </div>
+          </div>
+          <p v-else class="ed-hint inspector__empty">{{ t('editorSelectHint') }}</p>
+        </template>
+
+        <template #files>
+          <MediaBrowser mode="manage" compact />
+        </template>
+
+        <template #css>
+          <ThemeEditor />
+        </template>
+      </EditorTabs>
     </aside>
   </Transition>
 </template>
@@ -279,6 +317,20 @@ async function remove() {
 }
 
 .inspector__grab { display: none; }
+
+.inspector__tabs {
+  flex: 1;
+  min-height: 0;
+}
+
+/*Head and tools stay put, the form scrolls*/
+.inspector__props {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.inspector__empty { padding: var(--vsui-space-md) var(--vsui-space-sm); }
 
 /*The left edge, wider than the line it draws*/
 .inspector__resize {
@@ -346,6 +398,7 @@ async function remove() {
 .inspector__body {
   container: editor / inline-size;
   flex: 1;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   gap: var(--vsui-space-sm);
@@ -433,16 +486,16 @@ async function remove() {
     box-shadow: var(--editor-shadow);
   }
 
-  .inspector__head { padding-left: var(--vsui-space-xs); }
   .inspector__resize { display: none; }
 
   .inspector__grab {
     display: flex;
     align-items: center;
     justify-content: center;
-    width: var(--editor-control);
+    width: 100%;
     height: var(--editor-control);
     flex-shrink: 0;
+    border-bottom: var(--border-width) solid var(--editor-line-soft);
   }
 
   .inspector__grab:focus-visible { outline: none; box-shadow: var(--editor-focus); }
@@ -454,8 +507,7 @@ async function remove() {
     background-color: var(--editor-text-muted);
   }
 
-  .inspector--collapsed .inspector__tools,
-  .inspector--collapsed .inspector__body { display: none; }
+  .inspector--collapsed .inspector__tabs { display: none; }
 
   .inspector__tools { padding-left: var(--vsui-space-sm); }
   .inspector__body  { padding: var(--vsui-space-sm); }

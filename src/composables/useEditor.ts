@@ -422,7 +422,8 @@ function registerPageActions(actions: PageActions): () => void {
 
 //GLOBAL GUARDS - a reload or a closed tab with pending edits asks first, and
 //the editor shortcuts work anywhere on the page while editing
-const INSPECTOR_SELECTOR = "#editor-inspector"
+//The Properties pane of the home panel
+const INSPECTOR_SELECTOR = "#inspector-pane-props"
 
 //A form field; with editable, also a text typed in place
 export function isTextTarget(target: EventTarget | null, opts: { editable: boolean }): boolean {
