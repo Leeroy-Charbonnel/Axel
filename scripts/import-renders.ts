@@ -250,16 +250,16 @@ async function importMain(dir: string, uploader: string, startRight: boolean): P
     if (file) shots[name] = await put(file)
   }
 
-  //MODEL - one per GLB, optimized once, the main render as its thumbnail
+  //MODEL - one per GLB, optimized once. Its picture is rendered by the admin's browser
   const bounds = await glbBounds(readFileSync(join(dir, "model.glb")))
   const view = viewerView(bounds, m.camera)
   const views = [{ name: VIEW, position: view.position, target: view.target, wireframe: false }]
   let [model] = await db.select().from(model3d).where(eq(model3d.sourceGlbFileId, glbId))
   if (!model) [model] = await db.select().from(model3d).where(eq(model3d.glbFileId, glbId))
   if (model) {
-    await db.update(model3d).set({ name: m.title.en, views, thumbnailFileId: mainId, updatedAt: new Date() }).where(eq(model3d.id, model.id))
+    await db.update(model3d).set({ name: m.title.en, views, updatedAt: new Date() }).where(eq(model3d.id, model.id))
   } else {
-    [model] = await db.insert(model3d).values({ name: m.title.en, glbFileId: glbId, views, thumbnailFileId: mainId }).returning()
+    [model] = await db.insert(model3d).values({ name: m.title.en, glbFileId: glbId, views }).returning()
   }
   if (!model!.sourceGlbFileId) {
     const { report } = await optimizeModel(model!)

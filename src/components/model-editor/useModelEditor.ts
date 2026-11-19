@@ -8,6 +8,7 @@ import type { AutoSetup } from "../../three/autoSetup"
 import type { MaterialSlot, ModelViewer } from "../../three/modelViewer"
 import type { MaterialState, ViewerMode, ViewerSettings, WireframeMaterialParams } from "../../three/types"
 import type { EditorPrefsDto, Model3dView } from "../../types/portfolio"
+import { useThumbnails } from "../admin/media/thumbnails"
 import { stableJson } from "./autoSettings"
 import type { LightPick } from "./lightGizmo"
 
@@ -204,6 +205,8 @@ async function save() {
   if (!same(next.settings, before.settings)) {
     await apiJson("PUT", `/api/models/${row.id}/viewer-settings`, next.settings)
     saved.value = { ...saved.value, settings: next.settings }
+    //a new look: the model's picture is rendered again, in the background
+    useThumbnails().requestModelThumb(row.id, row.name, true)
   }
   if (!same(next.views, before.views)) {
     await apiJson("PUT", `/api/models/${row.id}`, { views: next.views })

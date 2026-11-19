@@ -10,6 +10,8 @@ import { auth, enforceSingleAccount } from "./auth"
 import { HttpError, requireAdmin } from "./server/http"
 import { checkStorage, sendObject } from "./server/storage"
 import { imagesRouter } from "./server/images"
+import { thumbsRouter } from "./server/thumbs"
+import { STORED_KEY } from "./server/derived"
 import { invalidateOnWrite, portfolioRouter } from "./server/portfolio"
 import { filesRouter } from "./server/routes/files"
 import { contentRouter } from "./server/routes/content"
@@ -62,12 +64,13 @@ app.use(cors({ origin: ALLOWED_ORIGINS, credentials: true }))
 //copies under /media/{format}/{width}/{stored_filename}. Mounted before
 //compression: models, videos and encoded images are served as they are.
 app.use(imagesRouter)
+//the picture of a model, an environment map or a video, /media/thumb/{side}/{stored_filename}
+app.use(thumbsRouter)
 //one stored file, {folder}/{subdir}/{uuid}{ext} as uploads.ts names it, and
-//nothing else: no "..", no .cache (the derivatives go through imagesRouter
-//only). A name without folder is a file not yet moved by file-projects.ts.
+//nothing else: no "..", no .cache (the derived objects go through imagesRouter
+//and thumbsRouter only).
 //sendObject sends nosniff: the browser must not sniff a stored file into
 //active content on this origin.
-const STORED_KEY = /^(?:(?:projects\/\d+|shared)\/)?(?:images|models|hdri|docs)\/[0-9a-f-]{36}\.[a-z0-9]+$/
 const MEDIA_MAX_AGE_SECONDS = 60 * 60 * 24 * 30
 app.get("/media/*path", async (req, res) => {
   const key = (req.params.path as string[]).join("/")

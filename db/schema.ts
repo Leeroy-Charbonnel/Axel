@@ -52,6 +52,7 @@ export const file = pgTable("file", {
   sizeBytes:        integer("size_bytes").notNull(),
   width:            integer("width"),
   height:           integer("height"),
+  //"thumbnail": a 3D model's rendered picture, not listed in the library, deleted with its model
   kind:             text("kind").notNull().default("other"),
   uploadedBy:       text("uploaded_by").references(() => user.id, { onDelete: "set null" }),
   //the project whose folder holds the file (projects/{id}/...); null = shared/

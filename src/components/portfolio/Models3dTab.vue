@@ -1,18 +1,21 @@
 <script setup lang="ts">
 import { computed, reactive, ref } from "vue"
-import { Box, Pencil, Plus, Trash2 } from "lucide-vue-next"
+import { Pencil, Plus, Trash2 } from "lucide-vue-next"
 import { useRouter } from "vue-router"
 import TextField from "../admin/fields/TextField.vue"
 import MediaField from "../admin/fields/MediaField.vue"
+import ModelThumb from "../admin/media/ModelThumb.vue"
 import { usePortfolio } from "../../composables/usePortfolio"
 import { useConfirm } from "../../composables/useConfirm"
 import { useTranslations } from "../../composables/useTranslations"
 import type { MediaFile } from "../admin/media/useMediaLibrary"
+import { IMAGE_SIZES } from "../../lib/media"
 import { toastOptimizeOutcome } from "../model-editor/optimizeReport"
 
-//3D MODELS - the reusable model_3d assets. A new model is a name, a .glb and a
-//thumbnail, all picked through the media library. The server optimizes the
-//GLB; creating it opens the 3D editor, which sets the model up automatically.
+//3D MODELS - the reusable model_3d assets. A new model is a name and a .glb
+//picked through the media library. The server optimizes the GLB; creating it
+//opens the 3D editor, which sets the model up automatically. Each model's
+//picture is a render of it, made here when it is missing.
 
 const router = useRouter()
 const { data, createModel, deleteModel } = usePortfolio()
@@ -21,9 +24,9 @@ const { t } = useTranslations()
 
 const models = computed(() => data.value?.models ?? [])
 
-const draft  = reactive<{ name: string; glb: MediaFile | null; thumbnail: MediaFile | null }>({ name: "", glb: null, thumbnail: null })
+const draft  = reactive<{ name: string; glb: MediaFile | null }>({ name: "", glb: null })
 const adding = ref(false)
-const canAdd = computed(() => draft.name.trim() !== "" && draft.glb !== null && draft.thumbnail !== null && !adding.value)
+const canAdd = computed(() => draft.name.trim() !== "" && draft.glb !== null && !adding.value)
 
 function pickGlb(file: MediaFile) {
   draft.glb = file
@@ -31,12 +34,12 @@ function pickGlb(file: MediaFile) {
 }
 
 async function add() {
-  if (!draft.glb || !draft.thumbnail) return
+  if (!draft.glb) return
   adding.value = true
   try {
-    const created = await createModel(draft.name.trim(), draft.glb.id, draft.thumbnail.id)
+    const created = await createModel(draft.name.trim(), draft.glb.id)
     toastOptimizeOutcome(created)
-    Object.assign(draft, { name: "", glb: null, thumbnail: null })
+    Object.assign(draft, { name: "", glb: null })
     void router.push(`/edit-3d/${created.id}`)
   } catch (e) {
     console.error("[Models3dTab] create failed:", e)
@@ -67,24 +70,14 @@ async function remove(id: string, name: string) {
     <form class="models__new" @submit.prevent="add">
       <h2 class="ed-form__title">{{ t('modelsAddTitle') }}</h2>
       <TextField :label="t('modelsName')" :model-value="draft.name" @update:model-value="(v) => (draft.name = v)" />
-      <div class="ed-form__grid">
-        <MediaField
-          :project="null"
-          :label="t('modelsGlb')"
-          accept="model"
-          :url="draft.glb?.url ?? null"
-          @pick="pickGlb"
-          @clear="draft.glb = null"
-        />
-        <MediaField
-          :project="null"
-          :label="t('modelsThumbnail')"
-          accept="image"
-          :url="draft.thumbnail?.url ?? null"
-          @pick="(f) => (draft.thumbnail = f)"
-          @clear="draft.thumbnail = null"
-        />
-      </div>
+      <MediaField
+        :project="null"
+        :label="t('modelsGlb')"
+        accept="model"
+        :url="draft.glb?.url ?? null"
+        @pick="pickGlb"
+        @clear="draft.glb = null"
+      />
       <div class="models__submit">
         <button type="submit" class="ed-btn ed-btn--primary" :disabled="!canAdd">
           <Plus :size="16" />
@@ -100,10 +93,7 @@ async function remove(id: string, name: string) {
 
       <ul v-else class="models__grid">
         <li v-for="m in models" :key="m.id" class="models__card">
-          <div class="models__thumb">
-            <img v-if="m.thumbnailUrl" :src="m.thumbnailUrl" :alt="m.name" loading="lazy" />
-            <Box v-else :size="24" aria-hidden="true" />
-          </div>
+          <div class="models__thumb"><ModelThumb :model="m" :sizes="IMAGE_SIZES.gallery" :icon-size="24" /></div>
           <div class="models__meta">
             <span class="models__name" :title="m.name">{{ m.name }}</span>
             <span class="ed-hint">{{ t('modelsViews').replace('{n}', String(m.views.length)) }}</span>
@@ -182,12 +172,6 @@ async function remove(id: string, name: string) {
   background-color: var(--editor-input-bg);
 }
 
-.models__thumb img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
 .models__meta {
   display: flex;
   flex-direction: column;
@@ -208,9 +192,5 @@ async function remove(id: string, name: string) {
   justify-content: space-between;
   gap: var(--vsui-space-xs);
   padding: 0 var(--vsui-space-sm) var(--vsui-space-sm);
-}
-
-@media (max-width: 640px) {
-  .models__new .ed-form__grid { grid-template-columns: minmax(0, 1fr); }
 }
 </style>

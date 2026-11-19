@@ -2,6 +2,7 @@
 import { computed, onMounted } from "vue"
 import { Box, FileText, Film, ImageIcon, Sun, X } from "lucide-vue-next"
 import Field from "./Field.vue"
+import FileThumb from "../media/FileThumb.vue"
 import { useMediaLibrary, type MediaFile, type MediaType } from "../media/useMediaLibrary"
 import { useTranslations } from "../../../composables/useTranslations"
 import { IMAGE_SIZES } from "../../../lib/media"
@@ -31,10 +32,13 @@ const { t } = useTranslations()
 const { files, ensureLoaded, pickMedia } = useMediaLibrary()
 onMounted(() => { void ensureLoaded() })
 
+//The file behind the URL, once the library has loaded
+const file = computed(() => (props.url ? files.value.find((f) => f.url === props.url) ?? null : null))
+
 //The original name once the library has loaded, the stored name until then
 const fileName = computed(() => {
   if (!props.url) return ""
-  return files.value.find((f) => f.url === props.url)?.originalFilename ?? props.url.split("/").pop() ?? props.url
+  return file.value?.originalFilename ?? props.url.split("/").pop() ?? props.url
 })
 
 const pickText = computed(() => props.url ? t("fieldMediaReplace") : t("fieldMediaChoose"))
@@ -49,7 +53,8 @@ async function choose() {
 <template>
   <div v-if="compact" class="ed-media-tile" :title="url ? `${label} · ${fileName}` : label">
     <button type="button" class="ed-media__preview ed-media-tile__pick" :aria-label="tileLabel(pickText)" @click="choose">
-      <SiteImage v-if="url && accept === 'image'" :src="url" :sizes="IMAGE_SIZES.tile" />
+      <FileThumb v-if="file" :file="file" :icon-size="ICON_SIZE" />
+      <SiteImage v-else-if="url && accept === 'image'" :src="url" :sizes="IMAGE_SIZES.tile" />
       <component :is="ICONS[accept]" v-else :size="ICON_SIZE" aria-hidden="true" />
     </button>
     <span class="ed-media-tile__label">{{ label }}</span>
@@ -66,7 +71,8 @@ async function choose() {
   <Field v-else :label="label" :hint="hint" group v-slot="{ labelId }">
     <div class="ed-media" role="group" :aria-labelledby="labelId">
       <div class="ed-media__preview">
-        <SiteImage v-if="url && accept === 'image'" :src="url" :sizes="IMAGE_SIZES.tile" />
+        <FileThumb v-if="file" :file="file" :icon-size="ICON_SIZE" />
+        <SiteImage v-else-if="url && accept === 'image'" :src="url" :sizes="IMAGE_SIZES.tile" />
         <component :is="ICONS[accept]" v-else :size="ICON_SIZE" aria-hidden="true" />
       </div>
       <div class="ed-media__meta">

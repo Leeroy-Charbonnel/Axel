@@ -13,8 +13,8 @@ import { nextStep } from "./loadQueue"
 //later skips the download and the decode (a site uses two or three maps).
 const sources = new Map<string, Promise<Texture>>()
 
-//The EXR loader is fetched only for an .exr file
-async function decodeEquirect(url: string): Promise<Texture> {
+//The EXR loader is fetched only for an .exr file. Not kept: the caller owns the pixels.
+export async function decodeEquirect(url: string): Promise<Texture> {
   if (!/\.exr$/i.test(url)) return new HDRLoader().loadAsync(url)
   const { EXRLoader } = await import("three/examples/jsm/loaders/EXRLoader.js")
   return new EXRLoader().loadAsync(url)

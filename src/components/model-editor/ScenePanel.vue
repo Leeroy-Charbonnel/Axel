@@ -2,6 +2,7 @@
 import { computed, onMounted } from "vue"
 import { ImageUp, Sun } from "lucide-vue-next"
 import ToggleField from "../admin/fields/ToggleField.vue"
+import FileThumb from "../admin/media/FileThumb.vue"
 import { useMediaLibrary } from "../admin/media/useMediaLibrary"
 import { useTranslations } from "../../composables/useTranslations"
 import type { EnvironmentSettings, ViewerSettings } from "../../three/types"
@@ -19,10 +20,12 @@ const { t } = useTranslations()
 
 const modeKey = computed(() => (ed.preview.value === "wireframe" ? "wireframeMode" : "normalMode"))
 const env = computed<EnvironmentSettings>(() => ed.doc.value.settings[modeKey.value] ?? {})
+//the picked map's file, once the library has loaded
+const hdrFile = computed(() => (env.value.hdrUrl ? media.files.value.find((f) => f.id === env.value.hdrId) ?? null : null))
 const hdrName = computed(() => {
   const e = env.value
   if (!e.hdrUrl) return null
-  return media.files.value.find((f) => f.id === e.hdrId)?.originalFilename ?? e.hdrUrl.split("/").pop() ?? e.hdrUrl
+  return hdrFile.value?.originalFilename ?? e.hdrUrl.split("/").pop() ?? e.hdrUrl
 })
 
 function setEnv(key: string, mutate: (m: EnvironmentSettings) => void) {
@@ -77,6 +80,7 @@ onMounted(() => {
       <div class="sp__env">
         <span class="sp__env-name">
           <Sun v-if="!hdrName" :size="16" aria-hidden="true" />
+          <span v-else-if="hdrFile" class="sp__env-thumb"><FileThumb :file="hdrFile" :icon-size="16" /></span>
           <ImageUp v-else :size="16" aria-hidden="true" />
           <span>{{ hdrName ?? t('modelEditorEnvStudio') }}</span>
         </span>
@@ -166,5 +170,15 @@ onMounted(() => {
   min-width: 0;
   color: var(--editor-text);
   overflow-wrap: anywhere;
+}
+
+.sp__env-thumb {
+  flex-shrink: 0;
+  width: var(--editor-media-preview);
+  height: var(--editor-media-preview);
+  overflow: hidden;
+  color: var(--editor-text-muted);
+  background-color: var(--editor-input-bg);
+  border-radius: var(--editor-radius);
 }
 </style>

@@ -3,9 +3,12 @@ import { eq, sql, type SQL } from "drizzle-orm"
 import { db } from "../../db/index"
 import { file as fileTable, mainProject } from "../../db/schema"
 import { adminId, HttpError, notFound, requireAdmin, uuidParam } from "../http"
-import { folderFor, receiveMedia, recordUpload } from "../uploads"
-import { deleteObject, listObjects, type StoredObject } from "../storage"
-import { derivativeKeys } from "../images"
+import { folderFor, isRaster, receiveMedia, recordUpload } from "../uploads"
+import { deleteObject, listObjects, writeObject, type StoredObject } from "../storage"
+import { CACHE_PREFIX, derivativeKeys, sourceOf, thumbKey, thumbUrl } from "../derived"
+import { encodePicture, pictureBody, receivedPicture } from "../picture"
+import { listThumbs, MODEL_THUMB_KIND } from "../thumbs"
+import { THUMB_SIDE } from "../../src/lib/media"
 
 //FILE REFERENCE COUNT - single source of truth for "which rows point at a
 //file id". The list, the orphan sweep and the delete all derive from it, so a
@@ -68,19 +71,28 @@ function projectFilter(project: number | null): SQL {
   return project === null ? sql`TRUE` : sql`f.main_project_id = ${project}`
 }
 
-//the file manager in /settings, a project's files tab, the pickers
+//The file manager in /settings, a project's files tab, the pickers. A model's
+//rendered picture is not listed: it comes and goes with its model. thumbUrl is
+//the picture of a file that is not an image, null until the library made it.
 filesRouter.get("/api/files", requireAdmin, async (req, res) => {
   const project = await projectParam(req, false)
-  const rows = await db.execute<{
-    id: string; original_filename: string; stored_filename: string; mime_type: string
-    size_bytes: number; kind: string; created_at: string; reference_count: number; main_project_id: number | null
-  }>(sql`
-    SELECT f.id, f.original_filename, f.stored_filename, f.mime_type, f.size_bytes, f.kind, f.created_at,
-           f.main_project_id, ${fileRefCountSql(sql.raw("f.id"))} AS reference_count
-    FROM file f
-    WHERE ${projectFilter(project)}
-    ORDER BY f.created_at DESC
-  `)
+  const [rows, thumbs] = await Promise.all([
+    db.execute<{
+      id: string; original_filename: string; stored_filename: string; mime_type: string
+      size_bytes: number; kind: string; created_at: string; reference_count: number; main_project_id: number | null
+    }>(sql`
+      SELECT f.id, f.original_filename, f.stored_filename, f.mime_type, f.size_bytes, f.kind, f.created_at,
+             f.main_project_id, ${fileRefCountSql(sql.raw("f.id"))} AS reference_count
+      FROM file f
+      WHERE ${projectFilter(project)} AND f.kind <> ${MODEL_THUMB_KIND}
+      ORDER BY f.created_at DESC
+    `),
+    listThumbs(),
+  ])
+  const thumbOf = (stored: string) => {
+    const written = thumbs.get(stored)
+    return written === undefined ? null : thumbUrl(stored, written)
+  }
   res.json(rows.map((row) => ({
     id:               row.id,
     originalFilename: row.original_filename,
@@ -91,24 +103,20 @@ filesRouter.get("/api/files", requireAdmin, async (req, res) => {
     createdAt:        row.created_at,
     referenceCount:   Number(row.reference_count),
     url:              `/media/${row.stored_filename}`,
+    thumbUrl:         thumbOf(row.stored_filename),
     projectId:        row.main_project_id === null ? null : Number(row.main_project_id),
   })))
 })
 
 //WHAT A ROW-LESS OBJECT IS. The bucket holds the stored files (one row each)
-//and .cache/{format}/{width}/{stored}.{format}, the resized copies of a still.
-//An object is stray when its row is gone, or for a copy, its source's row.
-const CACHE_PREFIX = ".cache/"
-const CACHE_KEY = /^\.cache\/[a-z]+\/\d+\/(.+)\.[a-z]+$/
+//and their derived objects under .cache (derived.ts): the resized copies of a
+//still, the thumbnail of anything else. An object is stray when its row is
+//gone, or for a derived object, its source's row.
 
 //Newer files are never orphans: a file picked in an unsaved edit has no reference yet
 const ORPHAN_MIN_AGE_MS = 60 * 60 * 1000
 //Bucket requests sent at once
 const BUCKET_BATCH = 8
-
-function sourceOf(key: string): string {
-  return CACHE_KEY.exec(key)?.[1] ?? key
-}
 
 //The number of distinct source files behind these objects
 function sourceCount(objects: StoredObject[]): number {
@@ -139,6 +147,12 @@ async function deleteKeys(keys: string[]): Promise<void> {
   for (let i = 0; i < keys.length; i += BUCKET_BATCH) {
     await Promise.all(keys.slice(i, i + BUCKET_BATCH).map(deleteObject))
   }
+}
+
+//One stored file's bytes and everything derived from them. A failure leaves
+//them stray: the sweep takes them.
+export async function deleteStoredFile(stored: string): Promise<void> {
+  await deleteKeys([stored, ...derivativeKeys(stored)])
 }
 
 function sum(objects: StoredObject[]): number {
@@ -216,8 +230,21 @@ filesRouter.delete("/api/files/:id", requireAdmin, async (req, res) => {
     res.status(409).json({ error: "file is still referenced", referenceCount: await fileRefCount(id) })
     return
   }
-  await deleteKeys([row.stored_filename, ...derivativeKeys(row.stored_filename)])
+  await deleteStoredFile(row.stored_filename)
   res.json({ ok: true })
+})
+
+//THE THUMBNAIL OF A FILE THAT IS NOT AN IMAGE, drawn by the admin's browser:
+//the body is the picture. It is encoded again here and kept as a derived
+//object of the file, replacing the one before.
+filesRouter.put("/api/files/:id/thumbnail", requireAdmin, pictureBody, async (req, res) => {
+  const id = uuidParam(req, "id")
+  const [row] = await db.select({ stored: fileTable.storedFilename }).from(fileTable).where(eq(fileTable.id, id))
+  if (!row) notFound()
+  if (isRaster(row.stored)) throw new HttpError(400, "an image is its own preview, it takes no thumbnail")
+  const picture = await encodePicture(receivedPicture(req), THUMB_SIDE)
+  await writeObject(thumbKey(row.stored), picture.data)
+  res.json({ thumbUrl: thumbUrl(row.stored, Date.now()) })
 })
 
 //returns the new file row and its /media url. ?project=<id> files it in that

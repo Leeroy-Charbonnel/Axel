@@ -43,8 +43,11 @@ export interface Model3dDto {
   glbUrl:          string
   //the copy with smaller textures that touch devices load; null: not made yet
   glbPhoneUrl:     string | null
+  //a render of the model from its start view, made by the admin's browser
   thumbnailFileId: string | null
   thumbnailUrl:    string | null
+  //admin only. false: no render yet, the next admin screen showing the model makes it
+  thumbnailRendered?: boolean
   viewerSettings:  unknown | null
   views:           Model3dView[]
 }

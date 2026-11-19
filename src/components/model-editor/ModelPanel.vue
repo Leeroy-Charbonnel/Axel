@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from "vue"
 import { FileUp, Gauge, ListChecks, TriangleAlert } from "lucide-vue-next"
+import { useThumbnails } from "../admin/media/thumbnails"
 import { useMediaLibrary } from "../admin/media/useMediaLibrary"
 import { useLang } from "../../composables/useLang"
 import { apiJson, usePortfolio } from "../../composables/usePortfolio"
@@ -112,6 +113,8 @@ async function replace() {
     await apiJson("PUT", `/api/models/${row.id}`, { glbFileId: file.id, sourceGlbFileId: null })
     ed.setGlb(file.url, null)
     await portfolio.reload()
+    //another file: the model's picture is rendered again, in the background
+    useThumbnails().requestModelThumb(row.id, row.name, true)
   } catch (e) {
     console.error("[model-editor] replace failed:", e)
   }

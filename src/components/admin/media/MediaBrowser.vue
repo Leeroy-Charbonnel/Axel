@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, ref, watch } from "vue"
-import { Box, Brush, Check, FileText, Film, ImageIcon, RefreshCw, Sun, Trash2, Upload } from "lucide-vue-next"
+import { Brush, Check, RefreshCw, Trash2, Upload } from "lucide-vue-next"
 import {
   MEDIA_TYPES, acceptFor, inScope, mediaTypeOf, mediaTypeOfUpload, reportFailure, useMediaLibrary,
   type MediaFile, type MediaType, type StorageSummary,
@@ -10,17 +10,15 @@ import { useEditor } from "../../../composables/useEditor"
 import { useToast } from "../../../composables/useToast"
 import { useTranslations } from "../../../composables/useTranslations"
 import { formatBytes } from "../../../lib/format"
-import { IMAGE_SIZES } from "../../../lib/media"
-import SiteImage from "../../SiteImage.vue"
+import FileThumb from "./FileThumb.vue"
 
 //THE FILE GRID - shared by the picker dialog ("pick"), the settings files tab
 //and a project's files panel ("manage"). Search, type filter, upload (button
-//or drop), previews. With a project: manage shows its files only, pick shows
-//its files and the shared ones, and uploads go to its folder. Manage mode
-//also shows the storage used and sweeps the orphans; a deletion waits for Save.
-//compact: inside a panel.
+//or drop), a picture of every file (FileThumb). With a project: manage shows
+//its files only, pick shows its files and the shared ones, and uploads go to
+//its folder. Manage mode also shows the storage used and sweeps the orphans;
+//a deletion waits for Save. compact: inside a panel.
 
-const ICONS = { image: ImageIcon, video: Film, model: Box, hdr: Sun, document: FileText }
 //placeholders drawn before the very first answer; later loads keep the last list on screen
 const SKELETON_TILES = 8
 //Tiles drawn at once, "show more" adds as many
@@ -313,7 +311,7 @@ onMounted(() => {
         <span class="media__storage-total">
           {{ compact ? formatBytes(summary.totalBytes) : t('mediaStorage').replace('{size}', formatBytes(summary.totalBytes)) }}
         </span>
-        <span v-if="!compact" class="media__storage-meta">{{ t('mediaStorageCache').replace('{size}', formatBytes(summary.cacheBytes)) }}</span>
+        <span v-if="!compact" class="media__storage-meta">{{ t('mediaStorageDerived').replace('{size}', formatBytes(summary.cacheBytes)) }}</span>
         <span class="media__storage-meta">{{ compact ? `· ${orphanText}` : orphanText }}</span>
         <button
           v-if="orphanCount"
@@ -358,8 +356,7 @@ onMounted(() => {
           @click="onTile(f)"
         >
           <span class="media__preview">
-            <SiteImage v-if="mediaTypeOf(f) === 'image'" :src="f.url" :sizes="IMAGE_SIZES.tile" />
-            <component :is="ICONS[mediaTypeOf(f) ?? 'document']" v-else :size="PREVIEW_ICON_SIZE" aria-hidden="true" />
+            <FileThumb :file="f" :icon-size="PREVIEW_ICON_SIZE" />
             <span v-if="chosen.includes(f.id)" class="media__check"><Check :size="CHECK_ICON_SIZE" /></span>
           </span>
           <span class="media__name" :title="f.originalFilename">{{ f.originalFilename }}</span>
@@ -511,12 +508,6 @@ button.media__card:focus-visible { outline: none; box-shadow: var(--editor-focus
   color: var(--editor-text-muted);
   background-color: var(--editor-input-bg);
   border-radius: var(--editor-radius);
-}
-
-.media__preview img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
 }
 
 .media__tile--skeleton .media__preview { background-color: var(--editor-surface-raised); }

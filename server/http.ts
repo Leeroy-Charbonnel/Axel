@@ -3,18 +3,11 @@ import { z } from "zod"
 import { fromNodeHeaders } from "better-auth/node"
 import { auth, ADMIN_ROLE } from "../auth"
 import { ALLOWED_ORIGINS } from "../env"
+import { HttpError } from "./errors"
+
+export { HttpError }
 
 export type SessionUser = typeof auth.$Infer.Session.user
-
-//An error carrying its own status reaches the client with its message; the
-//global handler in server.ts answers everything else with a bare 500.
-export class HttpError extends Error {
-  status: number
-  constructor(status: number, message: string) {
-    super(message)
-    this.status = status
-  }
-}
 
 export function notFound(): never {
   throw new HttpError(404, "not found")

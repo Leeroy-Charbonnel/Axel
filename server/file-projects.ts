@@ -1,8 +1,8 @@
 import { eq, sql } from "drizzle-orm"
 import { db } from "../db/index"
 import { file as fileTable } from "../db/schema"
-import { derivativeKeys } from "./images"
-import { deleteObject, objectExists, objectFile, writeObject } from "./storage"
+import { derivativeKeys, thumbKey } from "./derived"
+import { deleteObject, objectExists, objectFile, readObject, writeObject } from "./storage"
 import { folderFor } from "./uploads"
 
 //ONE FOLDER PER PROJECT. A file referenced by one main project only lives in
@@ -96,11 +96,14 @@ export async function planFiling(): Promise<Filing[]> {
 }
 
 //Moves one file: copy, then the row and every /media URL naming it, then the
-//old bytes and their resized copies. Run twice, it finds the copy done.
+//old bytes and their derived objects. Run twice, it finds the copy done.
 async function move(f: Filing): Promise<void> {
   if (f.to !== f.from) {
     //Read whole, then write: streaming one object into another fails on large files
     if (!(await objectExists(f.to))) await writeObject(f.to, new Uint8Array(await objectFile(f.from).arrayBuffer()))
+    //The thumbnail goes along: the server cannot make it again, a resized copy it can
+    const thumb = thumbKey(f.from)
+    if (await objectExists(thumb)) await writeObject(thumbKey(f.to), await readObject(thumb))
   }
   const oldUrl = `/media/${f.from}`
   const newUrl = `/media/${f.to}`

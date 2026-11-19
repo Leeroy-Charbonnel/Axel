@@ -83,6 +83,8 @@ export interface ViewerCore {
   //shadows, then each post-processing pass. pause() runs between two steps.
   //Frames are drawn on request from then on.
   warmUp(pause: () => Promise<void>): Promise<void>
+  //Draws one frame now, outside the loop: a still is taken right after it
+  renderNow(): void
   //loseContext: false when the context is already lost and should come back
   dispose(loseContext: boolean): void
 }
@@ -292,6 +294,9 @@ export function createViewerCore(canvas: HTMLCanvasElement, opts: ViewerCoreOpti
       }
       warm = true
       schedule()
+    },
+    renderNow() {
+      draw(0)
     },
     setActive(value) {
       active = value

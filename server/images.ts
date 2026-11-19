@@ -1,6 +1,7 @@
 import { Router } from "express"
 import sharp, { type Sharp } from "sharp"
 import { IMAGE_FORMATS, IMAGE_WIDTHS, storedImage, type ImageFormat } from "../src/lib/media"
+import { cacheKey } from "./derived"
 import { objectExists, readObject, sendObject, writeObject } from "./storage"
 
 //IMAGE DERIVATIVES. /media/{format}/{width}/{storedFilename} answers the
@@ -8,17 +9,7 @@ import { objectExists, readObject, sendObject, writeObject } from "./storage"
 //bucket under .cache/{format}/{width}/{storedFilename}.{format}. The /media
 //route never serves .cache raw. The cache holds derived bytes only: deleting
 //it is always safe.
-const CACHE_PREFIX = ".cache"
 const YEAR_SECONDS = 60 * 60 * 24 * 365
-
-//the cached copies of one stored image, every format and width
-export function derivativeKeys(stored: string): string[] {
-  return IMAGE_FORMATS.flatMap((f) => IMAGE_WIDTHS.map((w) => cacheKey(stored, f, w)))
-}
-
-function cacheKey(stored: string, format: ImageFormat, width: number): string {
-  return `${CACHE_PREFIX}/${format}/${width}/${stored}.${format}`
-}
 
 //an encode holds a decoded image in memory and a core busy
 const MAX_ENCODES = 2

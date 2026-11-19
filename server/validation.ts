@@ -214,17 +214,16 @@ const modelView = z.strictObject({
   aspect:    z.number().positive().optional(),
 })
 
+//the model's picture is not a field: PUT /api/models/:id/thumbnail stores a render
 export const modelCreate = z.strictObject({
   name:            z.string().trim().min(1, "name is required"),
   glbFileId:       fileId,
-  thumbnailFileId: fileId.nullable().optional(),
   views:           z.array(modelView).optional(),
 })
 
 export const modelPatch = z.strictObject({
   name:            z.string().trim().min(1, "name is required"),
   glbFileId:       fileId,
-  thumbnailFileId: fileId.nullable(),
   sourceGlbFileId: fileId.nullable(),
   views:           z.array(modelView),
 }).partial()

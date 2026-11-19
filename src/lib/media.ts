@@ -4,6 +4,12 @@ export const IMAGE_WIDTHS = [320, 640, 960, 1200, 1440, 1920]
 export const IMAGE_FORMATS = ["webp", "jpeg"] as const
 export type ImageFormat = (typeof IMAGE_FORMATS)[number]
 
+//THUMBNAILS THE ADMIN'S BROWSER MAKES (server/thumbs.ts). A file's thumbnail is
+//a square this many pixels wide: a library tile at twice its size.
+export const THUMB_SIDE = 400
+//A model's picture, also the poster of its viewer
+export const MODEL_THUMB = { width: 960, height: 540 }
+
 //Width and height of each image in a payload, keyed by its /media URL
 export type ImageSizes = Record<string, [number, number]>
 

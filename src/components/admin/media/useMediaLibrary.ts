@@ -20,6 +20,8 @@ export interface MediaFile {
   createdAt:        string
   referenceCount:   number
   url:              string
+  //the picture of a file that is not an image; null until the library made it (thumbnails.ts)
+  thumbUrl:         string | null
   projectId:        number | null
 }
 
@@ -101,7 +103,10 @@ async function load(): Promise<void> {
   error.value = null
   try {
     const list = await apiJson<MediaFile[]>("GET", "/api/files")
-    if (seq === loadSeq) files.value = list.filter((f) => !isPendingDelete(f))
+    if (seq !== loadSeq) return
+    //a list asked before a thumbnail was stored does not know it yet
+    for (const f of list) f.thumbUrl ??= madeThumbs.get(f.id) ?? null
+    files.value = list.filter((f) => !isPendingDelete(f))
   } catch (e) {
     reportFailure(e, "GET /api/files")
     if (seq !== loadSeq) return
@@ -110,6 +115,15 @@ async function load(): Promise<void> {
   } finally {
     if (seq === loadSeq) loading.value = false
   }
+}
+
+//THUMBNAILS made since the page loaded, by file id
+const madeThumbs = new Map<string, string>()
+
+function setThumb(id: string, thumbUrl: string): void {
+  madeThumbs.set(id, thumbUrl)
+  const file = files.value.find((f) => f.id === id)
+  if (file) file.thumbUrl = thumbUrl
 }
 
 //The list once per page load, then only reloads after a change
@@ -233,7 +247,7 @@ function finish(picked: MediaFile[]) {
 export function useMediaLibrary() {
   return {
     files, loading, uploading, error,
-    load, ensureLoaded, upload, remove, storage, sweepOrphans,
+    load, ensureLoaded, upload, remove, storage, sweepOrphans, setThumb,
     filesDirty, commitDeletes, discardDeletes,
     setMediaProject,
     request, pickMedia,

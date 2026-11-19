@@ -3,8 +3,10 @@ import { computed } from "vue"
 import { Box } from "lucide-vue-next"
 import Field from "./Field.vue"
 import SelectField from "./SelectField.vue"
+import ModelThumb from "../media/ModelThumb.vue"
 import { usePortfolio } from "../../../composables/usePortfolio"
 import { useTranslations } from "../../../composables/useTranslations"
+import { IMAGE_SIZES } from "../../../lib/media"
 
 //A 3D MODEL AND ITS VIEWS - pick one model_3d from the catalogue, then the
 //named view shown on desktop and on mobile. Picking a model starts both views
@@ -59,10 +61,7 @@ function pick(id: string | null) {
         :aria-checked="m.id === modelValue.model3dId"
         @click="pick(m.id)"
       >
-        <span class="ed-models__thumb">
-          <img v-if="m.thumbnailUrl" :src="m.thumbnailUrl" alt="" loading="lazy" />
-          <Box v-else :size="20" aria-hidden="true" />
-        </span>
+        <span class="ed-models__thumb"><ModelThumb :model="m" :sizes="IMAGE_SIZES.thumb" :icon-size="20" /></span>
         <span class="ed-models__name">{{ m.name }}</span>
       </button>
     </div>
@@ -115,12 +114,6 @@ function pick(id: string | null) {
   overflow: hidden;
   color: var(--editor-text-muted);
   background-color: var(--editor-input-bg);
-}
-
-.ed-models__thumb img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
 }
 
 .ed-models__name {

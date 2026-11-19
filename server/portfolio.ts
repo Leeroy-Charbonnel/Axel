@@ -12,6 +12,7 @@ import type { ImageSizes } from "../src/lib/media"
 import { describeIssues, isAdmin, sessionUser } from "./http"
 import { detailBlock, detailGrid } from "./validation"
 import { readTheme } from "./routes/theme"
+import { MODEL_THUMB_KIND } from "./thumbs"
 
 //PORTFOLIO - the whole site in one payload, file ids resolved to /media URLs.
 //Visitors get published rows only, and the models those rows show, from an
@@ -34,7 +35,7 @@ async function buildPortfolio(admin: boolean): Promise<PortfolioDto> {
     fileRows, softwareRows, projectRows, junctionRows, galleryRows,
     experienceRows, profileRows, prefRows, modelRows, theme,
   ] = await Promise.all([
-    db.select({ id: fileTable.id, storedFilename: fileTable.storedFilename, width: fileTable.width, height: fileTable.height })
+    db.select({ id: fileTable.id, storedFilename: fileTable.storedFilename, width: fileTable.width, height: fileTable.height, kind: fileTable.kind })
       .from(fileTable),
     db.select().from(software).orderBy(asc(software.sortOrder), asc(software.id)),
     db.select().from(mainProject)
@@ -69,6 +70,8 @@ async function buildPortfolio(admin: boolean): Promise<PortfolioDto> {
     return url
   }
   const urlOf = (id: string | null | undefined): string | null => track(id ? urlById.get(id) ?? null : null)
+  //the model pictures the admin's browser rendered, as opposed to an image picked by hand
+  const renders = new Set(fileRows.filter((f) => f.kind === MODEL_THUMB_KIND).map((f) => f.id))
 
   const softwareDtos: SoftwareDto[] = softwareRows.map((s) => ({
     id: s.id, key: s.key, url: s.url, logoFileId: s.logoFileId, logoUrl: urlOf(s.logoFileId),
@@ -168,6 +171,7 @@ async function buildPortfolio(admin: boolean): Promise<PortfolioDto> {
       glbPhoneUrl:     urlOf(m.phoneGlbFileId),
       thumbnailFileId: m.thumbnailFileId,
       thumbnailUrl:    urlOf(m.thumbnailFileId),
+      ...(admin ? { thumbnailRendered: m.thumbnailFileId !== null && renders.has(m.thumbnailFileId) } : {}),
       viewerSettings:  m.viewerSettings,
       views:           m.views,
     })),
