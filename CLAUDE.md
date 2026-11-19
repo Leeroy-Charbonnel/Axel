@@ -166,6 +166,7 @@ both. Text stays in the database, the `file` table holds one row per object.
     projects/{mainProjectId}/images|models|hdri/{uuid}{ext}   files of one main project
     shared/images|models|hdri|docs/{uuid}{ext}                everything else
     .cache/{format}/{width}/{stored}.{format}                 resized copies
+    .cache/thumb/{side}/{stored}.webp                         thumbnail of a model, an HDRI, a video
 
 `server/uploads.ts` receives files on the admin-only routes (multer writes a
 temp file, it is measured, sent to the bucket, then removed); `/media` streams
@@ -193,9 +194,24 @@ and every object no row names. `GET /api/files/storage` gives the total, the
 cache share and what the sweep would free. Never run the sweep while
 `file-projects` moves files: a copied object is row-less until its row moves.
 
+A file that is not an image gets its thumbnail from the admin's browser
+(`src/components/admin/media/thumbnails.ts`: one job at a time, only for tiles
+on screen): a render of the GLB, a tone-mapped HDR or EXR, a frame of the video.
+`PUT /api/files/:id/thumbnail` decodes it and encodes it again (`server/picture.ts`),
+stores it as a derived object of the file and `/media/thumb/{side}/{stored}`
+serves it. It moves and is deleted with its file (`server/derived.ts` names
+every derived object). A PDF keeps its icon.
+
+A 3D model's picture is always a render from its start view, never a chosen
+image: a `file` row of kind `thumbnail` in `thumbnail_file_id`, sent by the
+editor to `PUT /api/models/:id/thumbnail`. Saving the model's settings, a new
+GLB or deleting the model drops it; the next admin screen that shows the model
+renders it again. These rows are not listed in `GET /api/files`.
+
 Resized images (`/media/{format}/{width}/{stored}`, `server/images.ts`) are
 encoded once into `.cache` in the bucket. The cache is only reached through
-the resize route, never raw. Deleting `.cache` is always safe. At most two
+the resize route and the thumbnail route, never raw. Deleting `.cache` is always
+safe: copies are encoded again, the library makes the thumbnails again. At most two
 encodes run at once, and a source sharp cannot read answers 404 until the
 process restarts, without a new attempt. A row cannot be deleted while
 `fileRefCountSql` in `server/routes/files.ts` counts a reference to it; every
