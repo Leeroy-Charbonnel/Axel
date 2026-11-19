@@ -74,7 +74,7 @@ async function start(url: string | null | undefined) {
     ed.slots.value = v.materialSlots
     ed.meshNames.value = v.meshNames
     v.setMode(ed.preview.value)
-    gizmo = new LightGizmo(v.core, v.autoSetup!.bounds.radius, { onMove: moveLight, onDragging: (on) => { if (on) dragCount++ } })
+    gizmo = new LightGizmo(v.core, v.autoSetup!.bounds.radius, { onMove: moveLight, onDragging: startDrag })
     syncGizmo()
     phase.value = "ready"
     emit("ready", v, !loadedOnce)
@@ -125,6 +125,14 @@ function frameLights(now: [boolean, number], before: [boolean, number]) {
   if (before[0] && !now[0]) ed.viewer.value?.resetView()
   if (!lightsShown.value || !lights.length) return
   ed.viewer.value?.frameWith(lights.flatMap((l): Vec3[] => (l.type === "directional" ? [[l.x, l.y, l.z], [l.tx ?? 0, l.ty ?? 0, l.tz ?? 0]] : [[l.x, l.y, l.z]])))
+}
+
+//One undo step per drag. A camera still flying stops where it is: the flight
+//would hand the orbit back in the middle of the drag.
+function startDrag(dragging: boolean) {
+  if (!dragging) return
+  dragCount++
+  if (current) current.setCameraView(current.cameraView())
 }
 
 function moveLight(pick: LightPick, [x, y, z]: Vec3) {

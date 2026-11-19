@@ -165,6 +165,7 @@ async function buildPortfolio(admin: boolean): Promise<PortfolioDto> {
       name:            m.name,
       glbFileId:       m.glbFileId,
       glbUrl:          urlOf(m.glbFileId) ?? logMissingFile(m.id, m.glbFileId),
+      glbPhoneUrl:     urlOf(m.phoneGlbFileId),
       thumbnailFileId: m.thumbnailFileId,
       thumbnailUrl:    urlOf(m.thumbnailFileId),
       viewerSettings:  m.viewerSettings,
@@ -204,7 +205,6 @@ async function buildPortfolio(admin: boolean): Promise<PortfolioDto> {
       cvUrl:        urlOf(profileRow.cvFileId),
     } : null,
     editorPrefs: {
-      wireframeLineColor: prefs.get("editor3d_wireframe_line_color") ?? null,
       wireframeModeColor: prefs.get("editor3d_wireframe_mode_color") ?? null,
       wireframeMaterial:  prefs.get("editor3d_wireframe_material")   ?? null,
       wireframeLineWidth: prefs.get("editor3d_wireframe_line_width") ?? null,

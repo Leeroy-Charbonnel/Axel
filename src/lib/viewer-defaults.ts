@@ -21,7 +21,7 @@ export const VIEWER_DEFAULTS = {
   //pixels
   wireframeLineWidth: 1,
   //how the swept surfaces take the light
-  wireframeMaterial:  { color: "#ffffff", metalness: 0, roughness: 0.5, envMapIntensity: 1, specularIntensity: 1 },
+  wireframeMaterial:  { metalness: 0, roughness: 0.5, envMapIntensity: 1, specularIntensity: 1 },
   //the soft disc of light on the floor under every model: colour, opacity at
   //its centre, and diameter in model radii
   floorGlowColor:     "#ffffff",
@@ -35,12 +35,11 @@ export const VIEWER_DEFAULTS = {
 export const BLUEPRINT_LOOK = {
   lineColor:    "#8a8a8a",
   surfaceColor: "background",
-  material:     { color: "#000000", metalness: 0, roughness: 1, envMapIntensity: 0, specularIntensity: 0 },
+  material:     { metalness: 0, roughness: 1, envMapIntensity: 0, specularIntensity: 0 },
 } as const
 
 export const VIEWER_PREF_KEYS = {
   modeColor:      "editor3d_wireframe_mode_color",
-  lineColor:      "editor3d_wireframe_line_color",
   materialParams: "editor3d_wireframe_material",
   lineWidth:      "editor3d_wireframe_line_width",
 } as const

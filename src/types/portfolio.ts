@@ -41,6 +41,8 @@ export interface Model3dDto {
   name:            string
   glbFileId:       string
   glbUrl:          string
+  //the copy with smaller textures that touch devices load; null: not made yet
+  glbPhoneUrl:     string | null
   thumbnailFileId: string | null
   thumbnailUrl:    string | null
   viewerSettings:  unknown | null
@@ -349,7 +351,6 @@ export interface ProfileDto {
 //(ThreeViewer) layer these over the per-project values so a tweak in
 //one project propagates to every model on the site.
 export interface EditorPrefsDto {
-  wireframeLineColor: string | null
   wireframeModeColor: string | null
   wireframeMaterial:  string | null  //JSON-encoded WfMatParams
   wireframeLineWidth: string | null  //pixels, as stored

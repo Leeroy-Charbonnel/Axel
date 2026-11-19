@@ -50,7 +50,12 @@ watchEffect(() => {
     <SideNav v-if="withChrome" />
 
     <main id="main" ref="mainEl" tabindex="-1" class="portfolio-app__main">
-      <RouterView />
+      <!--the home page stays alive behind the other pages: coming back to it is instant-->
+      <RouterView v-slot="{ Component }">
+        <KeepAlive include="HomePage">
+          <component :is="Component" />
+        </KeepAlive>
+      </RouterView>
       <SiteFooter v-if="withChrome" />
     </main>
 

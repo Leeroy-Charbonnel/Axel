@@ -152,7 +152,7 @@ for the built app.
 - `requireAdmin` refuses a non-GET request whose `Origin` is not in
   `ALLOWED_ORIGINS` (403), so a sibling subdomain cannot ride the cookie.
 - GLB optimization runs in a worker (`server/glb-optimize.worker.ts`), one job
-  at a time, stopped after 5 minutes.
+  at a time, stopped after 5 minutes. It makes the full copy and the phone copy.
 - Helmet sends a CSP. A new third-party origin (an embed, a CDN) fails until it
   is added to the directives in `server.ts`.
 
@@ -346,3 +346,84 @@ The saved map lives in the single-row `site_theme` table, is sent in the public
 portfolio payload and in the server HTML, and is applied as CSS variables on
 `<html>` for every visitor. Every other colour token derives from the base
 colours. A new editable token is one line in `THEME_VARS` and its label.
+
+# The 3D viewer loads in steps
+
+`src/three/` is the viewer core (`modelViewer.ts`, `core.ts`), shared by the
+public `ThreeViewer.vue` and the editor. What loads when:
+
+- every viewer of a page starts 1.5 s after it mounts, or when it comes near the
+  screen, and never for a visitor who asked to save data. One model at a time
+  (`loadQueue.ts`), in page order. A scroll pauses the next step.
+- a load is cut in steps, each a task of its own (`nextStep`): the studio probe,
+  the GLB parse, the shader compile, one texture upload per step, then the
+  first frame, then each post-processing pass. A step that would hold the page
+  for more than 100 ms gets cut again.
+- nothing is drawn before `core.warmUp()` ends. The first frame is drawn off
+  screen with its shadows: a shader that reads a shadow map needs one.
+- shaders compile off the main thread (`core.compile`), once per target they
+  draw into: the canvas, or a buffer when ambient occlusion or a see-through
+  material is there. A program compiled for the wrong target is compiled again
+  on the first frame, on the main thread.
+- the studio light is filtered by the first viewer and read back; the others
+  upload its pixels (`environment.ts`). The EXR loader, Draco and KTX2 are
+  fetched only for a file that needs them.
+- the shadow type stays three's default. `PCFSoftShadowMap` is deprecated: three
+  swaps it on the first frame, and every program is built twice.
+- dev only: three reads each shader log on first use (`checkShaderErrors`), so
+  first frames are slower there than in production.
+
+A touch device loads the phone copy of a model: `model_3d.phone_glb_file_id`,
+textures capped at 1024 px, made by the optimizer with the full copy. It equals
+`glb_file_id` when no texture is larger, and is empty until made:
+`bun scripts/optimize-models.ts` makes the missing ones. A new GLB on a model
+empties it. It is counted in `fileRefCountSql` and moved by `file-projects`.
+
+# The home page stays alive
+
+`App.vue` keeps `HomePage` alive (`KeepAlive`): opening a project and coming
+back shows the same page, its models loaded, at the scroll position it had.
+While it is aside, a model still loading gives its turn back and starts again
+on return. A touch device frees every model of the page aside: its memory is
+short, and a phone browser keeps few WebGL contexts.
+
+The router restores a saved position and opens a new page at its top at once.
+Only a jump to a section glides.
+
+# The viewer takes the wheel only on intent
+
+In `ThreeViewer.vue`, outside fullscreen:
+
+- the wheel zooms once the pointer rested 0.6 s on the viewer without a wheel or
+  a page scroll, or after a press on it. Before that the page scrolls.
+- a finger moving up or down scrolls the page (`touch-action: pan-y`); sideways
+  it turns the model, two fingers zoom.
+
+Fullscreen and the 3D editor take every wheel and every touch at once.
+
+# Wireframe colours belong to the model
+
+`viewerSettings.wireframeMode.surfaceColor` and `lineColor`: a fixed colour, or
+`"background"`, the site background read from `--background`
+(`src/three/wireColor.ts`). Missing: white surfaces, black lines. A surface in
+`"background"` is left clear, the page shows through it. A line in
+`"background"` is read again when the theme changes.
+
+Shared by every model, from the admin's `editor3d_*` settings: the glow colour,
+the line width and how the swept surfaces take the light. The blueprint look of
+a `viewer3d` block gives grey lines over clear surfaces to a model without
+colours of its own.
+
+# The 3D editor
+
+`/edit-3d/:id`, tabs Scene, Lights, Materials, Wireframe, Model. One document
+(`useModelEditor.ts`): nothing is written before Save, Discard restores the
+saved copy, every control is one undo step.
+
+- lights are handles in the viewport while the Lights tab is open
+  (`model-editor/lightGizmo.ts`, three's TransformControls): a click picks a
+  light or the target of a sun, the arrows move it, one undo step per drag. A
+  moved light is updated in place, its shadow map kept.
+- each look (render, wireframe) has its environment: a map, its strength, its
+  rotation, and whether it is drawn behind the model. A map is made opaque when
+  it loads: some files carry an alpha channel.

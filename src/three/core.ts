@@ -1,6 +1,6 @@
 import {
-  HalfFloatType, NeutralToneMapping, PCFShadowMap, PCFSoftShadowMap, PerspectiveCamera, Scene, WebGLRenderer,
-  WebGLRenderTarget,
+  BackSide, DoubleSide, HalfFloatType, type Material, NeutralToneMapping, PerspectiveCamera, Scene, type Side,
+  WebGLRenderer, WebGLRenderTarget,
 } from "three"
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js"
 import { EffectComposer } from "three/examples/jsm/postprocessing/EffectComposer.js"
@@ -15,6 +15,8 @@ import { detectQuality, lowerQuality, QUALITY_PROFILES, type Quality, type Quali
 //
 //Nothing draws unless something asked: a control change, a resize, or a frame
 //callback that reports it is still animating. One WebGL context per core.
+//Nothing draws at all before warmUp(): the first frame is the heaviest, and
+//it is prepared there in steps.
 //The quality level (quality.ts) sets the pixel ratio, the shadows and, at the
 //top level, ambient occlusion through a post-processing pass, multisampled and
 //transparent like the canvas; otherwise the default framebuffer's MSAA. A level
@@ -71,8 +73,14 @@ export interface ViewerCore {
   onResize(cb: (width: number, height: number) => void): void
   //false stops the loop entirely (offscreen, hidden tab)
   setActive(active: boolean): void
-  //draws one frame even while inactive: uploads and shadow maps happen now, not on screen
-  warmUp(): void
+  //Starts the scene's shaders compiling off the main thread. Resolves once they
+  //can draw. seeThrough: the materials that show the scene behind them.
+  //pause() runs between two passes.
+  compile(seeThrough: Material[], pause: () => Promise<void>): Promise<void>
+  //Draws the first frame in steps, even while inactive: the scene with its
+  //shadows, then each post-processing pass. pause() runs between two steps.
+  //Frames are drawn on request from then on.
+  warmUp(pause: () => Promise<void>): Promise<void>
   //loseContext: false when the context is already lost and should come back
   dispose(loseContext: boolean): void
 }
@@ -110,10 +118,6 @@ export function createViewerCore(canvas: HTMLCanvasElement, opts: ViewerCoreOpti
   function applyPixelRatio() {
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, opts.maxPixelRatio, profile.maxPixelRatio))
   }
-  function applyShadows() {
-    renderer.shadowMap.type = profile.softShadows ? PCFSoftShadowMap : PCFShadowMap
-    renderer.shadowMap.needsUpdate = true
-  }
   function syncComposer() {
     const want = profile.ambientOcclusion && aoAllowed
     if (want && !composer) {
@@ -146,24 +150,28 @@ export function createViewerCore(canvas: HTMLCanvasElement, opts: ViewerCoreOpti
     level = next
     profile = QUALITY_PROFILES[next]
     applyPixelRatio()
-    applyShadows()
     syncComposer()
     resize()
     for (const cb of qualityCallbacks) cb(profile)
   }
   applyPixelRatio()
-  applyShadows()
 
   const frameCallbacks = new Set<FrameCallback>()
   const renderedCallbacks: Array<() => void> = []
   const resizeCallbacks: Array<(w: number, h: number) => void> = []
   let rafId: number | null = null
   let active = true
+  let warm = false
   let disposed = false
   let last = 0
 
   function schedule() {
-    if (rafId === null && active && !disposed) rafId = requestAnimationFrame(tick)
+    if (rafId === null && active && warm && !disposed) rafId = requestAnimationFrame(tick)
+  }
+
+  function draw(dt: number) {
+    if (composer) composer.render(dt)
+    else renderer.render(scene, camera)
   }
 
   function tick(now: number) {
@@ -175,8 +183,7 @@ export function createViewerCore(canvas: HTMLCanvasElement, opts: ViewerCoreOpti
     for (const cb of frameCallbacks) busy = cb(dt, now) || busy
     //true while damping is still settling
     if (controls.enabled && controls.update()) busy = true
-    if (composer) composer.render(dt)
-    else renderer.render(scene, camera)
+    draw(dt)
     for (const cb of renderedCallbacks) cb()
     if (busy) {
       measure(dt)
@@ -231,10 +238,56 @@ export function createViewerCore(canvas: HTMLCanvasElement, opts: ViewerCoreOpti
     onResize(cb) {
       resizeCallbacks.push(cb)
     },
-    warmUp() {
-      if (disposed) return
-      if (composer) composer.render(0)
-      else renderer.render(scene, camera)
+    async compile(seeThrough, pause) {
+      //A program is built for what it draws into: the canvas, or a buffer. The
+      //composer draws into buffers only; a see-through material reads the
+      //opaque parts from a buffer three fills first, with the back faces of
+      //the two-sided see-through materials. One pass each, a task each: a pass
+      //writes the source of every shader it needs.
+      const twoSided = seeThrough.filter((m) => m.side === DoubleSide)
+      const intoBuffer = composer !== null || seeThrough.length > 0
+      const passes: Array<{ buffer: boolean; side: Side }> = []
+      if (!composer) passes.push({ buffer: false, side: DoubleSide })
+      if (intoBuffer) passes.push({ buffer: true, side: DoubleSide })
+      if (intoBuffer && twoSided.length > 0) passes.push({ buffer: true, side: BackSide })
+      const buffer = new WebGLRenderTarget(1, 1)
+      const jobs: Promise<unknown>[] = []
+      for (const [i, pass] of passes.entries()) {
+        if (i > 0) await pause()
+        for (const m of twoSided) {
+          if (m.side === pass.side) continue
+          m.side = pass.side
+          m.needsUpdate = true
+        }
+        renderer.setRenderTarget(pass.buffer ? buffer : null)
+        jobs.push(renderer.compileAsync(scene, camera))
+        renderer.setRenderTarget(null)
+      }
+      for (const m of twoSided) {
+        if (m.side === DoubleSide) continue
+        m.side = DoubleSide
+        m.needsUpdate = true
+      }
+      buffer.dispose()
+      await Promise.all(jobs)
+    },
+    async warmUp(pause) {
+      const staged = composer
+      const later = staged ? staged.passes.slice(1) : []
+      for (const pass of later) pass.enabled = false
+      //the scene pass alone would draw on the canvas, with other programs
+      if (staged) staged.renderToScreen = false
+      //the scene with its shadows: a shader that reads a shadow map needs one
+      draw(0)
+      for (const pass of later) {
+        await pause()
+        if (disposed) return
+        pass.enabled = true
+        if (pass === later[later.length - 1]) staged!.renderToScreen = true
+        draw(0)
+      }
+      warm = true
+      schedule()
     },
     setActive(value) {
       active = value

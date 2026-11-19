@@ -5,8 +5,12 @@ import { authClient, type SessionUser } from "../lib/authClient"
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   //back and forward return where the reader was; a new page opens at its top
-  //(previous / next project reuse the same component, so this is not automatic)
-  scrollBehavior: (to, _from, saved) => saved ?? (to.hash ? { el: to.hash } : { top: 0 }),
+  //(previous / next project reuse the same component, so this is not automatic).
+  //Both at once: only a jump to a section of the page glides there.
+  scrollBehavior: (to, _from, saved) => {
+    if (saved) return { ...saved, behavior: "instant" }
+    return to.hash ? { el: to.hash } : { top: 0, behavior: "instant" }
+  },
   routes: [
     //Portfolio public landing page - single-page scroll layout
     { path: "/",                component: HomePage },

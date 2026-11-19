@@ -9,19 +9,19 @@ let coreDisposed = 0
 mock.module("../../src/three/core", () => ({
   createViewerCore: () => ({
     renderer: {
-      compileAsync: () => new Promise<void>((resolve) => { finishCompile = resolve }),
       getSize:      (v: Vector2) => v.set(800, 600),
       capabilities: { getMaxAnisotropy: () => 1 },
     },
     scene:    new Scene(),
     camera:   new PerspectiveCamera(),
     controls: { addEventListener: () => {}, target: new Vector3(), update: () => {} },
+    compile:          () => new Promise<void>((resolve) => { finishCompile = resolve }),
     requestRender:    () => {},
     addFrameCallback: () => () => {},
     onResize:         () => {},
     onQualityChange:  () => {},
     onRendered:       () => {},
-    quality:          { maxPixelRatio: 1, shadowMapSize: 1024, softShadows: false, ambientOcclusion: false, anisotropy: 1 },
+    quality:          { maxPixelRatio: 1, shadowMapSize: 1024, ambientOcclusion: false, anisotropy: 1 },
     setModelRadius:   () => {},
     setAmbientOcclusionAllowed: () => {},
     setActive:        () => {},
@@ -30,6 +30,7 @@ mock.module("../../src/three/core", () => ({
 }))
 mock.module("../../src/three/environment", () => ({
   EnvironmentManager: class {
+    compiling = null
     set() { return Promise.resolve() }
     dispose() {}
   },
@@ -48,8 +49,8 @@ describe("ModelViewer dispose during the shader compile", () => {
   test("the renderer is released only once the compile has settled", async () => {
     const viewer = new ModelViewer({ canvas: {} as HTMLCanvasElement, maxPixelRatio: 1, reducedMotion: true, glowColor: "#00ffff" } as ConstructorParameters<typeof ModelViewer>[0])
     const loading = viewer.load("/media/models/x.glb", {} as Parameters<typeof viewer.load>[1], () => {})
-    //let load() run up to the pending compile
-    for (let i = 0; i < 20; i++) await Promise.resolve()
+    //let load() run up to the pending compile, past the task it starts in
+    await new Promise((resolve) => setTimeout(resolve, 20))
     viewer.dispose(true)
     expect(coreDisposed).toBe(0)
     finishCompile()

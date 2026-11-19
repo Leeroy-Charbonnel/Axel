@@ -1,51 +1,18 @@
-import { computed, ref } from "vue"
+import { computed } from "vue"
 import { authClient, type SessionUser } from "../lib/authClient"
 
-//SHARED admin state - one session lookup per app load, cached in module scope.
-//No localStorage: the session lives in the better-auth cookie. Edit mode is
-//not here: it belongs to useEditor.
-
-const session  = ref<SessionUser | null>(null)
-const loaded   = ref(false)
-
-let inFlight: Promise<void> | null = null
-
-async function refreshSession() {
-  if (inFlight) return inFlight
-  inFlight = (async () => {
-    try {
-      const { data } = await authClient.getSession()
-      session.value = (data?.user ?? null) as SessionUser | null
-    } catch (e) {
-      console.warn("[useAdmin] getSession failed:", e)
-      session.value = null
-    } finally {
-      loaded.value = true
-      inFlight = null
-    }
-  })()
-  return inFlight
-}
-
-if (typeof window !== "undefined") {
-  void refreshSession()
-}
+//SHARED admin state, read from the auth client's own session store: one
+//lookup per app load for every reader (useSettings, the auth pages), and the
+//store follows a sign-in or a sign-out by itself. No localStorage: the session
+//lives in the better-auth cookie. Edit mode is not here: it belongs to useEditor.
+const session = authClient.useSession()
+const isAdmin = computed(() => (session.value.data?.user as SessionUser | undefined)?.role === "admin")
 
 export function useAdmin() {
-  const isAdmin    = computed(() => session.value?.role === "admin")
-  const isLoggedIn = computed(() => session.value !== null)
-
   async function signOut() {
-    await authClient.signOut()
-    session.value = null
+    const { error } = await authClient.signOut()
+    if (error) throw new Error(`sign out failed (${error.status}): ${error.message}`)
   }
 
-  return {
-    session,
-    isAdmin,
-    isLoggedIn,
-    loaded,
-    signOut,
-    refresh: refreshSession,
-  }
+  return { isAdmin, signOut }
 }

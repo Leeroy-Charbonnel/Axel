@@ -47,7 +47,7 @@ function freshUniformSet(boost: number): SweepUniformSet {
   return {
     uWfProgress:      { value: 0 },
     uWfReverse:       { value: 0 },
-    uWfTint:          { value: new Color(wf.color) },
+    uWfTint:          { value: new Color(VIEWER_DEFAULTS.wireframeSurfaceColor) },
     uWfAxis:          { value: new Vector3(1, 0, 0) },
     uWfMin:           { value: 0 },
     uWfRange:         { value: 1 },

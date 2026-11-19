@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref, shallowRef, watch } from "vue"
+import { computed, onActivated, onBeforeUnmount, onDeactivated, onMounted, ref, shallowRef, watch } from "vue"
 import { Box, Cylinder, Grid3x3, Maximize, Minimize, TriangleAlert } from "lucide-vue-next"
 import { useLanguage } from "../../composables/useLanguage"
 import SiteImage from "../SiteImage.vue"
@@ -163,10 +163,12 @@ async function start() {
         glowColor: accent.value,
       })
       viewer.value = created
+      //the orbit controls just claimed every touch move on the canvas
+      syncTouchAction()
       syncActive()
       await created.load(props.glbUrl, settingsOrEmpty(), (loaded, total) => {
         progress.value = total ? loaded / total : null
-      })
+      }, mode.value)
       return created
     })
     if (!v || run !== generation) return
@@ -221,7 +223,8 @@ function onVisibilityChange() {
 
 //WHEEL INTENT - a wheel that passes over the viewer while scrolling the page
 //keeps scrolling it. The wheel zooms once the pointer rested on the viewer
-//without a page scroll, or after a press on it.
+//without a wheel or a page scroll, or after a press on it. Fullscreen has no
+//page to scroll: the wheel zooms at once.
 let hovering = false
 let zoomArmed = false
 let armTimer: ReturnType<typeof setTimeout> | undefined
@@ -255,7 +258,16 @@ function onPageScroll() {
 
 //capture phase: a wheel the viewer must not take never reaches the controls
 function onWheel(e: WheelEvent) {
-  if (!zoomArmed && !isFullscreen.value) e.stopPropagation()
+  if (zoomArmed || isFullscreen.value) return
+  e.stopPropagation()
+  //a trackpad keeps sending wheels after the page reached its end: still the same scroll
+  rearm()
+}
+
+//TOUCH - a finger that moves up or down scrolls the page, as the wheel does;
+//sideways it turns the model, two fingers zoom. Fullscreen takes every move.
+function syncTouchAction() {
+  if (canvas.value) canvas.value.style.touchAction = isFullscreen.value ? "none" : "pan-y"
 }
 
 function saveData(): boolean {
@@ -264,6 +276,7 @@ function saveData(): boolean {
 
 function onFullscreenChange() {
   isFullscreen.value = document.fullscreenElement === root.value
+  syncTouchAction()
 }
 
 async function toggleFullscreen() {
@@ -298,6 +311,24 @@ onMounted(() => {
   el.addEventListener("pointerdown", onPress)
   window.addEventListener("scroll", onPageScroll, { passive: true })
   if (!saveData()) eagerTimer = setTimeout(() => { if (phase.value === "idle") void start() }, EAGER_START_MS)
+})
+
+//KEPT ALIVE - the home page stays behind an open project. A loaded model stays
+//with it, so coming back shows it at once. A load still running gives its turn
+//to the page on screen, and a phone frees every model: its memory is short.
+let aside = false
+onDeactivated(() => {
+  aside = true
+  clearTimeout(eagerTimer)
+  if (phase.value !== "loading" && !(touch && phase.value === "ready")) return
+  teardown(false)
+  phase.value = "idle"
+})
+onActivated(() => {
+  //the first activation is the mount itself
+  if (!aside) return
+  aside = false
+  if (phase.value === "idle" && !saveData()) void start()
 })
 
 onBeforeUnmount(() => {

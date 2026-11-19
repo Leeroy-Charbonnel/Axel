@@ -8,7 +8,8 @@ import sharp from "sharp"
 //changing what it shows: duplicates merged, unused data dropped, vertices
 //welded, animations resampled, textures capped at 2048 px and re-encoded to
 //WebP, geometry quantized and meshopt-compressed (EXT_meshopt_compression,
-//decoded by the viewer's MeshoptDecoder).
+//decoded by the viewer's MeshoptDecoder). The phone copy is the same with
+//textures capped at 1024 px.
 //
 //Triangles are never reordered (no reorder(), which meshopt() would run): the
 //viewer finds quad diagonals from the order the exporter wrote the triangles in.
@@ -18,9 +19,12 @@ export interface OptimizeReport {
   bytesAfter:  number
   triangles:   number
   textures:    number
+  //longest side of the largest texture kept, in pixels
+  largestTexture: number
 }
 
 const DEFAULT_MAX_TEXTURE_SIZE = 2048
+export const PHONE_MAX_TEXTURE_SIZE = 1024
 const COLOR_QUALITY = 85
 
 let ioReady: Promise<NodeIO> | null = null
@@ -94,6 +98,7 @@ export async function optimizeGlb(
       bytesAfter:  output.byteLength,
       triangles,
       textures:    doc.getRoot().listTextures().length,
+      largestTexture: Math.max(0, ...doc.getRoot().listTextures().flatMap((t) => t.getSize() ?? [])),
     },
   }
 }

@@ -61,7 +61,6 @@ export class LightGizmo {
   private readonly ringGeometry: SphereGeometry
   private readonly picks = new Map<Object3D, LightPick>()
   private selected: LightPick | null = null
-  private orbitWasEnabled = true
 
   constructor(core: ViewerCore, modelRadius: number, hooks: LightGizmoHooks) {
     this.core = core
@@ -184,15 +183,9 @@ export class LightGizmo {
     this.picks.clear()
   }
 
-  //the camera stays still while a light is dragged
+  //the camera stays still while a light is dragged; the hook first, it stops a camera flight
   private onDragging(dragging: boolean): void {
-    const controls = this.core.controls
-    if (dragging) {
-      this.orbitWasEnabled = controls.enabled
-      controls.enabled = false
-    } else {
-      controls.enabled = this.orbitWasEnabled
-    }
     this.hooks.onDragging(dragging)
+    this.core.controls.enabled = !dragging
   }
 }

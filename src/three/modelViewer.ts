@@ -19,7 +19,7 @@ import { createViewerCore, type ViewerCore } from "./core"
 import { disposeObject } from "./dispose"
 import { EnvironmentManager, type EnvironmentSpec } from "./environment"
 import { LightRig, rigShape } from "./lights"
-import { untilScrollIdle } from "./loadQueue"
+import { nextStep } from "./loadQueue"
 import { type ProgressFn, loadGltf } from "./loaders"
 import {
   applyMaterialState,
@@ -135,6 +135,8 @@ export class ModelViewer {
   private introPending = false
   private disposed = false
   private compiling: Promise<unknown> | null = null
+  //settles once the last environment asked for is on the scene
+  private envReady: Promise<void> = Promise.resolve()
   //the label points in the scene, once the model is set on the ground
   private labelPoints: Vector3[] = []
   private labelListener: ((points: LabelPoint[]) => void) | null = null
@@ -184,11 +186,12 @@ export class ModelViewer {
     return [...new Set(this.meshes.map((m) => m.name).filter(Boolean))]
   }
 
-  //Rejects with the reason when the model cannot be shown.
-  async load(url: string, settings: ViewerSettings, onProgress: ProgressFn): Promise<void> {
+  //Rejects with the reason when the model cannot be shown. mode: the one the
+  //viewer opens in, so its first frame is prepared for it.
+  async load(url: string, settings: ViewerSettings, onProgress: ProgressFn, mode: ViewerMode = "render"): Promise<void> {
     this.settings = settings
     //the environment downloads alongside the model
-    const envReady = this.env.set(envSpec(settings.normalMode))
+    this.setEnvironment(envSpec(settings.normalMode))
     const gltf = await loadGltf(url, this.core.renderer, this.abort.signal, onProgress)
     const root = gltf.scene
     if (this.disposed) {
@@ -268,8 +271,8 @@ export class ModelViewer {
         this.lightMix = t
         this.rig?.setModeMix(t)
       },
-      onEntered: () => void this.env.set(envSpec(this.settings.wireframeMode)),
-      onLeaving: () => void this.env.set(envSpec(this.settings.normalMode)),
+      onEntered: () => this.setEnvironment(envSpec(this.settings.wireframeMode)),
+      onLeaving: () => this.setEnvironment(envSpec(this.settings.normalMode)),
       //the ambient occlusion pass would take the lines for surfaces: back once they are gone
       onLeft: () => this.core.setAmbientOcclusionAllowed(this.mode === "render"),
       requestRender: this.core.requestRender,
@@ -287,11 +290,12 @@ export class ModelViewer {
     }
 
     root.visible = true
-    await envReady
-    await untilScrollIdle()
+    this.setMode(mode, false)
+    await this.envReady
+    await nextStep()
     if (this.disposed) return
     //compile off the first frame where the driver allows it
-    this.compiling = this.core.renderer.compileAsync(this.core.scene, this.core.camera)
+    this.compiling = this.core.compile([...this.materials].filter((m) => "transmission" in m && m.transmission > 0), nextStep)
     try {
       await this.compiling
     } finally {
@@ -300,11 +304,16 @@ export class ModelViewer {
     if (this.disposed) return
 
     this.placeCamera()
-    //the first frame's heavy work done before the viewer is on screen
-    await untilScrollIdle()
+    //THE FIRST FRAME, prepared before the viewer is on screen, one step per
+    //task: each texture goes to the GPU alone, then the frame is drawn in parts
+    for (const texture of this.textures()) {
+      await nextStep()
+      if (this.disposed) return
+      this.core.renderer.initTexture(texture)
+    }
+    await nextStep()
     if (this.disposed) return
-    this.core.warmUp()
-    this.core.requestRender()
+    await this.core.warmUp(nextStep)
   }
 
   //Live edits from the admin. The camera stays where the visitor put it.
@@ -321,8 +330,8 @@ export class ModelViewer {
     this.core.requestRender()
   }
 
-  //Ignored until the model is loaded; the caller applies its mode after load().
-  //animate false: the mode a viewer opens in, shown at once
+  //Ignored until the model is loaded: load() takes the mode a viewer opens in.
+  //animate false: shown at once, no sweep
   setMode(mode: ViewerMode, animate = !this.opts.reducedMotion): void {
     if (!this.sweep || mode === this.mode) return
     const previous = this.mode
@@ -390,7 +399,7 @@ export class ModelViewer {
     this.abort.abort()
     //three's compile poll reads the materials' programs: freeing them under it
     //throws inside the poll, where nobody catches it
-    const compiling = this.compiling
+    const compiling = this.compiling ?? this.env.compiling
     if (compiling) {
       const release = () => this.release(loseContext)
       compiling.then(release, release)
@@ -494,16 +503,28 @@ export class ModelViewer {
   //sharp textures at grazing angles (wood grain on a side), as much as the level and the GPU allow
   private applyAnisotropy(): void {
     const level = Math.min(this.core.quality.anisotropy, this.core.renderer.capabilities.getMaxAnisotropy())
-    for (const mat of this.materials) {
-      for (const value of Object.values(mat)) {
-        const tex = value as Texture | null
-        if (tex?.isTexture && tex.anisotropy !== level) {
-          tex.anisotropy = level
-          tex.needsUpdate = true
-        }
-      }
+    for (const texture of this.textures()) {
+      if (texture.anisotropy === level) continue
+      texture.anisotropy = level
+      texture.needsUpdate = true
     }
     this.core.requestRender()
+  }
+
+  //every texture of the model, once
+  private textures(): Set<Texture> {
+    const found = new Set<Texture>()
+    for (const mat of this.materials) {
+      for (const value of Object.values(mat)) {
+        const texture = value as Texture | null
+        if (texture?.isTexture) found.add(texture)
+      }
+    }
+    return found
+  }
+
+  private setEnvironment(spec: EnvironmentSpec): void {
+    this.envReady = this.env.set(spec)
   }
 
   //the label points on screen, after every frame drawn
@@ -680,11 +701,7 @@ export class ModelViewer {
   private applyLighting(): void {
     const clay = this.mode === "clay"
     this.buildLights(clay)
-    if (clay) {
-      void this.env.set(CLAY_ENV)
-      return
-    }
-    void this.env.set(envSpec(this.sweep?.active ? this.settings.wireframeMode : this.settings.normalMode))
+    this.setEnvironment(clay ? CLAY_ENV : envSpec(this.sweep?.active ? this.settings.wireframeMode : this.settings.normalMode))
   }
 
   private buildLights(auto: boolean): void {

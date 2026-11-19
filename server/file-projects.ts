@@ -52,6 +52,8 @@ const OWNERS = sql`
       WHERE m.thumbnail_file_id IS NOT NULL
     UNION ALL SELECT m.source_glb_file_id, mo.owner FROM model_3d m JOIN model_owners mo ON mo.mid = m.id
       WHERE m.source_glb_file_id IS NOT NULL
+    UNION ALL SELECT m.phone_glb_file_id, mo.owner FROM model_3d m JOIN model_owners mo ON mo.mid = m.id
+      WHERE m.phone_glb_file_id IS NOT NULL
     UNION ALL SELECT (m.viewer_settings->mode->>'hdrId')::uuid, 0
       FROM model_3d m, unnest(ARRAY['normalMode', 'wireframeMode']) mode
       WHERE m.viewer_settings->mode->>'hdrId' ~ ${UUID}

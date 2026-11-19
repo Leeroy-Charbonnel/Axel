@@ -3,7 +3,7 @@ import { asc, eq, sql } from "drizzle-orm"
 import { db } from "../../db/index"
 import { file as fileTable, mainProject, model3d } from "../../db/schema"
 import { notFound, parse, parsePatch, requireAdmin, uuidParam } from "../http"
-import { glbFileRow, optimizeModel, optimizeStoredGlb, saveOptimizedGlb, type ModelRow } from "../model-optimize"
+import { glbFileRow, optimizedCopies, optimizeModel, optimizeStoredGlb, saveGlbCopies, type ModelRow } from "../model-optimize"
 import { modelCreate, modelPatch, viewerSettingsBody } from "../validation"
 
 //MODEL_3D - reusable 3D assets, admin only. The files (.glb, thumbnail) are
@@ -56,8 +56,9 @@ modelsRouter.get("/api/models/:id", requireAdmin, async (req, res) => {
 })
 
 //The GLB is optimized on the way in: the model points at the optimized copy
-//and keeps the upload in source_glb_file_id. When the optimizer refuses the
-//file the model is created on the upload as it is, and the answer says why.
+//and at the phone copy, and keeps the upload in source_glb_file_id. When the
+//optimizer refuses the file the model is created on the upload as it is, and
+//the answer says why.
 modelsRouter.post("/api/models", requireAdmin, async (req, res) => {
   const body = parse(modelCreate, req.body)
   const values = {
@@ -77,8 +78,10 @@ modelsRouter.post("/api/models", requireAdmin, async (req, res) => {
   let row: ModelRow
   if (optimized) {
     let inserted: ModelRow | undefined
-    await saveOptimizedGlb(source, optimized.output, async (tx, file) => {
-      [inserted] = await tx.insert(model3d).values({ ...values, glbFileId: file.id, sourceGlbFileId: source.id }).returning()
+    await saveGlbCopies(source, optimizedCopies(optimized), async (tx, [full, phone = full]) => {
+      [inserted] = await tx.insert(model3d)
+        .values({ ...values, glbFileId: full!.id, sourceGlbFileId: source.id, phoneGlbFileId: phone!.id })
+        .returning()
     })
     row = inserted!
   } else {
@@ -100,8 +103,10 @@ modelsRouter.put("/api/models/:id", requireAdmin, async (req, res) => {
   const id = uuidParam(req, "id")
   const patch = parsePatch(modelPatch, req.body)
   if (patch.glbFileId) await glbFileRow(patch.glbFileId)
+  //a new file: the phone copy was made from the old one
+  const phone = patch.glbFileId ? { phoneGlbFileId: null } : {}
   const [row] = await db.update(model3d)
-    .set({ ...patch, updatedAt: new Date() })
+    .set({ ...patch, ...phone, updatedAt: new Date() })
     .where(eq(model3d.id, id))
     .returning({ id: model3d.id })
   if (!row) notFound()

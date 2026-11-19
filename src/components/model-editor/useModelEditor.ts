@@ -88,8 +88,6 @@ const toast = useToast()
 //what the public viewer would apply: the model settings under the global prefs
 function prefsDto(p: GlobalPrefs): EditorPrefsDto {
   return {
-    //no longer a shared setting: each model has its own line colour
-    wireframeLineColor: null,
     wireframeModeColor: p.modeColor,
     wireframeMaterial:  JSON.stringify(p.material),
     wireframeLineWidth: String(p.lineWidth),
@@ -193,7 +191,7 @@ function discard() {
 const PREF_ROWS: { key: string; value: (p: GlobalPrefs) => string; description: string }[] = [
   { key: VIEWER_PREF_KEYS.modeColor,      value: (p) => p.modeColor,                description: "Wireframe mode color (shared across every model)." },
   { key: VIEWER_PREF_KEYS.lineWidth,      value: (p) => String(p.lineWidth),        description: "Wireframe line thickness in pixels (shared across every model)." },
-  { key: VIEWER_PREF_KEYS.materialParams, value: (p) => JSON.stringify(p.material), description: "Wireframe material (color, metalness, roughness, env, specular)." },
+  { key: VIEWER_PREF_KEYS.materialParams, value: (p) => JSON.stringify(p.material), description: "Wireframe material (metalness, roughness, env, specular)." },
 ]
 
 //Writes what changed since the last save. Throws on the first refusal, which

@@ -27,7 +27,7 @@ export function fileRefCountSql(idExpr: SQL): SQL {
     (SELECT COUNT(*) FROM gallery_project WHERE image_file_id = ${idExpr}) +
     (SELECT COUNT(*) FROM software        WHERE logo_file_id = ${idExpr}) +
     (SELECT COUNT(*) FROM model_3d        WHERE glb_file_id = ${idExpr} OR thumbnail_file_id = ${idExpr}
-                                                OR source_glb_file_id = ${idExpr}) +
+                                                OR source_glb_file_id = ${idExpr} OR phone_glb_file_id = ${idExpr}) +
     (SELECT COUNT(*) FROM profile         WHERE cv_file_id = ${idExpr} OR avatar_url = ${url}) +
     (SELECT COUNT(*) FROM model_3d        WHERE ${hdrIn(sql.raw("viewer_settings"))}) +
     (SELECT COUNT(*) FROM main_project mp, jsonb_array_elements(mp.thumbnails) AS thumb

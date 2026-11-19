@@ -90,6 +90,9 @@ export const model3d = pgTable("model_3d", {
   thumbnailFileId: uuid("thumbnail_file_id").references(() => file.id, { onDelete: "set null" }),
   //the original upload, kept when glbFileId is replaced by its optimized version
   sourceGlbFileId: uuid("source_glb_file_id").references(() => file.id, { onDelete: "set null" }),
+  //the copy touch devices load, its textures capped lower. Equal to glbFileId
+  //when no texture is larger than that cap, empty while it has not been made.
+  phoneGlbFileId:  uuid("phone_glb_file_id").references(() => file.id, { onDelete: "set null" }),
   //viewerSettings is the editor snapshot (materials / lights / HDR /
   //wireframe picks) the viewer applies at load. normalMode.hdrId and
   //wireframeMode.hdrId are file ids, counted as references to the file.
@@ -108,6 +111,7 @@ export const model3d = pgTable("model_3d", {
   index("model_3d_glb_file_id_idx").on(t.glbFileId),
   index("model_3d_thumbnail_file_id_idx").on(t.thumbnailFileId),
   index("model_3d_source_glb_file_id_idx").on(t.sourceGlbFileId),
+  index("model_3d_phone_glb_file_id_idx").on(t.phoneGlbFileId),
 ])
 
 //MAIN_PROJECT - the featured projects (case studies). Bilingual fields are

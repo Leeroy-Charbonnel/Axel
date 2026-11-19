@@ -3,9 +3,10 @@ import type { ViewerSettings } from "../three/types"
 import type { EditorPrefsDto, MainProjectDto, Model3dDto, PortfolioDto } from "../types/portfolio"
 
 //EFFECTIVE VIEWER SETTINGS - the model's viewerSettings snapshot with the
-//admin's GLOBAL editor3d_* prefs layered on top (line colour, mode colour,
-//wireframe material). The globals always win, so a tweak in the editor reaches
-//every model on the site instead of staying frozen in whichever was saved last.
+//admin's GLOBAL editor3d_* prefs layered on top (glow colour, line width, how
+//the swept surfaces take the light). The globals always win, so a tweak in the
+//editor reaches every model on the site instead of staying frozen in whichever
+//was saved last. The wireframe colours are each model's own.
 //
 //The camera comes from the named view the project (or block) picks, desktop or
 //phone. A name that matches no view leaves startView null: the viewer then uses
@@ -17,7 +18,6 @@ export function applyEditorPrefs(raw: unknown, prefs: EditorPrefsDto | undefined
   const base = (raw ?? {}) as ViewerSettings
   const next: ViewerSettings = { ...base, wireframeMode: { ...(base.wireframeMode ?? {}) } }
   const wf = next.wireframeMode!
-  if (prefs?.wireframeLineColor) wf.overlayColor = prefs.wireframeLineColor
   if (prefs?.wireframeModeColor) wf.color        = prefs.wireframeModeColor
   if (prefs?.wireframeLineWidth) {
     const width = Number(prefs.wireframeLineWidth)
@@ -43,6 +43,13 @@ export function viewerSettingsFor(model: Model3dDto, viewName: string, prefs: Ed
   return settings
 }
 
+//The file a viewer loads: a touch device takes the copy with smaller textures
+//once the model has one. Its memory and its network are the short ones.
+export function modelGlbUrl(model: Model3dDto): string {
+  const touch = window.matchMedia("(pointer: coarse)").matches
+  return touch && model.glbPhoneUrl ? model.glbPhoneUrl : model.glbUrl
+}
+
 function attachedModel(project: MainProjectDto, portfolio: PortfolioDto | null): Model3dDto | null {
   if (!project.model3dId) return null
   return portfolio?.models.find((m) => m.id === project.model3dId) ?? null
@@ -63,5 +70,8 @@ export function useEffectiveViewerSettings(
 }
 
 export function useResolvedGlbUrl(project: Source<MainProjectDto>, portfolioData: Ref<PortfolioDto | null>) {
-  return computed(() => attachedModel(project.value, portfolioData.value)?.glbUrl ?? null)
+  return computed(() => {
+    const model = attachedModel(project.value, portfolioData.value)
+    return model ? modelGlbUrl(model) : null
+  })
 }

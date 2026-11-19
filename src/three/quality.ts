@@ -3,25 +3,25 @@ import type { WebGLRenderer } from "three"
 //RENDER QUALITY BY DEVICE. A first guess from what the browser tells about
 //the machine (the GPU's name, cores, memory, touch), then the frame rate has
 //the last word: a viewer that cannot keep up drops one level (core.ts).
-//- high:   ambient occlusion, soft 2048 shadows, full pixel ratio
-//- medium: soft 2048 shadows, pixel ratio 1.5
-//- low:    hard 1024 shadows, pixel ratio 1
+//- high:   ambient occlusion, 2048 shadows, full pixel ratio
+//- medium: 2048 shadows, pixel ratio 1.5
+//- low:    1024 shadows, pixel ratio 1
+//Every level filters its shadows the same way (three's default, PCF).
 
 export type Quality = "low" | "medium" | "high"
 
 export interface QualityProfile {
   maxPixelRatio:    number
   shadowMapSize:    number
-  softShadows:      boolean
   ambientOcclusion: boolean
   //texture filtering at grazing angles, capped by the GPU
   anisotropy:       number
 }
 
 export const QUALITY_PROFILES: Record<Quality, QualityProfile> = {
-  high:   { maxPixelRatio: 2,   shadowMapSize: 2048, softShadows: true,  ambientOcclusion: true,  anisotropy: 16 },
-  medium: { maxPixelRatio: 1.5, shadowMapSize: 2048, softShadows: true,  ambientOcclusion: false, anisotropy: 8 },
-  low:    { maxPixelRatio: 1,   shadowMapSize: 1024, softShadows: false, ambientOcclusion: false, anisotropy: 4 },
+  high:   { maxPixelRatio: 2,   shadowMapSize: 2048, ambientOcclusion: true,  anisotropy: 16 },
+  medium: { maxPixelRatio: 1.5, shadowMapSize: 2048, ambientOcclusion: false, anisotropy: 8 },
+  low:    { maxPixelRatio: 1,   shadowMapSize: 1024, ambientOcclusion: false, anisotropy: 4 },
 }
 
 const ORDER: Quality[] = ["low", "medium", "high"]

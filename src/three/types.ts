@@ -74,9 +74,8 @@ export interface DefaultView extends StartView {
   name: string
 }
 
+//how the swept surfaces take the light; their colour is surfaceColor
 export interface WireframeMaterialParams {
-  //old surface colour, no longer read: surfaceColor replaced it
-  color:             string
   metalness:         number
   roughness:         number
   envMapIntensity:   number
@@ -112,8 +111,6 @@ export interface ViewerSettings {
     //A "background" surface is left clear, so the page shows through it.
     surfaceColor?:     WireColor
     lineColor?:        WireColor
-    //old line colour, no longer read: lineColor replaced it
-    overlayColor?:     string
     //pixels
     overlayLineWidth?: number
     //world-space direction, normalised at runtime
