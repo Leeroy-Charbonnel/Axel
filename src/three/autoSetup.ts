@@ -171,6 +171,22 @@ const SWEEP_MIN_MS  = 600
 const SWEEP_STEP_MS = 100
 const SWEEP_MAX_MS  = 1000
 
+//Where the model starts and ends along an axis, from the corners of its box
+export function sweepExtent(axis: Vec3, setup: Pick<AutoSetup, "bounds">): { min: number; max: number } {
+  const length = Math.hypot(...axis) || 1
+  const n = axis.map((v) => v / length)
+  const { min, max } = setup.bounds.box
+  let lo = Infinity
+  let hi = -Infinity
+  for (let i = 0; i < 8; i++) {
+    const p = [i & 1 ? max[0] : min[0], i & 2 ? max[1] : min[1], i & 4 ? max[2] : min[2]]
+    const d = p[0]! * n[0]! + p[1]! * n[1]! + p[2]! * n[2]!
+    lo = Math.min(lo, d)
+    hi = Math.max(hi, d)
+  }
+  return { min: lo, max: hi }
+}
+
 export function computeAutoSetup(root: Object3D, opts: AutoSetupOptions = {}): AutoSetup {
   const fov = opts.fov ?? CAMERA_FOV
   const warnings: AutoSetupWarning[] = []

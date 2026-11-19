@@ -83,6 +83,9 @@ export interface SweepFrame {
   axis:  Vector3
   min:   number
   range: number
+  //the sweep stops at this bound: what lies before the start, or past the end, keeps its look
+  stopStart: boolean
+  stopEnd:   boolean
 }
 
 export class WireframeSweep {
@@ -100,6 +103,8 @@ export class WireframeSweep {
     uWfAxis:     { value: new Vector3(1, 0, 0) },
     uWfMin:      { value: 0 },
     uWfRange:    { value: 1 },
+    uWfStopStart: { value: 0 },
+    uWfStopEnd:   { value: 0 },
     uWfGlow:     { value: new Color() },
   }
   private overlays: LineSegments2[] | null = null
@@ -152,6 +157,8 @@ export class WireframeSweep {
     this.lineUniforms.uWfAxis.value.copy(frame.axis)
     this.lineUniforms.uWfMin.value = frame.min
     this.lineUniforms.uWfRange.value = frame.range
+    this.lineUniforms.uWfStopStart.value = frame.stopStart ? 1 : 0
+    this.lineUniforms.uWfStopEnd.value = frame.stopEnd ? 1 : 0
     pushSweepUniforms(this.hooks.materials, frame)
   }
 

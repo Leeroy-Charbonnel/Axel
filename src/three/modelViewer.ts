@@ -14,7 +14,7 @@ import {
 } from "three"
 import { VIEWER_DEFAULTS } from "../lib/viewer-defaults"
 import { createFloorGlow, placeFloorGlow } from "./floorGlow"
-import { type AutoSetup, type CameraView, computeAutoSetup, fitCameraView, fitViewToAspect } from "./autoSetup"
+import { type AutoSetup, type CameraView, computeAutoSetup, fitCameraView, fitViewToAspect, sweepExtent } from "./autoSetup"
 import { createViewerCore, type ViewerCore } from "./core"
 import { disposeObject } from "./dispose"
 import { EnvironmentManager, type EnvironmentSpec } from "./environment"
@@ -51,6 +51,8 @@ const AUTO_ROTATE_SPEED = 0.6
 const REACH_MARGIN = 1.5
 //the studio environment under clay, dimmer than a lit render so the grey reads as grey
 const CLAY_ENV_INTENSITY = 0.5
+//share of the model's extent under which a sweep bound counts as the model's own edge
+const SWEEP_BOUND_SLACK = 0.005
 
 //a label point on the canvas, in CSS pixels from its top left corner
 export interface LabelPoint {
@@ -748,7 +750,14 @@ export class ModelViewer {
     //a surface in the site background is left clear: the page itself shows through
     const clear = isSiteBackground(surface)
     this.watchTheme(isSiteBackground(line))
-    this.sweep!.setFrame({ axis, min: start, range: Math.max(1e-4, end - start) })
+    //a bound set inside the model stops the sweep there; at or past the model's edge the sweep covers all
+    const extent = sweepExtent([axis.x, axis.y, axis.z], setup)
+    const slack = (extent.max - extent.min) * SWEEP_BOUND_SLACK
+    this.sweep!.setFrame({
+      axis, min: start, range: Math.max(1e-4, end - start),
+      stopStart: start > extent.min + slack,
+      stopEnd:   end < extent.max - slack,
+    })
     pushSweepUniforms(this.materials, {
       emissiveColor:     wf.color ?? VIEWER_DEFAULTS.wireframeModeColor,
       tintColor:         clear ? VIEWER_DEFAULTS.wireframeSurfaceColor : surface,

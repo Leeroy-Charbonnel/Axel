@@ -33,6 +33,8 @@ interface SweepUniformSet {
   uWfAxis:          { value: Vector3 }
   uWfMin:           { value: number }
   uWfRange:         { value: number }
+  uWfStopStart:     { value: number }
+  uWfStopEnd:       { value: number }
   uWfMetalness:     { value: number }
   uWfRoughness:     { value: number }
   uWfEnvScale:      { value: number }
@@ -51,6 +53,8 @@ function freshUniformSet(boost: number): SweepUniformSet {
     uWfAxis:          { value: new Vector3(1, 0, 0) },
     uWfMin:           { value: 0 },
     uWfRange:         { value: 1 },
+    uWfStopStart:     { value: 0 },
+    uWfStopEnd:       { value: 0 },
     uWfMetalness:     { value: wf.metalness },
     uWfRoughness:     { value: wf.roughness },
     uWfEnvScale:      { value: wf.envMapIntensity },
@@ -67,15 +71,18 @@ function freshUniformSet(boost: number): SweepUniformSet {
 //how far a world position sits behind the front, in sweep units: 0 or more
 //means swept. The position is clamped, so a fragment before sweepStart or past
 //sweepEnd belongs to the first or last slice: nothing is swept at progress 0
-//and everything is at 1.
+//and everything is at 1. A bound set inside the model stops the sweep instead
+//(uWfStopStart, uWfStopEnd): what lies past it is never swept.
 //uWfReverse 1 is the way back: the front still rises, and what it passes
 //turns normal again, so both directions sweep up with the glow at the front.
 export const WF_FRONT_GLSL =
   "uniform float uWfProgress;\nuniform float uWfReverse;\nuniform vec3 uWfAxis;\nuniform float uWfMin;\nuniform float uWfRange;\n" +
+  "uniform float uWfStopStart;\nuniform float uWfStopEnd;\n" +
   "float wfFront(vec3 worldPos) {\n" +
-  "  float t = clamp((dot(worldPos, uWfAxis) - uWfMin) / max(uWfRange, 0.0001), 0.0, 1.0);\n" +
-  "  float d = uWfProgress * 1.04 - 0.02 - t;\n" +
-  "  return mix(d, -d, uWfReverse);\n" +
+  "  float raw = (dot(worldPos, uWfAxis) - uWfMin) / max(uWfRange, 0.0001);\n" +
+  "  float d = uWfProgress * 1.04 - 0.02 - clamp(raw, 0.0, 1.0);\n" +
+  "  float outside = max(uWfStopStart * step(raw, -0.001), uWfStopEnd * step(1.001, raw));\n" +
+  "  return mix(mix(d, -d, uWfReverse), -1.0, outside);\n" +
   "}\n"
 
 const VERTEX_COMMON = "#include <common>\nvarying vec3 vWfWorldPos;"
@@ -282,6 +289,8 @@ export interface WfSweepPatch {
   axis?:              Vector3
   min?:               number
   range?:             number
+  stopStart?:         boolean
+  stopEnd?:           boolean
   metalness?:         number
   roughness?:         number
   envIntensity?:      number
@@ -299,6 +308,8 @@ export function pushSweepUniforms(materials: Iterable<SweepMaterial>, patch: WfS
     if (patch.axis !== undefined)              u.uWfAxis.value.copy(patch.axis)
     if (patch.min !== undefined)               u.uWfMin.value = patch.min
     if (patch.range !== undefined)             u.uWfRange.value = patch.range
+    if (patch.stopStart !== undefined)         u.uWfStopStart.value = patch.stopStart ? 1 : 0
+    if (patch.stopEnd !== undefined)           u.uWfStopEnd.value = patch.stopEnd ? 1 : 0
     if (patch.metalness !== undefined)         u.uWfMetalness.value = patch.metalness
     if (patch.roughness !== undefined)         u.uWfRoughness.value = patch.roughness
     if (patch.envIntensity !== undefined)      u.uWfEnvScale.value = patch.envIntensity

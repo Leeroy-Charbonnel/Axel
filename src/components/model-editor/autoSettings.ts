@@ -133,20 +133,7 @@ export function withLightType(light: SharedLight, type: SharedLight["type"], set
 }
 
 //SWEEP: positions along the axis as a fraction of the model's extent on it
-export function sweepExtent(axis: Vec3, setup: AutoSetup): { min: number; max: number } {
-  const length = Math.hypot(...axis) || 1
-  const n = axis.map((v) => v / length)
-  const { min, max } = setup.bounds.box
-  let lo = Infinity
-  let hi = -Infinity
-  for (let i = 0; i < 8; i++) {
-    const p = [i & 1 ? max[0] : min[0], i & 2 ? max[1] : min[1], i & 4 ? max[2] : min[2]]
-    const d = p[0]! * n[0]! + p[1]! * n[1]! + p[2]! * n[2]!
-    lo = Math.min(lo, d)
-    hi = Math.max(hi, d)
-  }
-  return { min: lo, max: hi }
-}
+export { sweepExtent } from "../../three/autoSetup"
 
 //VIEWS
 export function toStartView(view: CameraView, aspect: number): Omit<DefaultView, "name"> {
