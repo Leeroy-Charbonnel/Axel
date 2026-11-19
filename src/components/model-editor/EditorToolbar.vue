@@ -28,7 +28,8 @@ const frames = computed<{ value: FrameKind; label: string }[]>(() => [
 
 const SHORTCUTS = [
   { keys: "F",        label: "modelEditorKeyFrame" },
-  { keys: "1 - 4",    label: "modelEditorKeyPanels" },
+  { keys: "1 - 5",    label: "modelEditorKeyPanelList" },
+  { keys: "Del",      label: "modelEditorKeyDeleteLight" },
   { keys: "Ctrl S",   label: "modelEditorKeySave" },
   { keys: "Ctrl Z",   label: "modelEditorKeyUndo" },
   { keys: "Ctrl Y",   label: "modelEditorKeyRedo" },

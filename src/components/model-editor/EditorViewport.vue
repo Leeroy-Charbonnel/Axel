@@ -1,18 +1,20 @@
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, ref, watch } from "vue"
-import { Color, Group, Mesh, MeshBasicMaterial, OctahedronGeometry } from "three"
+import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue"
 import { RotateCcw, TriangleAlert } from "lucide-vue-next"
 import { useToast } from "../../composables/useToast"
 import { useTranslations } from "../../composables/useTranslations"
 import { useTheme } from "../../composables/useTheme"
-import { disposeObject } from "../../three/dispose"
 import type { ModelViewer } from "../../three/modelViewer"
+import type { Vec3 } from "../../three/types"
+import type { LightGizmo, LightPick } from "./lightGizmo"
 import { useModelEditor } from "./useModelEditor"
 
 //THE EDITOR VIEWPORT - the public ModelViewer on the model being edited, fed
 //the document as it changes. A new file means a new viewer: the old one and
 //everything it loaded are disposed first. In a desktop or phone frame the
 //canvas takes that frame's shape, so what shows here is what visitors get.
+//While the Lights panel is open the lights are drawn as handles: a click
+//picks one, its arrows move it.
 
 const emit = defineEmits<{ ready: [viewer: ModelViewer, firstLoad: boolean] }>()
 
@@ -24,9 +26,6 @@ const { accent } = useTheme()
 const MAX_PIXEL_RATIO = 2
 //a pointer that moved less than this between down and up is a click, not an orbit
 const CLICK_SLOP_PX = 4
-//light markers, in model radii
-const MARKER_SIZE = 0.05
-const MARKER_COLOR = 0xffffff
 
 type Phase = "loading" | "ready" | "error"
 
@@ -38,7 +37,9 @@ const errorDetail = ref("")
 let current: ModelViewer | null = null
 let generation = 0
 let loadedOnce = false
-let markers: Group | null = null
+let gizmo: LightGizmo | null = null
+//one undo step per drag
+let dragCount = 0
 let down: { x: number; y: number } | null = null
 
 async function start(url: string | null | undefined) {
@@ -53,7 +54,7 @@ async function start(url: string | null | undefined) {
   progress.value = 0
   errorDetail.value = ""
   try {
-    const { ModelViewer } = await import("../../three/modelViewer")
+    const [{ ModelViewer }, { LightGizmo }] = await Promise.all([import("../../three/modelViewer"), import("./lightGizmo")])
     if (run !== generation || !canvas.value) return
     const v = new ModelViewer({
       canvas: canvas.value,
@@ -73,10 +74,11 @@ async function start(url: string | null | undefined) {
     ed.slots.value = v.materialSlots
     ed.meshNames.value = v.meshNames
     v.setMode(ed.preview.value)
+    gizmo = new LightGizmo(v.core, v.autoSetup!.bounds.radius, { onMove: moveLight, onDragging: (on) => { if (on) dragCount++ } })
+    syncGizmo()
     phase.value = "ready"
     emit("ready", v, !loadedOnce)
     loadedOnce = true
-    syncMarkers()
   } catch (err) {
     if (run !== generation) return
     console.error(`[model-editor] ${url} could not be shown:`, err)
@@ -88,7 +90,8 @@ async function start(url: string | null | undefined) {
 
 //loseContext only on unmount: the next viewer reuses the canvas and its context
 function teardown(loseContext: boolean) {
-  markers = null
+  gizmo?.dispose()
+  gizmo = null
   current?.dispose(loseContext)
   current = null
   ed.viewer.value = null
@@ -99,34 +102,32 @@ function retry() {
   void start(ed.model.value?.glbUrl)
 }
 
-//LIGHT MARKERS - shown while the lights drawer is open, sized to the model
-function syncMarkers() {
-  const v = ed.viewer.value
-  const setup = ed.setup.value
-  if (!v || !setup) return
-  if (markers) {
-    v.core.scene.remove(markers)
-    disposeObject(markers)
-    markers = null
-  }
-  if (ed.showLights.value) {
-    markers = new Group()
-    const geometry = new OctahedronGeometry(setup.bounds.radius * MARKER_SIZE)
-    //The selected marker takes the site accent
-    const selectedColor = new Color(accent.value)
-    for (const light of ed.doc.value.settings.lights ?? []) {
-      if (light.enabled === false) continue
-      const selected = light.id === ed.selectedLight.value
-      const mesh = new Mesh(geometry, new MeshBasicMaterial({ color: selected ? selectedColor : MARKER_COLOR, wireframe: !selected }))
-      mesh.position.set(light.x, light.y, light.z)
-      markers.add(mesh)
-    }
-    v.core.scene.add(markers)
-  }
-  v.core.requestRender()
+//LIGHT HANDLES - drawn while the Lights panel is open. Clay shows the auto
+//rig, not these lights, so it shows no handle.
+const lightsShown = computed(() => ed.panel.value === "lights" && ed.preview.value !== "clay")
+
+function syncGizmo() {
+  if (!gizmo) return
+  gizmo.setVisible(lightsShown.value)
+  gizmo.sync({
+    lights:   ed.doc.value.settings.lights ?? [],
+    selected: ed.selectedLight.value,
+    look:     ed.preview.value === "wireframe" ? "wireframe" : "normal",
+    accent:   accent.value,
+  })
 }
 
-//EMISSIVE PICKING - a click (not an orbit) on a mesh toggles it
+function moveLight(pick: LightPick, [x, y, z]: Vec3) {
+  ed.change(`light-drag-${dragCount}`, (d) => {
+    const light = d.settings.lights?.find((l) => l.id === pick.id)
+    if (!light) return
+    if (pick.part === "position") Object.assign(light, { x, y, z })
+    else Object.assign(light, { tx: x, ty: y, tz: z })
+  }, true)
+}
+
+//CLICKS (not orbits) - on a light handle: select it. While picking: toggle
+//the mesh as an emissive part.
 function onPointerDown(e: PointerEvent) {
   down = { x: e.clientX, y: e.clientY }
 }
@@ -135,8 +136,14 @@ function onPointerUp(e: PointerEvent) {
   const start = down
   down = null
   const v = ed.viewer.value
-  if (!start || !v || !ed.picking.value) return
+  if (!start || !v) return
   if (Math.hypot(e.clientX - start.x, e.clientY - start.y) > CLICK_SLOP_PX) return
+  if (gizmo && lightsShown.value && !gizmo.overArrows) {
+    const pick = gizmo.pick(e.clientX, e.clientY)
+    if (pick) ed.selectedLight.value = pick
+    return
+  }
+  if (!ed.picking.value) return
   const mesh = v.meshAt(e.clientX, e.clientY)
   if (!mesh) return
   if (!mesh.name) {
@@ -156,7 +163,7 @@ function onPointerUp(e: PointerEvent) {
 watch(() => ed.model.value?.glbUrl, (url) => void start(url))
 watch(ed.effective, (s) => ed.viewer.value?.applySettings(s))
 watch(ed.preview, (m) => ed.viewer.value?.setMode(m))
-watch([ed.showLights, ed.selectedLight, () => ed.doc.value.settings.lights, accent], syncMarkers)
+watch([lightsShown, ed.selectedLight, ed.preview, () => ed.doc.value.settings.lights, accent], syncGizmo)
 watch(accent, (color) => current?.setGlowColor(color))
 
 onMounted(() => void start(ed.model.value?.glbUrl))

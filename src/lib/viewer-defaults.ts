@@ -12,14 +12,16 @@ export const VIEWER_DEFAULTS = {
   //tints the emissive picks
   wireframeModeColor: "#14b8a6",
   //the lines drawn over the model in wireframe mode
-  wireframeLineColor: "#ffffff",
+  wireframeLineColor: "#000000",
+  //what the swept surfaces turn to
+  wireframeSurfaceColor: "#ffffff",
   //an unlit material with no colour of its own
   normalColor:        "#ffffff",
   wireframeOverlayOn: true,
   //pixels
   wireframeLineWidth: 1,
-  //what the swept part of the model turns into
-  wireframeMaterial:  { color: "#808080", metalness: 0, roughness: 0.5, envMapIntensity: 1, specularIntensity: 1 },
+  //how the swept surfaces take the light
+  wireframeMaterial:  { color: "#ffffff", metalness: 0, roughness: 0.5, envMapIntensity: 1, specularIntensity: 1 },
   //the soft disc of light on the floor under every model: colour, opacity at
   //its centre, and diameter in model radii
   floorGlowColor:     "#ffffff",
@@ -27,11 +29,13 @@ export const VIEWER_DEFAULTS = {
   floorGlowScale:     3.2,
 } as const
 
-//THE BLUEPRINT LOOK of a detail-page viewer: white edges over surfaces left
-//clear, so the page shows through them, as on a technical plan
+//THE BLUEPRINT LOOK of a detail-page viewer: light edges over surfaces left
+//clear, so the page shows through them, as on a technical plan. A model with
+//its own wireframe colours keeps them.
 export const BLUEPRINT_LOOK = {
-  lineColor: "#8a8a8a",
-  material:  { color: "#000000", metalness: 0, roughness: 1, envMapIntensity: 0, specularIntensity: 0, clear: true },
+  lineColor:    "#8a8a8a",
+  surfaceColor: "background",
+  material:     { color: "#000000", metalness: 0, roughness: 1, envMapIntensity: 0, specularIntensity: 0 },
 } as const
 
 export const VIEWER_PREF_KEYS = {

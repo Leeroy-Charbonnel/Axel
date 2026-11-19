@@ -17,8 +17,8 @@ import { createFloorGlow, placeFloorGlow } from "./floorGlow"
 import { type AutoSetup, type CameraView, computeAutoSetup, fitCameraView, fitViewToAspect } from "./autoSetup"
 import { createViewerCore, type ViewerCore } from "./core"
 import { disposeObject } from "./dispose"
-import { EnvironmentManager } from "./environment"
-import { LightRig } from "./lights"
+import { EnvironmentManager, type EnvironmentSpec } from "./environment"
+import { LightRig, rigShape } from "./lights"
 import { untilScrollIdle } from "./loadQueue"
 import { type ProgressFn, loadGltf } from "./loaders"
 import {
@@ -31,7 +31,8 @@ import {
   type SweepBasicMaterial,
   type SweepMaterial,
 } from "./materials"
-import type { MaterialState, StartView, Vec3, ViewerMode, ViewerSettings, WireframeMaterialParams } from "./types"
+import type { EnvironmentSettings, MaterialState, StartView, Vec3, ViewerMode, ViewerSettings } from "./types"
+import { isSiteBackground, onSiteThemeChange, resolveWireColor } from "./wireColor"
 import { WireframeSweep } from "./wireframe"
 
 //THE PUBLIC VIEWER'S SCENE LOGIC, framework free: load a GLB, apply the saved
@@ -89,6 +90,13 @@ type MaterialKey = { name: string; index: number | undefined }
 type EmissivePick = CustomEmissiveMaterial | SweepBasicMaterial
 
 const ease = (t: number) => 1 - Math.pow(1 - t, 3)
+const envSpec = (m: EnvironmentSettings | undefined): EnvironmentSpec => ({
+  url:        m?.hdrUrl,
+  intensity:  m?.hdrIntensity ?? 1,
+  rotation:   m?.hdrRotation ?? 0,
+  background: m?.hdrBackground ?? false,
+})
+const CLAY_ENV: EnvironmentSpec = { url: null, intensity: CLAY_ENV_INTENSITY, rotation: 0, background: false }
 const tuple = (v: Vector3): Vec3 => [v.x, v.y, v.z]
 
 export class ModelViewer {
@@ -109,6 +117,9 @@ export class ModelViewer {
   private readonly picked = new Map<Mesh, EmissivePick[]>()
   private pickKey = ""
   private lightKey = ""
+  private lightShape = ""
+  //stops the watch on the site theme, kept while a colour follows it
+  private stopThemeWatch: (() => void) | null = null
   private rig: LightRig | null = null
   private lightMix = 0
   private sweep: WireframeSweep | null = null
@@ -173,7 +184,7 @@ export class ModelViewer {
   async load(url: string, settings: ViewerSettings, onProgress: ProgressFn): Promise<void> {
     this.settings = settings
     //the environment downloads alongside the model
-    const envReady = this.env.set(settings.normalMode?.hdrUrl, settings.normalMode?.hdrIntensity ?? 1)
+    const envReady = this.env.set(envSpec(settings.normalMode))
     const gltf = await loadGltf(url, this.core.renderer, this.abort.signal, onProgress)
     const root = gltf.scene
     if (this.disposed) {
@@ -253,8 +264,8 @@ export class ModelViewer {
         this.lightMix = t
         this.rig?.setModeMix(t)
       },
-      onEntered: () => void this.env.set(this.settings.wireframeMode?.hdrUrl, this.settings.wireframeMode?.hdrIntensity ?? 1),
-      onLeaving: () => void this.env.set(this.settings.normalMode?.hdrUrl, this.settings.normalMode?.hdrIntensity ?? 1),
+      onEntered: () => void this.env.set(envSpec(this.settings.wireframeMode)),
+      onLeaving: () => void this.env.set(envSpec(this.settings.normalMode)),
       //the ambient occlusion pass would take the lines for surfaces: back once they are gone
       onLeft: () => this.core.setAmbientOcclusionAllowed(this.mode === "render"),
       requestRender: this.core.requestRender,
@@ -385,6 +396,7 @@ export class ModelViewer {
   }
 
   private release(loseContext: boolean): void {
+    this.stopThemeWatch?.()
     this.sweep?.dispose()
     this.rig?.dispose()
     this.env.dispose()
@@ -654,28 +666,35 @@ export class ModelViewer {
     const clay = this.mode === "clay"
     this.buildLights(clay)
     if (clay) {
-      void this.env.set(null, CLAY_ENV_INTENSITY)
+      void this.env.set(CLAY_ENV)
       return
     }
-    const m = this.sweep?.active ? this.settings.wireframeMode : this.settings.normalMode
-    void this.env.set(m?.hdrUrl, m?.hdrIntensity ?? 1)
+    void this.env.set(envSpec(this.sweep?.active ? this.settings.wireframeMode : this.settings.normalMode))
   }
 
   private buildLights(auto: boolean): void {
     const setup = this.setup!
-    const key = auto ? "auto" : JSON.stringify(this.settings.lights ?? [])
+    const saved = this.settings.lights ?? []
+    const specs = saved.length > 0 && !auto ? saved : setup.lights
+    const key = auto ? "auto" : JSON.stringify(saved)
     //a live edit that did not touch the lights keeps the rig and its shadow maps
     if (this.rig && key === this.lightKey) return
     this.lightKey = key
-    if (this.rig) {
-      this.core.scene.remove(this.rig.group)
-      this.rig.dispose()
+    const shape = `${this.core.quality.shadowMapSize}:${rigShape(specs)}`
+    if (this.rig && shape === this.lightShape) {
+      //the same lights with new values: moved in place, nothing rebuilt
+      this.rig.update(specs)
+    } else {
+      if (this.rig) {
+        this.core.scene.remove(this.rig.group)
+        this.rig.dispose()
+      }
+      this.rig = new LightRig(specs, this.core.quality.shadowMapSize)
+      this.core.scene.add(this.rig.group)
     }
-    const saved = this.settings.lights ?? []
-    this.rig = new LightRig(saved.length > 0 && !auto ? saved : setup.lights, this.core.quality.shadowMapSize)
+    this.lightShape = shape
     this.rig.fitShadows(new Vector3(...setup.bounds.center), setup.bounds.radius)
     this.rig.setModeMix(this.lightMix)
-    this.core.scene.add(this.rig.group)
   }
 
   private configureSweep(): void {
@@ -686,23 +705,41 @@ export class ModelViewer {
     axis.normalize()
     const start = wf.sweepStart ?? setup.sweep.start
     const end   = wf.sweepEnd   ?? setup.sweep.end
-    const mat: WireframeMaterialParams = wf.material ?? VIEWER_DEFAULTS.wireframeMaterial
+    const mat = wf.material ?? VIEWER_DEFAULTS.wireframeMaterial
+    const surface = wf.surfaceColor ?? VIEWER_DEFAULTS.wireframeSurfaceColor
+    const line = wf.lineColor ?? VIEWER_DEFAULTS.wireframeLineColor
+    //a surface in the site background is left clear: the page itself shows through
+    const clear = isSiteBackground(surface)
+    this.watchTheme(isSiteBackground(line))
     this.sweep!.setFrame({ axis, min: start, range: Math.max(1e-4, end - start) })
     pushSweepUniforms(this.materials, {
       emissiveColor:     wf.color ?? VIEWER_DEFAULTS.wireframeModeColor,
-      tintColor:         mat.color,
+      tintColor:         clear ? VIEWER_DEFAULTS.wireframeSurfaceColor : surface,
       metalness:         mat.metalness,
       roughness:         mat.roughness,
       envIntensity:      mat.envMapIntensity,
       specularIntensity: mat.specularIntensity,
-      clear:             mat.clear ?? false,
+      clear,
     })
     this.sweep!.setDuration(wf.sweepDurationMs ?? setup.sweep.durationMs)
     this.sweep!.setStyle({
       on:    wf.overlayOn ?? VIEWER_DEFAULTS.wireframeOverlayOn,
-      color: wf.overlayColor ?? VIEWER_DEFAULTS.wireframeLineColor,
+      color: resolveWireColor(line),
       width: wf.overlayLineWidth ?? VIEWER_DEFAULTS.wireframeLineWidth,
     })
+  }
+
+  //a colour that follows the site background is read again when the theme changes
+  private watchTheme(on: boolean): void {
+    if (on === (this.stopThemeWatch !== null)) return
+    if (on) {
+      this.stopThemeWatch = onSiteThemeChange(() => {
+        if (this.sweep) this.configureSweep()
+      })
+    } else {
+      this.stopThemeWatch!()
+      this.stopThemeWatch = null
+    }
   }
 
   private setClay(on: boolean): void {

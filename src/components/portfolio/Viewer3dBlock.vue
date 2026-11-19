@@ -34,7 +34,8 @@ function asBlueprint(s: ViewerSettings): ViewerSettings {
     wireframeMode: {
       ...s.wireframeMode,
       overlayOn:      true,
-      overlayColor:   BLUEPRINT_LOOK.lineColor,
+      lineColor:      s.wireframeMode?.lineColor ?? BLUEPRINT_LOOK.lineColor,
+      surfaceColor:   s.wireframeMode?.surfaceColor ?? BLUEPRINT_LOOK.surfaceColor,
       material:       { ...BLUEPRINT_LOOK.material },
       emissiveMeshes: [],
     },

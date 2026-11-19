@@ -5,6 +5,20 @@ export type Vec3 = [number, number, number]
 
 export type ViewerMode = "render" | "wireframe" | "clay"
 
+//a fixed CSS colour ("#rrggbb"), or "background": the site background colour
+export type WireColor = string
+
+//the environment of one look; no hdrUrl = the procedural studio
+export interface EnvironmentSettings {
+  hdrId?:        string
+  hdrUrl?:       string | null
+  hdrIntensity?: number
+  //degrees around the vertical axis
+  hdrRotation?:  number
+  //true: the map is drawn behind the model
+  hdrBackground?: boolean
+}
+
 //One light, shared by both modes: position and range are common, intensity
 //and colour are per mode.
 export interface SharedLight {
@@ -61,13 +75,12 @@ export interface DefaultView extends StartView {
 }
 
 export interface WireframeMaterialParams {
+  //old surface colour, no longer read: surfaceColor replaced it
   color:             string
   metalness:         number
   roughness:         number
   envMapIntensity:   number
   specularIntensity: number
-  //true: the swept surface is left transparent, only its edges are drawn
-  clear?:            boolean
 }
 
 export interface ViewerSettings {
@@ -90,18 +103,16 @@ export interface ViewerSettings {
   }
   materials?: MaterialState[]
   lights?:    SharedLight[]
-  normalMode?: {
-    hdrId?:        string
-    hdrUrl?:       string | null
-    hdrIntensity?: number
-  }
-  wireframeMode?: {
-    hdrId?:            string
-    hdrUrl?:           string | null
-    hdrIntensity?:     number
+  normalMode?: EnvironmentSettings
+  wireframeMode?: EnvironmentSettings & {
     //colour the emissive picks glow with
     color?:            string
     overlayOn?:        boolean
+    //this model's wireframe colours; missing = white surfaces, black lines.
+    //A "background" surface is left clear, so the page shows through it.
+    surfaceColor?:     WireColor
+    lineColor?:        WireColor
+    //old line colour, no longer read: lineColor replaced it
     overlayColor?:     string
     //pixels
     overlayLineWidth?: number

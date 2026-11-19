@@ -25,6 +25,16 @@ export function loadEquirect(url: string): Promise<Texture> {
   return pending
 }
 
+export interface EnvironmentSpec {
+  url:        string | null | undefined
+  intensity:  number
+  //degrees around the vertical axis
+  rotation:   number
+  //the map drawn behind the model; the studio is never drawn
+  background: boolean
+}
+
+const DEG = Math.PI / 180
 const STUDIO_KEY = "studio"
 const STUDIO_BLUR = 0.04
 
@@ -44,21 +54,29 @@ export class EnvironmentManager {
     this.pmrem = new PMREMGenerator(renderer)
   }
 
-  //url null or empty = the procedural studio. A map that fails to load is
-  //logged and replaced by the studio so the model is still lit.
-  async set(url: string | null | undefined, intensity: number): Promise<void> {
+  //No url = the procedural studio. A map that fails to load is logged and
+  //replaced by the studio so the model is still lit.
+  async set(spec: EnvironmentSpec): Promise<void> {
     const token = ++this.seq
+    const url = spec.url || null
     let target: WebGLRenderTarget
+    let backdrop: Texture | null = null
     try {
-      target = await this.probe(url || null)
+      target = await this.probe(url)
+      if (url && spec.background) backdrop = await loadEquirect(url)
     } catch (err) {
       if (this.disposed) return
       console.error(`[three] environment map ${url} failed to load, using the studio light instead:`, err)
       target = await this.probe(null)
     }
     if (this.disposed || token !== this.seq) return
+    const turn = spec.rotation * DEG
     this.scene.environment = target.texture
-    this.scene.environmentIntensity = intensity
+    this.scene.environmentIntensity = spec.intensity
+    this.scene.environmentRotation.set(0, turn, 0)
+    this.scene.background = backdrop
+    this.scene.backgroundIntensity = spec.intensity
+    this.scene.backgroundRotation.set(0, turn, 0)
     this.onChange()
   }
 
@@ -92,6 +110,7 @@ export class EnvironmentManager {
   dispose(): void {
     this.disposed = true
     this.scene.environment = null
+    this.scene.background = null
     //a probe that failed was logged by set()
     for (const pending of this.probes.values()) pending.then((t) => t.dispose(), () => undefined)
     this.probes.clear()

@@ -32,6 +32,14 @@ interface LiveLight {
   light: PointLight | DirectionalLight
 }
 
+const castsShadow = (spec: SharedLight) => spec.castShadow ?? spec.type === "directional"
+
+//what a rig is built from: the lights that exist, their type and their shadow.
+//Two lists with the same shape differ only by values a rig takes in place.
+export function rigShape(specs: SharedLight[]): string {
+  return JSON.stringify(specs.filter((s) => s.enabled !== false).map((s) => [s.id, s.type, castsShadow(s)]))
+}
+
 const colorA = new Color()
 const colorB = new Color()
 
@@ -45,7 +53,7 @@ export class LightRig {
   constructor(specs: SharedLight[], shadowMapSize: number) {
     for (const spec of specs) {
       if (spec.enabled === false) continue
-      const castShadow = spec.castShadow ?? spec.type === "directional"
+      const castShadow = castsShadow(spec)
       let light: PointLight | DirectionalLight
       if (spec.type === "point") {
         light = new PointLight(spec.normalColor, spec.normalIntensity, spec.range ?? 0, POINT_LIGHT_DECAY)
@@ -64,6 +72,20 @@ export class LightRig {
       this.group.add(light)
       this.live.push({ spec, light })
     }
+  }
+
+  //New values for the same lights (same rigShape): a light being moved keeps
+  //its object and its shadow map. Follow with fitShadows() and setModeMix().
+  update(specs: SharedLight[]): void {
+    const enabled = specs.filter((s) => s.enabled !== false)
+    if (enabled.length !== this.live.length) throw new Error("LightRig.update: the lights changed shape, build a new rig")
+    this.live.forEach((entry, i) => {
+      const spec = enabled[i]!
+      entry.spec = spec
+      entry.light.position.set(spec.x, spec.y, spec.z)
+      if (entry.light instanceof PointLight) entry.light.distance = spec.range ?? 0
+      else entry.light.target.position.set(spec.tx ?? 0, spec.ty ?? 0, spec.tz ?? 0)
+    })
   }
 
   //t = 0 normal mode, 1 wireframe mode; intensity and colour blend between the two

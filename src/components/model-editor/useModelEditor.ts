@@ -9,6 +9,7 @@ import type { MaterialSlot, ModelViewer } from "../../three/modelViewer"
 import type { MaterialState, ViewerMode, ViewerSettings, WireframeMaterialParams } from "../../three/types"
 import type { EditorPrefsDto, Model3dView } from "../../types/portfolio"
 import { stableJson } from "./autoSettings"
+import type { LightPick } from "./lightGizmo"
 
 //THE MODEL EDITOR'S STATE, module scoped: one editor page at a time. One
 //document holds everything the page saves (the model's viewer settings, its
@@ -27,7 +28,6 @@ export interface ModelRow {
 
 //shared by every model on the site: the public viewer layers them over each model
 export interface GlobalPrefs {
-  lineColor: string
   modeColor: string
   lineWidth: number
   material:  WireframeMaterialParams
@@ -39,8 +39,8 @@ export interface EditorDoc {
   prefs:    GlobalPrefs
 }
 
-export type PanelKey = "appearance" | "materials" | "wireframe" | "model"
-export const PANELS: PanelKey[] = ["appearance", "materials", "wireframe", "model"]
+export type PanelKey = "scene" | "lights" | "materials" | "wireframe" | "model"
+export const PANELS: PanelKey[] = ["scene", "lights", "materials", "wireframe", "model"]
 
 //the viewport fills its space, or shows the frame of a desktop or phone viewer
 export type FrameKind = "free" | "desktop" | "phone"
@@ -53,7 +53,6 @@ const clone = <T>(v: T): T => JSON.parse(JSON.stringify(v)) as T
 const same  = (a: unknown, b: unknown) => stableJson(a) === stableJson(b)
 
 const emptyPrefs = (): GlobalPrefs => ({
-  lineColor: VIEWER_DEFAULTS.wireframeLineColor,
   modeColor: VIEWER_DEFAULTS.wireframeModeColor,
   lineWidth: VIEWER_DEFAULTS.wireframeLineWidth,
   material:  { ...VIEWER_DEFAULTS.wireframeMaterial },
@@ -72,12 +71,11 @@ const setup  = shallowRef<AutoSetup | null>(null)
 const slots  = shallowRef<MaterialSlot[]>([])
 const meshNames = shallowRef<string[]>([])
 
-const panel   = ref<PanelKey>("appearance")
+const panel   = ref<PanelKey>("scene")
 const frame   = ref<FrameKind>("free")
 const preview = ref<ViewerMode>("render")
-//the lights drawer is open: the viewport marks the lights
-const showLights    = ref(false)
-const selectedLight = ref<string | null>(null)
+//the light, or the target of a light, that carries the move arrows
+const selectedLight = ref<LightPick | null>(null)
 //clicks in the viewport pick emissive meshes
 const picking = ref(false)
 
@@ -90,7 +88,8 @@ const toast = useToast()
 //what the public viewer would apply: the model settings under the global prefs
 function prefsDto(p: GlobalPrefs): EditorPrefsDto {
   return {
-    wireframeLineColor: p.lineColor,
+    //no longer a shared setting: each model has its own line colour
+    wireframeLineColor: null,
     wireframeModeColor: p.modeColor,
     wireframeMaterial:  JSON.stringify(p.material),
     wireframeLineWidth: String(p.lineWidth),
@@ -113,7 +112,6 @@ function prefsFrom(dto: EditorPrefsDto | undefined, settings: ViewerSettings): G
   }
   const width = Number(dto?.wireframeLineWidth)
   return {
-    lineColor: dto?.wireframeLineColor ?? wf.overlayColor ?? base.lineColor,
     modeColor: dto?.wireframeModeColor ?? wf.color ?? base.modeColor,
     lineWidth: Number.isFinite(width) && width > 0 ? width : wf.overlayLineWidth ?? base.lineWidth,
     material,
@@ -148,18 +146,18 @@ async function open(id: string): Promise<ModelRow> {
   setup.value = null
   slots.value = []
   meshNames.value = []
-  panel.value = "appearance"
+  panel.value = "scene"
   preview.value = "render"
-  showLights.value = false
   selectedLight.value = null
   picking.value = false
   return row
 }
 
-//One undo step per call, or per burst of calls with the same key.
-function change(key: string, mutate: (d: EditorDoc) => void) {
+//One undo step per call, or per burst of calls with the same key. held: the
+//same key is one step however long it lasts (a drag).
+function change(key: string, mutate: (d: EditorDoc) => void, held = false) {
   const now = Date.now()
-  if (!(lastChange.key === key && now - lastChange.at < COALESCE_MS)) {
+  if (!(lastChange.key === key && (held || now - lastChange.at < COALESCE_MS))) {
     past.value = [...past.value, clone(doc.value)].slice(-HISTORY_LIMIT)
     future.value = []
   }
@@ -193,7 +191,6 @@ function discard() {
 }
 
 const PREF_ROWS: { key: string; value: (p: GlobalPrefs) => string; description: string }[] = [
-  { key: VIEWER_PREF_KEYS.lineColor,      value: (p) => p.lineColor,                description: "Wireframe line color (shared across every model)." },
   { key: VIEWER_PREF_KEYS.modeColor,      value: (p) => p.modeColor,                description: "Wireframe mode color (shared across every model)." },
   { key: VIEWER_PREF_KEYS.lineWidth,      value: (p) => String(p.lineWidth),        description: "Wireframe line thickness in pixels (shared across every model)." },
   { key: VIEWER_PREF_KEYS.materialParams, value: (p) => JSON.stringify(p.material), description: "Wireframe material (color, metalness, roughness, env, specular)." },
@@ -238,7 +235,7 @@ export function useModelEditor() {
   return {
     model, doc, saved, effective, dirty, canUndo, canRedo,
     viewer, setup, slots, meshNames,
-    panel, frame, preview, showLights, selectedLight, picking,
+    panel, frame, preview, selectedLight, picking,
     open, change, undo, redo, discard, save, setGlb,
   }
 }

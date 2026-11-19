@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch, type Component } from "vue"
 import { useRoute } from "vue-router"
-import { ArrowLeft, Box, Grid3x3, Info, Palette, SlidersHorizontal, Sparkles, Sun, X } from "lucide-vue-next"
+import { ArrowLeft, Box, Grid3x3, Image, Info, Lightbulb, Palette, SlidersHorizontal, Sparkles, X } from "lucide-vue-next"
 import { useConfirm } from "../composables/useConfirm"
 import { isTextTarget, useEditor } from "../composables/useEditor"
 import { useLang } from "../composables/useLang"
@@ -9,11 +9,12 @@ import { usePortfolio } from "../composables/usePortfolio"
 import { useToast } from "../composables/useToast"
 import { useTranslations } from "../composables/useTranslations"
 import type { ModelViewer } from "../three/modelViewer"
-import AppearancePanel from "../components/model-editor/AppearancePanel.vue"
 import EditorToolbar from "../components/model-editor/EditorToolbar.vue"
 import EditorViewport from "../components/model-editor/EditorViewport.vue"
+import LightsPanel from "../components/model-editor/LightsPanel.vue"
 import MaterialsPanel from "../components/model-editor/MaterialsPanel.vue"
 import ModelPanel from "../components/model-editor/ModelPanel.vue"
+import ScenePanel from "../components/model-editor/ScenePanel.vue"
 import EditorTabs, { type EditorTab } from "../components/admin/EditorTabs.vue"
 import ViewStrip from "../components/model-editor/ViewStrip.vue"
 import WireframePanel from "../components/model-editor/WireframePanel.vue"
@@ -21,8 +22,9 @@ import { applyAutoSetup, type AutoSummary } from "../components/model-editor/aut
 import { PANELS, type PanelKey, useModelEditor } from "../components/model-editor/useModelEditor"
 
 //THE 3D MODEL EDITOR (/edit-3d/:id). The viewport shows the model through
-//the public viewer; the panels edit one document saved through the edit bar
-//(Save, Discard, Undo, Redo, Ctrl+S). "Reglage automatique" derives framing,
+//the public viewer; the panels (scene, lights, materials, wireframe, model)
+//edit one document saved through the edit bar (Save, Discard, Undo, Redo,
+//Ctrl+S). The lights are picked and moved in the viewport itself. "Reglage automatique" derives framing,
 //lights, stage and sweep from the model itself; a model opened for the first
 //time gets it straight away.
 
@@ -41,10 +43,11 @@ const drawer = ref(false)
 const summary = ref<AutoSummary | null>(null)
 
 const TABS: Record<PanelKey, { icon: Component; label: string }> = {
-  appearance: { icon: Sun,     label: "modelEditorPanelAppearance" },
-  materials:  { icon: Palette, label: "modelEditorPanelMaterials" },
-  wireframe:  { icon: Grid3x3, label: "modelEditorPanelWireframe" },
-  model:      { icon: Info,    label: "modelEditorPanelModel" },
+  scene:     { icon: Image,     label: "modelEditorPanelScene" },
+  lights:    { icon: Lightbulb, label: "modelEditorPanelLights" },
+  materials: { icon: Palette,   label: "modelEditorPanelMaterials" },
+  wireframe: { icon: Grid3x3,   label: "modelEditorPanelWireframe" },
+  model:     { icon: Info,      label: "modelEditorPanelModel" },
 }
 //Each tab's title carries its number key
 const tabs = computed<EditorTab<PanelKey>[]>(() => PANELS.map((key, i) => ({
@@ -130,7 +133,18 @@ const summaryLines = computed(() => {
   return lines
 })
 
-//KEYBOARD - F frames, 1 to 4 pick a panel, ? toggles the help, Escape closes
+//the selected light goes, in one undo step
+function removeSelectedLight() {
+  const id = ed.selectedLight.value?.id
+  if (!id) return
+  ed.change("light-remove", (d) => {
+    d.settings.lights = (d.settings.lights ?? []).filter((l) => l.id !== id)
+  })
+  ed.selectedLight.value = null
+}
+
+//KEYBOARD - F frames, 1 to 5 pick a panel, Delete removes the selected light,
+//? toggles the help, Escape closes or deselects
 function onKeydown(e: KeyboardEvent) {
   if (e.ctrlKey || e.metaKey || e.altKey || isTextTarget(e.target, { editable: true })) return
   if (e.key === "f" || e.key === "F") {
@@ -143,6 +157,11 @@ function onKeydown(e: KeyboardEvent) {
     ed.panel.value = PANELS[index]!
     return
   }
+  if ((e.key === "Delete" || e.key === "Backspace") && ed.panel.value === "lights" && ed.selectedLight.value) {
+    e.preventDefault()
+    removeSelectedLight()
+    return
+  }
   if (e.key === "?") {
     help.value = !help.value
     return
@@ -150,7 +169,8 @@ function onKeydown(e: KeyboardEvent) {
   if (e.key === "Escape") {
     if (help.value) help.value = false
     else if (drawer.value) drawer.value = false
-    else summary.value = null
+    else if (summary.value) summary.value = null
+    else ed.selectedLight.value = null
   }
 }
 
@@ -243,7 +263,8 @@ onBeforeUnmount(() => {
               <X :size="16" />
             </button>
           </template>
-          <template #appearance><AppearancePanel /></template>
+          <template #scene><ScenePanel /></template>
+          <template #lights><LightsPanel /></template>
           <template #materials><MaterialsPanel /></template>
           <template #wireframe><WireframePanel /></template>
           <template #model><ModelPanel /></template>

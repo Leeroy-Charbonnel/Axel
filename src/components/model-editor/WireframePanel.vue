@@ -4,15 +4,17 @@ import { MousePointerClick, Trash2 } from "lucide-vue-next"
 import ToggleField from "../admin/fields/ToggleField.vue"
 import { useTranslations } from "../../composables/useTranslations"
 import { VIEWER_DEFAULTS } from "../../lib/viewer-defaults"
-import type { Vec3, WireframeMaterialParams } from "../../three/types"
+import type { Vec3, WireColor, WireframeMaterialParams } from "../../three/types"
 import ColorField from "./ColorField.vue"
 import SegmentedControl from "./SegmentedControl.vue"
 import SliderField from "./SliderField.vue"
+import WireColorField from "./WireColorField.vue"
 import { sweepExtent } from "./autoSettings"
 import { type GlobalPrefs, useModelEditor } from "./useModelEditor"
 
-//WIREFRAME - the lines and the look they reveal (shared by every model), the
-//sweep that reveals them (this model), and the parts that glow instead.
+//WIREFRAME - this model's colours (surfaces, lines), the line and surface
+//settings shared by every model, the sweep that reveals the wireframe (this
+//model), and the parts that glow instead.
 //Opening this panel shows the wireframe; clicks in the viewport pick parts.
 
 const ed = useModelEditor()
@@ -30,6 +32,14 @@ function setMaterial<K extends keyof WireframeMaterialParams>(key: K, value: Wir
 }
 function setWf(key: string, mutate: (w: NonNullable<typeof wf.value>) => void) {
   ed.change(`wf-${key}`, (d) => { mutate((d.settings.wireframeMode ??= {})) })
+}
+
+//an unset colour is the default one
+function setColor(key: "surfaceColor" | "lineColor", value: WireColor | undefined) {
+  setWf(key, (w) => {
+    if (value === undefined) delete w[key]
+    else w[key] = value
+  })
 }
 
 //SWEEP - axis as a choice, positions as a share of the model's extent on it
@@ -107,12 +117,16 @@ onBeforeUnmount(() => { ed.picking.value = false })
   <div class="ed-form">
     <section class="ed-form__section">
       <h3 class="ed-form__title">{{ t('modelEditorWireStyle') }}</h3>
+      <WireColorField :label="t('modelEditorWireSurface')" :model-value="wf.surfaceColor" :auto="VIEWER_DEFAULTS.wireframeSurfaceColor" @update:model-value="(v) => setColor('surfaceColor', v)" />
+      <WireColorField :label="t('modelEditorWireLineColor')" :model-value="wf.lineColor" :auto="VIEWER_DEFAULTS.wireframeLineColor" @update:model-value="(v) => setColor('lineColor', v)" />
       <ToggleField :label="t('modelEditorWireLines')" :model-value="wf.overlayOn ?? VIEWER_DEFAULTS.wireframeOverlayOn" @update:model-value="(v) => setWf('overlayOn', (w) => (w.overlayOn = v))" />
+    </section>
+
+    <section class="ed-form__section">
+      <h3 class="ed-form__title">{{ t('modelEditorWireSharedTitle') }}</h3>
       <p class="ed-hint">{{ t('modelEditorWireShared') }}</p>
-      <ColorField :label="t('modelEditorWireLineColor')" :model-value="prefs.lineColor" :auto="VIEWER_DEFAULTS.wireframeLineColor" @update:model-value="(v) => setPref('lineColor', v)" />
       <SliderField :label="t('modelEditorWireLineWidth')" :model-value="prefs.lineWidth" :min="0.5" :max="5" :step="0.1" unit="px" :auto="VIEWER_DEFAULTS.wireframeLineWidth" @update:model-value="(v) => setPref('lineWidth', v)" />
       <ColorField :label="t('modelEditorWireGlowColor')" :model-value="prefs.modeColor" :auto="VIEWER_DEFAULTS.wireframeModeColor" @update:model-value="(v) => setPref('modeColor', v)" />
-      <ColorField :label="t('modelEditorWireSurface')" :model-value="prefs.material.color" :auto="VIEWER_DEFAULTS.wireframeMaterial.color" @update:model-value="(v) => setMaterial('color', v)" />
       <SliderField :label="t('modelEditorMetalness')" :model-value="prefs.material.metalness" :min="0" :max="1" :step="0.01" :auto="VIEWER_DEFAULTS.wireframeMaterial.metalness" @update:model-value="(v) => setMaterial('metalness', v)" />
       <SliderField :label="t('modelEditorRoughness')" :model-value="prefs.material.roughness" :min="0" :max="1" :step="0.01" :auto="VIEWER_DEFAULTS.wireframeMaterial.roughness" @update:model-value="(v) => setMaterial('roughness', v)" />
       <SliderField :label="t('modelEditorEnvReflection')" :model-value="prefs.material.envMapIntensity" :min="0" :max="3" :step="0.05" :auto="VIEWER_DEFAULTS.wireframeMaterial.envMapIntensity" @update:model-value="(v) => setMaterial('envMapIntensity', v)" />

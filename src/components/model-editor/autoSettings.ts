@@ -124,6 +124,14 @@ export function newLight(type: SharedLight["type"], setup: AutoSetup, id: string
   return placeLight(base, { azimuth: 30, elevation: 40, distance: type === "point" ? 1.5 : 3 }, setup)
 }
 
+//The same light as the other type, where it stands: a sun aims at the model
+//centre, a bulb reaches as far as it can.
+export function withLightType(light: SharedLight, type: SharedLight["type"], setup: AutoSetup): SharedLight {
+  const { tx: _tx, ty: _ty, tz: _tz, range: _range, castShadow: _castShadow, ...rest } = light
+  const [tx, ty, tz] = setup.bounds.center
+  return type === "directional" ? { ...rest, type, tx, ty, tz } : { ...rest, type, range: 0 }
+}
+
 //SWEEP: positions along the axis as a fraction of the model's extent on it
 export function sweepExtent(axis: Vec3, setup: AutoSetup): { min: number; max: number } {
   const length = Math.hypot(...axis) || 1
