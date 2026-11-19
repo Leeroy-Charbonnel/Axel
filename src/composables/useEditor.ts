@@ -16,8 +16,8 @@ export type { DraftOf, EntityId, EntityKind, EntityOf }
 //Edits never write to the server directly: they patch a draft per entity, the
 //page renders display(kind, entity) so the draft shows at once, and saveAll()
 //sends one partial PUT per dirty entity. A failed PUT keeps its draft and
-//toasts the server's reason. Creating, deleting and reordering items are
-//structural and go to the server immediately.
+//toasts the server's reason. Reordering and deleting items wait for Save too;
+//a new item is a hidden row on the server that Save publishes and Discard deletes.
 
 interface DraftEntry {
   kind:  EntityKind
@@ -36,6 +36,11 @@ interface Snapshot {
   labels: LabelDrafts
 }
 
+//A step to go back to, with the time of the change it undoes
+interface PastStep extends Snapshot {
+  at: number
+}
+
 export interface Selection {
   kind: EntityKind
   id:   EntityId
@@ -50,7 +55,14 @@ export interface PageActions {
   redo?:    () => void
   canUndo?: Readonly<Ref<boolean>>
   canRedo?: Readonly<Ref<boolean>>
+  //When the page's newest undo step was made; without it the editor's steps go first
+  lastStepAt?: () => number
+  //Forgets the page's undone steps
+  dropRedo?:   () => void
 }
+
+//The history a step was undone in
+type HistoryOwner = "editor" | "page"
 
 //typing in one field within this window is one undo step
 const COALESCE_MS   = 800
@@ -75,8 +87,10 @@ const focusTick = ref(0)
 const activeField = ref<string | null>(null)
 const drafts    = ref<Drafts>({})
 const labelDrafts = ref<LabelDrafts>({ fr: {}, en: {} })
-const past      = shallowRef<Snapshot[]>([])
+const past      = shallowRef<PastStep[]>([])
 const future    = shallowRef<Snapshot[]>([])
+//Where each undone step went back, oldest first: redo returns them in reverse
+let undone: HistoryOwner[] = []
 const saving    = ref(false)
 const pageActions = shallowRef<PageActions | null>(null)
 let lastPatch = { key: "", fields: "", at: 0 }
@@ -84,7 +98,7 @@ let lastPatch = { key: "", fields: "", at: 0 }
 const portfolio = usePortfolio()
 const toast     = useToast()
 const theme     = useTheme()
-const { confirm } = useConfirm()
+const { confirm, open: confirmOpen } = useConfirm()
 const translations = useTranslations()
 const { t }     = translations
 
@@ -108,10 +122,17 @@ function current(): Snapshot {
   return { drafts: clone(drafts.value), theme: theme.snapshot(), labels: clone(labelDrafts.value) }
 }
 
+const isBlank = (text: string) => text.trim() === ""
+
+//A label cannot be empty: an emptied one is a text being typed, never a state to save or go back to
+function filled(labels: Record<string, string>): Record<string, string> {
+  return Object.fromEntries(Object.entries(labels).filter(([, text]) => !isBlank(text)))
+}
+
 function restore(snapshot: Snapshot) {
   drafts.value = snapshot.drafts
   theme.restore(snapshot.theme)
-  labelDrafts.value = snapshot.labels
+  labelDrafts.value = { fr: filled(snapshot.labels.fr), en: filled(snapshot.labels.en) }
 }
 
 //Selects the first item whose draft differs between two steps, so an undo shows what it changed
@@ -124,30 +145,42 @@ function revealChange(before: Drafts, after: Drafts) {
   }
 }
 
-function pushHistory() {
-  past.value = [...past.value, current()].slice(-HISTORY_LIMIT)
+//A new step ends every redo, the page's too
+function pushHistory(at: number) {
+  past.value = [...past.value, { ...current(), at }].slice(-HISTORY_LIMIT)
   future.value = []
+  undone = []
+  pageActions.value?.dropRedo?.()
 }
 
 //One undo step per field; quick edits of the same field join it
 function record(key: string, fields: string) {
   const now = Date.now()
   const coalesce = lastPatch.key === key && lastPatch.fields === fields && now - lastPatch.at < COALESCE_MS
-  if (!coalesce) pushHistory()
+  const last = past.value[past.value.length - 1]
+  if (!coalesce || !last) pushHistory(now)
+  else past.value = [...past.value.slice(0, -1), { ...last, at: now }]
   lastPatch = { key, fields, at: now }
 }
 
 function resetHistory() {
   past.value = []
   future.value = []
+  undone = []
   lastPatch = { key: "", fields: "", at: 0 }
+}
+
+//A step recorded by the page's own history ends the editor's redo, as in one history
+function pageStepped() {
+  future.value = []
+  undone = []
 }
 
 //out of the drafts and out of every snapshot: an undo must not bring back a
 //draft whose entity is gone, its save would 404 forever
 function forget(key: string) {
   delete drafts.value[key]
-  const strip = (list: Snapshot[]) => list.map((snapshot) => {
+  const strip = <S extends Snapshot>(list: S[]): S[] => list.map((snapshot) => {
     if (!(key in snapshot.drafts)) return snapshot
     const copy = { ...snapshot.drafts }
     delete copy[key]
@@ -232,6 +265,20 @@ function setLabel(key: string, text: string) {
   labelDrafts.value = { ...labelDrafts.value, [lang]: next }
 }
 
+//A label left empty gets its saved text back; emptying it was not a step
+function restoreBlankLabel(key: string) {
+  const lang = editLang.value
+  const typed = labelDrafts.value[lang][key]
+  if (typed === undefined || !isBlank(typed)) return
+  const next = { ...labelDrafts.value[lang] }
+  delete next[key]
+  labelDrafts.value = { ...labelDrafts.value, [lang]: next }
+  lastPatch = { key: "", fields: "", at: 0 }
+  //The step that emptied it now leads to where it started
+  const last = past.value[past.value.length - 1]
+  if (last && same({ drafts: last.drafts, theme: last.theme, labels: last.labels }, current())) past.value = past.value.slice(0, -1)
+}
+
 function isLabelDirty(key: string): boolean {
   return key in labelDrafts.value[editLang.value]
 }
@@ -241,7 +288,7 @@ const labelsDirty = computed(() => LANGS.some(({ code }) => Object.keys(labelDra
 //One request per language; the saved texts go to the page without a reload
 async function saveLabels() {
   for (const { code } of LANGS) {
-    const sent = labelDrafts.value[code]
+    const sent = filled(labelDrafts.value[code])
     if (Object.keys(sent).length === 0) continue
     const saved = await apiJson<Record<string, string>>("PUT", "/api/translations", { lang: code, values: sent })
     translations.setSaved(code, saved)
@@ -270,33 +317,44 @@ const canRedo    = computed(() => future.value.length > 0 || (pageActions.value?
 export type EditorStatus = "saved" | "dirty" | "saving"
 const status = computed<EditorStatus>(() => saving.value ? "saving" : dirty.value ? "dirty" : "saved")
 
-//the editor's own steps go first; the page's history takes over once they run out
+//ONE HISTORY FOR THE USER - the editor's steps and the page's are undone in
+//the order they were made, newest first, and redone in the reverse order
 function undo() {
+  const page = pageActions.value
   const prev = past.value[past.value.length - 1]
-  if (prev) {
-    const now = current()
-    future.value = [...future.value, now]
-    past.value = past.value.slice(0, -1)
-    restore(prev)
-    revealChange(now.drafts, prev.drafts)
-    lastPatch = { key: "", fields: "", at: 0 }
+  const pageCan = page?.canUndo?.value ?? false
+  if (pageCan && (!prev || (page?.lastStepAt?.() ?? 0) > prev.at)) {
+    page?.undo?.()
+    undone.push("page")
     return
   }
-  pageActions.value?.undo?.()
+  if (!prev) return
+  const now = current()
+  future.value = [...future.value, now]
+  past.value = past.value.slice(0, -1)
+  restore(prev)
+  revealChange(now.drafts, prev.drafts)
+  lastPatch = { key: "", fields: "", at: 0 }
+  undone.push("editor")
 }
 
 function redo() {
+  const page = pageActions.value
   const next = future.value[future.value.length - 1]
-  if (next) {
-    const now = current()
-    past.value = [...past.value, now]
-    future.value = future.value.slice(0, -1)
-    restore(next)
-    revealChange(now.drafts, next.drafts)
-    lastPatch = { key: "", fields: "", at: 0 }
+  const pageCan = page?.canRedo?.value ?? false
+  const owner = undone.pop()
+  if (pageCan && (!next || owner === "page")) {
+    page?.redo?.()
     return
   }
-  pageActions.value?.redo?.()
+  if (!next) return
+  const now = current()
+  //A step done again is the newest one
+  past.value = [...past.value, { ...now, at: Date.now() }]
+  future.value = future.value.slice(0, -1)
+  restore(next)
+  revealChange(now.drafts, next.drafts)
+  lastPatch = { key: "", fields: "", at: 0 }
 }
 
 //True when the save worked; a failure is logged
@@ -350,6 +408,8 @@ function discardAll() {
 
 //asks before throwing work away; true when nothing is pending any more
 async function confirmDiscard(): Promise<boolean> {
+  //A save in flight ends first: what it has written cannot be discarded
+  if (saving.value) await new Promise<void>((done) => { const stop = watch(saving, () => { stop(); done() }) })
   if (!dirty.value) return true
   const ok = await confirm({
     title:       t("editorDiscardTitle"),
@@ -512,7 +572,7 @@ function onClick(e: MouseEvent) {
 //Escape drops the selection, once no text box and no dialog takes the key
 function onEscape(e: KeyboardEvent) {
   if (e.defaultPrevented || !selection.value || isTextTarget(e.target, { editable: true })) return
-  if (document.querySelector("dialog[open]")) return
+  if (confirmOpen.value || document.querySelector("dialog[open]")) return
   e.preventDefault()
   clear()
 }
@@ -566,8 +626,8 @@ export function useEditor() {
     setEditMode, select, clear, isSelected,
     find, draft, patch, display, isDirty,
     setThemeVar, resetTheme,
-    label, setLabel, isLabelDirty,
-    saveAll, discardAll, confirmDiscard, undo, redo,
+    label, setLabel, restoreBlankLabel, isLabelDirty,
+    saveAll, discardAll, confirmDiscard, undo, redo, pageStepped,
     createItem, removeItem, reorder, move,
     registerPageActions, pageActive,
   }

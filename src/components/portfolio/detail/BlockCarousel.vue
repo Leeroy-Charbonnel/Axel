@@ -22,8 +22,11 @@ const { editMode: editing } = useEditor()
 
 const SWIPE_PX = 40
 
-const index  = ref(0)
-const paused = ref(false)
+const index   = ref(0)
+const hovered = ref(false)
+const focused = ref(false)
+//A caption being typed keeps its slide, wherever the pointer goes
+const paused  = computed(() => hovered.value || focused.value)
 const items  = computed(() => props.content.items.filter((i) => i.url))
 const count  = computed(() => items.value.length)
 const current = computed(() => items.value[index.value] ?? null)
@@ -77,10 +80,10 @@ function onPointerUp(e: PointerEvent) {
     tabindex="0"
     :lang="lang"
     @keydown="onKeydown"
-    @mouseenter="paused = true"
-    @mouseleave="paused = false"
-    @focusin="paused = true"
-    @focusout="paused = false"
+    @mouseenter="hovered = true"
+    @mouseleave="hovered = false"
+    @focusin="focused = true"
+    @focusout="focused = false"
     @pointerdown="onPointerDown"
     @pointerup="onPointerUp"
   >

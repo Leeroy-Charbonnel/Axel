@@ -30,7 +30,7 @@ function onFocus() {
 
 //A label cannot be empty: it gets its saved text back
 function onBlur() {
-  if (editor.label(props.name).trim() === "") editor.setLabel(props.name, saved.value)
+  editor.restoreBlankLabel(props.name)
   if (editor.activeField.value === labelFieldId(props.name)) editor.activeField.value = null
 }
 </script>

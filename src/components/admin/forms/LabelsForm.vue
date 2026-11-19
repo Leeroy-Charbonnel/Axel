@@ -10,10 +10,6 @@ import { LABEL_GROUPS, labelFieldId } from "../labels"
 const editor = useEditor()
 const { t } = useTranslations()
 
-//A label cannot be empty: it gets its saved text back
-function onChange(key: string) {
-  if (editor.label(key).trim() === "") editor.setLabel(key, t(key))
-}
 </script>
 
 <template>
@@ -29,7 +25,7 @@ function onChange(key: string) {
             :lang="editor.editLang.value"
             :value="editor.label(key)"
             @input="editor.setLabel(key, ($event.target as HTMLInputElement).value)"
-            @change="onChange(key)"
+            @change="editor.restoreBlankLabel(key)"
           />
         </Field>
       </div>

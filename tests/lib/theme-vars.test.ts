@@ -39,6 +39,10 @@ describe("theme registry", () => {
     expect(isThemeEntry("--site-gutter", "clamp(16px, 5vw, 80px)")).toBe(true)
     expect(isThemeEntry("--site-gutter", "url(x)")).toBe(false)
     expect(isThemeEntry("--site-gutter", "1px; color: red")).toBe(false)
+    //either one would take the declarations written after it in the page's style attribute
+    expect(isThemeEntry("--site-gutter", "clamp(16px, 5vw")).toBe(false)
+    expect(isThemeEntry("--site-gutter", "16px) calc(1px")).toBe(false)
+    expect(isThemeEntry("--site-gutter", "16px /* wide")).toBe(false)
     expect(isThemeEntry("--primary", "185 65% 51%")).toBe(true)
     expect(isThemeEntry("--primary", "red")).toBe(false)
   })

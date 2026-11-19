@@ -32,8 +32,7 @@ function toTop() {
     <div class="site-container footer__inner">
       <p class="footer__name">
         <InlineText v-if="editing" kind="profile" field="name" :value="profile.name" :label="t('fieldName')" class="footer__name-text" />
-        <template v-else>{{ profile.name }}</template>
-        {{ " " }}<span class="footer__year">&copy; {{ year }}</span>
+        <template v-else>{{ profile.name }}</template>{{ " " }}<span class="footer__year">&copy; {{ year }}</span>
       </p>
       <SocialLinks :links="profile.links" />
       <!--A text box cannot sit in a button: while editing the label stands alone-->

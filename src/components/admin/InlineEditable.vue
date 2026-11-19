@@ -169,10 +169,11 @@ function onInput() {
   emit("update:modelValue", text)
 }
 
-//A last empty line is not kept
+//A last empty line is not kept, and a typed text the owner refused does not stay on the page
 function onBlur() {
   const text = props.modelValue.replace(/\n+$/, "")
   if (text !== props.modelValue) emit("update:modelValue", text)
+  else render()
   emit("blur")
 }
 

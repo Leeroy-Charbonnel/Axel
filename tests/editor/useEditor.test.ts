@@ -6,13 +6,15 @@ import type { MainProjectDto, PortfolioDto } from "../../src/types/portfolio"
 //a ref the test swaps the way a reload would, and the API always succeeds
 const data = ref<PortfolioDto | null>(null)
 const reloadWith = { next: null as PortfolioDto | null }
+//every request the editor sent: method, path, body
+const requests: unknown[][] = []
 mock.module("../../src/composables/usePortfolio", () => ({
   usePortfolio: () => ({ data, reload: async () => { data.value = reloadWith.next } }),
-  apiJson:      async () => ({}),
+  apiJson:      async (...args: unknown[]) => { requests.push(args); return {} },
   uploadFile:   async () => ({}),
 }))
 mock.module("../../src/composables/useToast", () => ({ useToast: () => ({ error: () => {}, info: () => {}, success: () => {} }) }))
-mock.module("../../src/composables/useConfirm", () => ({ useConfirm: () => ({ confirm: async () => true }) }))
+mock.module("../../src/composables/useConfirm", () => ({ useConfirm: () => ({ confirm: async () => true, open: ref(false) }) }))
 mock.module("../../src/composables/useTranslations", () => ({ useTranslations: () => ({ t: (key: string) => key }) }))
 
 const { useEditor } = await import("../../src/composables/useEditor")
@@ -86,6 +88,35 @@ describe("useEditor site labels and undo", () => {
     ed.discardAll()
   })
 
+  test("an emptied label is not saved and no undo brings it back", async () => {
+    const ed = useEditor()
+    data.value = portfolio([1])
+    reloadWith.next = data.value
+    ed.setLabel("heroTitle", "  ")
+    expect(ed.dirty.value).toBe(true)
+
+    //saved while the box is still empty: nothing is sent for it
+    requests.length = 0
+    expect(await ed.saveAll()).toBe(true)
+    expect(requests).toEqual([])
+
+    //left empty: the saved text is back and emptying it was not a step
+    ed.restoreBlankLabel("heroTitle")
+    expect(ed.label("heroTitle")).toBe("heroTitle")
+    expect(ed.dirty.value).toBe(false)
+    expect(ed.canUndo.value).toBe(false)
+
+    //an empty label inside an older step comes back as the saved text
+    ed.setLabel("heroTitle", "")
+    ed.setLabel("navHome", "Home")
+    ed.setLabel("navAbout", "About")
+    ed.undo()
+    expect(ed.label("navHome")).toBe("Home")
+    expect(ed.label("heroTitle")).toBe("heroTitle")
+    expect(ed.isLabelDirty("heroTitle")).toBe(false)
+    ed.discardAll()
+  })
+
   test("an undo selects the item it changed", () => {
     const ed = useEditor()
     data.value = portfolio([1, 2])
@@ -94,6 +125,62 @@ describe("useEditor site labels and undo", () => {
     ed.undo()
     expect(ed.selection.value).toEqual({ kind: "mainProject", id: 2 })
     ed.clear()
+    ed.discardAll()
+  })
+})
+
+describe("useEditor and the history of a page", () => {
+  test("the newest step is undone first and redone last, whichever history holds it", () => {
+    const ed = useEditor()
+    data.value = portfolio([1])
+    const calls: string[] = []
+    const canUndo = ref(true)
+    const canRedo = ref(false)
+    let pageStepAt = Date.now() - 1000
+    const unregister = ed.registerPageActions({
+      save:       async () => {},
+      discard:    () => {},
+      dirty:      ref(false),
+      undo:       () => { calls.push("undo"); canUndo.value = false; canRedo.value = true },
+      redo:       () => { calls.push("redo"); canUndo.value = true; canRedo.value = false },
+      canUndo,
+      canRedo,
+      lastStepAt: () => pageStepAt,
+      dropRedo:   () => { calls.push("dropRedo"); canRedo.value = false },
+    })
+
+    //the page step came first: the editor's is undone before it
+    ed.patch("mainProject", 1, { year: "2040" })
+    expect(calls).toEqual(["dropRedo"])
+    ed.undo()
+    expect(ed.draft("mainProject", 1)).toBeNull()
+    expect(calls).toEqual(["dropRedo"])
+    ed.undo()
+    expect(calls).toEqual(["dropRedo", "undo"])
+
+    //redone in the reverse order
+    ed.redo()
+    expect(calls).toEqual(["dropRedo", "undo", "redo"])
+    expect(ed.draft("mainProject", 1)).toBeNull()
+    ed.redo()
+    expect(ed.draft("mainProject", 1)).toEqual({ year: "2040" })
+
+    //a page step made after the editor's goes first
+    pageStepAt = Date.now() + 1000
+    ed.undo()
+    expect(calls).toEqual(["dropRedo", "undo", "redo", "undo"])
+    expect(ed.draft("mainProject", 1)).toEqual({ year: "2040" })
+
+    //a step recorded by the page ends the editor's redo
+    ed.undo()
+    expect(ed.draft("mainProject", 1)).toBeNull()
+    canRedo.value = false
+    ed.pageStepped()
+    expect(ed.canRedo.value).toBe(false)
+    ed.redo()
+    expect(ed.draft("mainProject", 1)).toBeNull()
+
+    unregister()
     ed.discardAll()
   })
 })

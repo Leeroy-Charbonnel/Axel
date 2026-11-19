@@ -66,7 +66,7 @@ const pageState = computed({
   set: (v: { blocks: DetailBlock[]; grid: DetailGridSettings }) => { blocks.value = v.blocks; grid.value = v.grid },
 })
 const savedJson = ref(JSON.stringify(pageState.value))
-const history   = useSnapshotHistory(pageState)
+const history   = useSnapshotHistory(pageState, editor.pageStepped)
 const pageDirty = computed(() => JSON.stringify(pageState.value) !== savedJson.value)
 //what a visitor sees: unfinished blocks are left out
 const shownBlocks = computed(() => blocks.value.filter((b) => hasContent(b, lang.value, data.value?.models ?? [])))
@@ -115,6 +115,8 @@ const unregister = editor.registerPageActions({
   redo:     history.redo,
   canUndo:  history.canUndo,
   canRedo:  history.canRedo,
+  lastStepAt: history.lastStepAt,
+  dropRedo:   history.dropRedo,
 })
 onBeforeUnmount(unregister)
 

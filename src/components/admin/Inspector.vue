@@ -24,7 +24,8 @@ import { useInspectorResize } from "./useInspectorResize"
 //(elsewhere only while an item is selected). Tabs: Properties (the selected
 //entity's form, or the site labels when nothing is selected), Files (every file) and
 //CSS (the site theme). A side panel above 1024px (the page makes room for it,
-//see style.css), a bottom sheet below that can be folded.
+//see style.css), a bottom sheet below that can be folded: it opens folded,
+//unfolds on a selected item and stays as it is while a text is typed in place.
 
 const FORMS: Record<EntityKind, Component> = {
   profile:     ProfileForm,
@@ -33,6 +34,8 @@ const FORMS: Record<EntityKind, Component> = {
   experience:  ExperienceForm,
 }
 const SHEET_QUERY = "(max-width: 1024px)"
+const OPEN_CLASS   = "editor-inspector-open"
+const FOLDED_CLASS = "editor-inspector-folded"
 
 const editor = useEditor()
 const { data } = usePortfolio()
@@ -88,16 +91,36 @@ const panelEl = ref<HTMLElement | null>(null)
 const resize = useInspectorResize(() => panelEl.value)
 
 watch(open, async (isOpen) => {
-  document.documentElement.classList.toggle("editor-inspector-open", isOpen)
+  document.documentElement.classList.toggle(OPEN_CLASS, isOpen)
   if (!isOpen) return resize.stop()
+  //The sheet covers most of a small screen: with nothing selected it opens folded
+  collapsed.value = !selection.value
   await nextTick()
   resize.measure()
 }, { immediate: true })
-onBeforeUnmount(() => document.documentElement.classList.remove("editor-inspector-open"))
+//The page keeps room under its end for the sheet, a folded one needs less
+watch([open, collapsed], ([isOpen, folded]) => {
+  document.documentElement.classList.toggle(FOLDED_CLASS, isOpen && folded)
+}, { immediate: true })
+onBeforeUnmount(() => document.documentElement.classList.remove(OPEN_CLASS, FOLDED_CLASS))
 
-function region(): HTMLElement | null {
-  return document.querySelector<HTMLElement>(`[data-edit-key="${key.value}"]`)
+//The text box of the page that has the keyboard
+function typedText(): HTMLElement | null {
+  const el = document.activeElement
+  return el instanceof HTMLElement && el.isContentEditable && !panelEl.value?.contains(el) ? el : null
 }
+
+//The region of the selected item the admin is in; an item picked from the panel has its first one
+function region(): HTMLElement | null {
+  const regions = [...document.querySelectorAll<HTMLElement>(`[data-edit-key="${key.value}"]`)]
+  const used = regions.find((el) => el.contains(document.activeElement))
+  if (used) return used
+  return typedText() ? null : regions[0] ?? null
+}
+
+//Where the item was selected on the page: scrolled to, and given the focus back
+let origin: HTMLElement | null = null
+watch(selection, () => { origin = selection.value ? region() : null })
 
 //The field of the text being typed on the page, marked and scrolled into view
 const LINKED_CLASS = "ed-field--linked"
@@ -120,21 +143,19 @@ function motion(): ScrollBehavior {
 }
 
 //the selected item stays visible: beside the panel, or above the sheet; a text
-//typed in place keeps only itself in view
+//typed in place keeps only itself in view and leaves the sheet as it is
 watch(key, async (next) => {
-  if (!next) return
-  collapsed.value = false
-  tab.value = "props"
-  await nextTick()
-  const sheet = window.matchMedia(SHEET_QUERY).matches
-  const behavior = motion()
-  const target = region()
-  const focused = document.activeElement
-  if (target && focused instanceof HTMLElement && focused !== target && target.contains(focused)) {
-    focused.scrollIntoView({ block: "nearest", behavior })
+  if (!next) {
+    collapsed.value = true
     return
   }
-  target?.scrollIntoView({ block: sheet ? "start" : "nearest", behavior })
+  tab.value = "props"
+  const typed = typedText()
+  if (!typed) collapsed.value = false
+  await nextTick()
+  const behavior = motion()
+  if (typed) return typed.scrollIntoView({ block: "nearest", behavior })
+  origin?.scrollIntoView({ block: window.matchMedia(SHEET_QUERY).matches ? "start" : "nearest", behavior })
 })
 
 watch(editor.focusTick, async () => {
@@ -145,7 +166,7 @@ watch(editor.focusTick, async () => {
 
 //Drops the selection; the home page keeps the panel open
 function close() {
-  const target = region()
+  const target = origin
   editor.clear()
   target?.focus()
 }
@@ -506,6 +527,14 @@ async function remove() {
 
 /*SHEET - tablet and phone*/
 @media (max-width: 1024px) {
+  /*The end of the page scrolls clear of the sheet, unfolded or folded*/
+  :global(html.editor-editing.editor-inspector-open body) {
+    padding-bottom: calc(var(--editor-bar-height) + var(--editor-sheet-height));
+  }
+  :global(html.editor-editing.editor-inspector-folded body) {
+    padding-bottom: calc(var(--editor-bar-height) + var(--editor-control));
+  }
+
   .inspector {
     top: auto;
     left: 0;

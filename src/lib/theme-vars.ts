@@ -100,23 +100,33 @@ export const THEME_VARS = [
   { name: "--filter-blur",   labelKey: "themeBlur",      group: "texture", type: "length", unit: "px", default: "6px",   min: 0,  max: 24,  step: 1 },
 ] as const satisfies readonly ThemeVarDef[]
 
-export type ThemeVar     = (typeof THEME_VARS)[number]
-export type ThemeVarName = ThemeVar["name"]
-type ColorVarName        = Extract<ThemeVar, { type: "color" }>["name"]
+type ThemeVar     = (typeof THEME_VARS)[number]
+type ColorVarName = Extract<ThemeVar, { type: "color" }>["name"]
 
 //Values by name, a missing name keeps its default
 export type ThemeVars = Record<string, string>
 
-//A plain value: nothing that leaves the declaration, no url()
+//A plain value: nothing that leaves the declaration, no url(), no comment
 const CSS_VAR_VALUE = /^[a-zA-Z0-9 .,%()+*/#-]+$/
-export const CSS_VAR_VALUE_MAX_LENGTH = 160
+const CSS_VAR_VALUE_MAX_LENGTH = 160
 
 export function isRegistered(name: string): boolean {
   return THEME_VARS.some((v) => v.name === name)
 }
 
+//Every "(" has its ")": an open one takes the declarations written after it
+function isBalanced(value: string): boolean {
+  let depth = 0
+  for (const char of value) {
+    if (char === "(") depth++
+    else if (char === ")" && --depth < 0) return false
+  }
+  return depth === 0
+}
+
 function isCssVarValue(value: string): boolean {
   return value.length <= CSS_VAR_VALUE_MAX_LENGTH && CSS_VAR_VALUE.test(value) && !/url\s*\(/i.test(value)
+    && !value.includes("/*") && isBalanced(value)
 }
 
 //A name of the registry with a value of its type

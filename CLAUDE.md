@@ -258,15 +258,58 @@ server (tunnel, `vite --host`).
 
 # The editor
 
+One edit mode, one Save. Every edit is a draft: entity fields, site labels and
+the theme in `useEditor`, the blocks and the grid of a project page in that
+page's own state (`registerPageActions`). Nothing is sent before Save, and
+Discard restores all of it.
+
+- Three things are written at once and stay invisible to visitors: a new item
+  is a hidden row (Save publishes it, Discard deletes it), an uploaded file is
+  an object nothing uses yet, and the FR / EN switch saves the admin's language.
+- Undo and redo are one history. The editor's steps and the page's
+  (`useSnapshotHistory`) each keep the time of their change: the newest is
+  undone first, and a new step in either one ends the redo of both.
 - The language being edited is the site language (`useEditor().editLang` wraps
   `useLang()`): one field per text, the FR / EN switch changes both.
-- Texts are typed on the page itself (`src/components/admin/InlineText.vue`) and
-  stay linked to the inspector field: both write `editor.patch`, one history.
-- The inspector is resizable; the width is clamped by the
-  `--editor-inspector-min` / `--editor-inspector-max` tokens.
+- On the home page the inspector stays open for the whole edit mode, with tabs
+  Properties (the selected item, or the site labels when nothing is selected),
+  Files and CSS. It is resizable; the width is clamped by the
+  `--editor-inspector-min` / `--editor-inspector-max` tokens. At most 1024px
+  wide it is a bottom sheet: folded until an item is selected, left as it is
+  while a text is typed in place, and the page keeps room under its end for it.
 - The project page panel has tabs: Add, Properties (the selected block, or the
   page grid when nothing is selected), Files (this project's folder only) and
   CSS (the site theme).
+
+# Texts are typed on the page
+
+`src/components/admin/InlineEditable.vue` is the text box: a `contenteditable`
+in `plaintext-only` mode (a paste or a drop is plain text in every browser),
+one line unless `multiline`, digits only for a count. Three components bind it:
+
+| Component | Text | Written to |
+|---|---|---|
+| `admin/InlineText.vue` | a field of an entity, in the site language | `editor.patch` |
+| `admin/InlineLabel.vue` | a fixed text of the site | `editor.setLabel` |
+| `portfolio/detail/BlockText.vue` | a text of a block | the block, through `@write` |
+
+Each one shares its value with its panel field, so both follow each other and
+share one history; on the home page the field of the text being typed is
+marked in the panel.
+Outside edit mode all three render the plain element and its text, nothing
+else: a visitor gets no editor markup.
+
+# Site labels
+
+The fixed texts of the home page the admin can retype are the translation keys
+listed in `LABEL_GROUPS` (`src/components/admin/labels.ts`). They are typed in
+place (`InlineLabel`) or in the panel (`forms/LabelsForm.vue`), drafted per
+language, and written on Save by `PUT /api/translations`: `{ lang, values }`,
+admin only, one transaction, a 400 for a key that does not exist or an empty
+text. A label left empty gets its saved text back; an empty one is never saved.
+A new editable label is its key in `LABEL_GROUPS` and an `InlineLabel` on the
+page. The server HTML snapshot does not read them: `server/seo.ts` names its
+sections with its own `LABELS`.
 
 # Each project page has its own grid
 
@@ -275,9 +318,31 @@ server (tunnel, `vite --host`).
 by the public grid, the editor, the panel and the server validator. A new column
 count refits every block (`fitToCols`); full-width blocks and sections follow it.
 
+In the editor (`detail/BentoEditor.vue`, `useBentoGrid`):
+
+- the selected block has a handle on each edge and each corner (`resizeRect` in
+  `src/lib/bento-layout.ts`); the phone stack has the bottom one only. Arrows
+  move the block, Shift + arrows resize it.
+- a gesture only moves a preview: the blocks are written once, on release, and
+  Escape cancels it. What a block lands on moves down, so a drop is never refused.
+- a click on a text of a block types there (`BlockText`); Enter on a block types
+  in its first text.
+- deleting a block asks nothing: a toast names it and undo brings it back.
+- every block type and section preset has a "?" in the Add tab: `HelpDialog.vue`
+  shows a drawing (`BlockSketch.vue`, `SectionSketch.vue`) and the text of its
+  `helpKey`. A new block type needs both.
+
 # One theme for the whole site
 
-The admin edits the base colour tokens (`src/lib/theme-vars.ts`); they are saved
-in the single-row `site_theme` table, sent in the public portfolio payload and in
-the server HTML, and applied as CSS variables on `<html>` for every visitor.
-Every other colour token derives from those base tokens.
+The CSS tab edits the tokens of `THEME_VARS` (`src/lib/theme-vars.ts`): 36
+tokens in 7 groups, each with a type (`color`, `number`, `length`, `text`), its
+limits and a default equal to the stylesheet's (`tests/lib/theme-vars.test.ts`
+fails when they differ). `theme/ThemeEditor.vue` draws one control per type.
+`PUT /api/theme` replaces the whole map: only registered names, each value
+checked by its type (a `text` value is plain CSS with balanced parentheses, no
+`url()`, no comment), and text colours at 4.5:1 or more on their ground.
+
+The saved map lives in the single-row `site_theme` table, is sent in the public
+portfolio payload and in the server HTML, and is applied as CSS variables on
+`<html>` for every visitor. Every other colour token derives from the base
+colours. A new editable token is one line in `THEME_VARS` and its label.
