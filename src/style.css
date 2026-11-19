@@ -507,19 +507,20 @@ near-white headings on the site type scale, body at the body level*/
 .md-content img { max-width: 100%; }
 
 
-/*FILM GRAIN over the whole page. position: absolute so the grain scrolls with
-the page; z 1 sits above section backgrounds, and media is lifted to z 2 below
-so the grain never covers a render.*/
+/*FILM GRAIN on the page background only. position: absolute so the grain
+scrolls with the page; z -1 puts it over the background of .vsui-app (a
+stacking context) and under everything the page shows.*/
 .grain-overlay {
   position: absolute;
   inset: 0;
   background-image: var(--grain-texture);
   background-size: var(--grain-size);
-  z-index: 1;
+  z-index: -1;
   pointer-events: none;
   opacity: var(--grain-opacity);
 }
 
+/*MEDIA is positioned at z 2: what a component lays over a picture is stacked against it*/
 img,
 video,
 iframe,

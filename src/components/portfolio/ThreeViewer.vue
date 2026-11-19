@@ -499,8 +499,7 @@ watch(() => [props.glbUrl, props.glbLightUrl], () => {
   pointer-events: none;
 }
 
-/*the global media rule lifts every canvas and img to z-index 2 over the grain;
-the controls sit above them*/
+/*the global media rule puts every canvas and img at z-index 2; the controls sit above them*/
 .three-viewer__progress,
 .three-viewer__message,
 .three-viewer__toolbar {

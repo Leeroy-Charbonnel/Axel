@@ -1,6 +1,7 @@
-//The CSS tokens the admin can change, by group, each with its type and default
+//The CSS tokens the admin can change, by group, each with its type and default.
+//Only what a colour picker or a slider can set: no token that needs typed CSS.
 
-export type ThemeGroup = "colors" | "shape" | "spacing" | "layout" | "type" | "hero" | "texture"
+export type ThemeGroup = "colors" | "shape" | "spacing" | "layout" | "type" | "texture"
 
 //Order of the groups in the CSS tab, with the key of their title
 export const THEME_GROUPS: readonly { key: ThemeGroup; labelKey: string }[] = [
@@ -9,7 +10,6 @@ export const THEME_GROUPS: readonly { key: ThemeGroup; labelKey: string }[] = [
   { key: "spacing", labelKey: "themeGroupSpacing" },
   { key: "layout",  labelKey: "themeGroupLayout" },
   { key: "type",    labelKey: "themeGroupType" },
-  { key: "hero",    labelKey: "themeGroupHero" },
   { key: "texture", labelKey: "themeGroupTexture" },
 ]
 
@@ -45,12 +45,7 @@ export interface LengthVarDef extends ThemeVarBase {
   step: number
 }
 
-//Any other plain CSS value, "clamp(1rem, 2vw, 3rem)"
-export interface TextVarDef extends ThemeVarBase {
-  type: "text"
-}
-
-export type ThemeVarDef = ColorVarDef | NumberVarDef | LengthVarDef | TextVarDef
+export type ThemeVarDef = ColorVarDef | NumberVarDef | LengthVarDef
 
 const REM_STEP = 0.05
 const EM_STEP  = 0.01
@@ -75,14 +70,7 @@ export const THEME_VARS = [
   { name: "--spacing-3xl", labelKey: "themeSpacing3xl", group: "spacing", type: "length", unit: "rem", default: "4rem",    min: 0, max: 12,  step: REM_STEP },
 
   { name: "--site-max-width",   labelKey: "themeMaxWidth",   group: "layout", type: "length", unit: "px", default: "1280px", min: 960, max: 1920, step: 10 },
-  { name: "--site-gutter",      labelKey: "themeGutter",     group: "layout", type: "text", default: "clamp(16px, 4vw, 64px)" },
-  { name: "--site-col-gap",     labelKey: "themeColGap",     group: "layout", type: "text", default: "clamp(16px, 2vw, 32px)" },
-  { name: "--site-section-gap", labelKey: "themeSectionGap", group: "layout", type: "text", default: "clamp(72px, 8vw, 128px)" },
 
-  { name: "--site-fs-h1",    labelKey: "themeFsH1",    group: "type", type: "text", default: "clamp(2rem, 1.4rem + 2.6vw, 3.5rem)" },
-  { name: "--site-fs-h2",    labelKey: "themeFsH2",    group: "type", type: "text", default: "clamp(1.5rem, 1.2rem + 1.4vw, 2.25rem)" },
-  { name: "--site-fs-h3",    labelKey: "themeFsH3",    group: "type", type: "text", default: "clamp(1.125rem, 1rem + 0.6vw, 1.375rem)" },
-  { name: "--site-fs-body",  labelKey: "themeFsBody",  group: "type", type: "text", default: "clamp(0.95rem, 0.9rem + 0.2vw, 1.0625rem)" },
   { name: "--site-fs-small", labelKey: "themeFsSmall", group: "type", type: "length", unit: "rem", default: "0.875rem", min: 0.625, max: 1.25, step: 0.025 },
   { name: "--site-fs-label", labelKey: "themeFsLabel", group: "type", type: "length", unit: "rem", default: "0.75rem",  min: 0.625, max: 1.25, step: 0.025 },
   { name: "--site-lh-body",  labelKey: "themeLhBody",  group: "type", type: "number", default: "1.65", min: 1,   max: 2.5, step: 0.05 },
@@ -90,10 +78,6 @@ export const THEME_VARS = [
   { name: "--site-fw-display",       labelKey: "themeFwDisplay",       group: "type", type: "number", default: "800", min: 100, max: 900, step: 100 },
   { name: "--site-tracking-label",   labelKey: "themeTrackingLabel",   group: "type", type: "length", unit: "em", default: "0.18em", min: 0, max: 0.4, step: EM_STEP },
   { name: "--site-tracking-heading", labelKey: "themeTrackingHeading", group: "type", type: "length", unit: "em", default: "0.08em", min: 0, max: 0.4, step: EM_STEP },
-
-  { name: "--site-hero-title", labelKey: "themeHeroTitle", group: "hero", type: "text", default: "clamp(2.25rem, 0.9rem + 5.6vw, 5rem)" },
-  { name: "--site-hero-name",  labelKey: "themeHeroName",  group: "hero", type: "text", default: "clamp(1.2rem, 0.85rem + 1.5vw, 2rem)" },
-  { name: "--site-hero-role",  labelKey: "themeHeroRole",  group: "hero", type: "text", default: "clamp(0.9rem, 0.8rem + 0.4vw, 1.2rem)" },
 
   { name: "--grain-opacity", labelKey: "themeGrain",     group: "texture", type: "number", default: "0.12", min: 0, max: 1, step: 0.01 },
   { name: "--grain-size",    labelKey: "themeGrainSize", group: "texture", type: "length", unit: "px", default: "150px", min: 50, max: 400, step: 10 },
@@ -106,27 +90,8 @@ type ColorVarName = Extract<ThemeVar, { type: "color" }>["name"]
 //Values by name, a missing name keeps its default
 export type ThemeVars = Record<string, string>
 
-//A plain value: nothing that leaves the declaration, no url(), no comment
-const CSS_VAR_VALUE = /^[a-zA-Z0-9 .,%()+*/#-]+$/
-const CSS_VAR_VALUE_MAX_LENGTH = 160
-
 export function isRegistered(name: string): boolean {
   return THEME_VARS.some((v) => v.name === name)
-}
-
-//Every "(" has its ")": an open one takes the declarations written after it
-function isBalanced(value: string): boolean {
-  let depth = 0
-  for (const char of value) {
-    if (char === "(") depth++
-    else if (char === ")" && --depth < 0) return false
-  }
-  return depth === 0
-}
-
-function isCssVarValue(value: string): boolean {
-  return value.length <= CSS_VAR_VALUE_MAX_LENGTH && CSS_VAR_VALUE.test(value) && !/url\s*\(/i.test(value)
-    && !value.includes("/*") && isBalanced(value)
 }
 
 //A name of the registry with a value of its type
@@ -202,7 +167,6 @@ export function lengthNumber(def: LengthVarDef, value: string): number | null {
 
 export function isThemeValue(def: ThemeVarDef, value: string): boolean {
   if (def.type === "color") return parseHsl(value) !== null
-  if (def.type === "text") return isCssVarValue(value)
   const n = def.type === "length" ? lengthNumber(def, value) : DECIMAL_PATTERN.test(value) ? Number(value) : null
   return n !== null && n >= def.min && n <= def.max
 }
@@ -210,7 +174,6 @@ export function isThemeValue(def: ThemeVarDef, value: string): boolean {
 //Two values that draw the same, "185 65% 51%" and "185 65.1% 51%" for a colour
 export function sameThemeValue(def: ThemeVarDef, a: string, b: string): boolean {
   if (def.type === "color") return hslToHex(a) === hslToHex(b)
-  if (def.type === "text") return a === b
   if (def.type === "length") return lengthNumber(def, a) === lengthNumber(def, b)
   return Number(a) === Number(b)
 }

@@ -334,13 +334,17 @@ In the editor (`detail/BentoEditor.vue`, `useBentoGrid`):
 
 # One theme for the whole site
 
-The CSS tab edits the tokens of `THEME_VARS` (`src/lib/theme-vars.ts`): 36
-tokens in 7 groups, each with a type (`color`, `number`, `length`, `text`), its
-limits and a default equal to the stylesheet's (`tests/lib/theme-vars.test.ts`
-fails when they differ). `theme/ThemeEditor.vue` draws one control per type.
-`PUT /api/theme` replaces the whole map: only registered names, each value
-checked by its type (a `text` value is plain CSS with balanced parentheses, no
-`url()`, no comment), and text colours at 4.5:1 or more on their ground.
+The CSS tab edits the tokens of `THEME_VARS` (`src/lib/theme-vars.ts`): 26
+tokens in 6 groups, each with a type (`color`, `number`, `length`), its limits
+and a default equal to the stylesheet's (`tests/lib/theme-vars.test.ts` fails
+when they differ). `theme/ThemeEditor.vue` draws a colour picker or a slider.
+A token whose value is typed CSS (`clamp(...)`) is not in the registry: the tab
+has no text box. `PUT /api/theme` replaces the whole map: only registered
+names, each value checked by its type, and text colours at 4.5:1 or more on
+their ground.
+
+The film grain (`.grain-overlay`) sits at z -1 inside `.vsui-app`: over the
+page background, under every text, picture and 3D model.
 
 The saved map lives in the single-row `site_theme` table, is sent in the public
 portfolio payload and in the server HTML, and is applied as CSS variables on

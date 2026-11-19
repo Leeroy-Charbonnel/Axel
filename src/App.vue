@@ -94,9 +94,7 @@ watchEffect(() => {
 
 .skip-link:focus { transform: none; }
 
-/*main stays in the root stacking context so media inside it can sit above the
-grain (see .grain-overlay in style.css); a column, so the footer keeps the
-bottom of a short page*/
+/*a column, so the footer keeps the bottom of a short page*/
 .portfolio-app__main {
   position: relative;
   flex: 1 0 auto;

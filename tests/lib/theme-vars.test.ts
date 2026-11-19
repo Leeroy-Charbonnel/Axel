@@ -36,13 +36,9 @@ describe("theme registry", () => {
     expect(isThemeEntry("--vsui-radius", "1rem")).toBe(false)
     expect(isThemeEntry("--spacing-md", "1.25rem")).toBe(true)
     expect(isThemeEntry("--site-fw-display", "700")).toBe(true)
-    expect(isThemeEntry("--site-gutter", "clamp(16px, 5vw, 80px)")).toBe(true)
-    expect(isThemeEntry("--site-gutter", "url(x)")).toBe(false)
-    expect(isThemeEntry("--site-gutter", "1px; color: red")).toBe(false)
-    //either one would take the declarations written after it in the page's style attribute
-    expect(isThemeEntry("--site-gutter", "clamp(16px, 5vw")).toBe(false)
-    expect(isThemeEntry("--site-gutter", "16px) calc(1px")).toBe(false)
-    expect(isThemeEntry("--site-gutter", "16px /* wide")).toBe(false)
+    //typed CSS is no value of a token: every one is a colour, a number or a length
+    expect(isThemeEntry("--spacing-md", "clamp(1rem, 2vw, 3rem)")).toBe(false)
+    expect(isThemeEntry("--site-gutter", "24px")).toBe(false)
     expect(isThemeEntry("--primary", "185 65% 51%")).toBe(true)
     expect(isThemeEntry("--primary", "red")).toBe(false)
   })

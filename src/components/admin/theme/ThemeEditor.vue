@@ -3,15 +3,14 @@ import { computed } from "vue"
 import { RotateCcw } from "lucide-vue-next"
 import ColorField from "../../model-editor/ColorField.vue"
 import SliderField from "../../model-editor/SliderField.vue"
-import ThemeTextField from "./ThemeTextField.vue"
 import { useEditor } from "../../../composables/useEditor"
 import { useTheme } from "../../../composables/useTheme"
 import { useTranslations } from "../../../composables/useTranslations"
 import { THEME_GROUPS, THEME_VARS, hexToHsl, hslToHex, lengthNumber, type LengthVarDef } from "../../../lib/theme-vars"
 
 //THE CSS TAB - the main tokens of the site by group, each with the control of
-//its type: a colour picker, a slider for a number or a length, a text box for
-//the rest. Edits show on the whole site at once and wait for Save.
+//its type: a colour picker, or a slider for a number or a length. Edits show
+//on the whole site at once and wait for Save.
 
 const { overridden, value, defaultValue } = useTheme()
 const { setThemeVar, resetTheme } = useEditor()
@@ -54,7 +53,7 @@ function lengthOf(def: LengthVarDef, text: string): number {
           @update:model-value="setThemeVar(def.name, `${$event}${def.unit}`)"
         />
         <SliderField
-          v-else-if="def.type === 'number'"
+          v-else
           :label="t(def.labelKey)"
           :model-value="Number(value(def.name))"
           :auto="Number(defaultValue(def.name))"
@@ -63,14 +62,6 @@ function lengthOf(def: LengthVarDef, text: string): number {
           :step="def.step"
           strict
           @update:model-value="setThemeVar(def.name, String($event))"
-        />
-        <ThemeTextField
-          v-else
-          :label="t(def.labelKey)"
-          :name="def.name"
-          :model-value="value(def.name)"
-          :auto="defaultValue(def.name)"
-          @update:model-value="setThemeVar(def.name, $event)"
         />
       </template>
     </section>
