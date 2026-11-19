@@ -16,6 +16,8 @@ import type { ViewerMode, ViewerSettings } from "../../three/types"
 
 const props = withDefaults(defineProps<{
   glbUrl:      string
+  //the copy with smaller textures, for a touch device or a slow computer
+  glbLightUrl?: string | null
   settings:    ViewerSettings | null
   //wireframe mode, two-way: the card's thumbnails follow the viewer's own toolbar
   wireframe?:  boolean
@@ -166,7 +168,8 @@ async function start() {
       //the orbit controls just claimed every touch move on the canvas
       syncTouchAction()
       syncActive()
-      await created.load(props.glbUrl, settingsOrEmpty(), (loaded, total) => {
+      const url = props.glbLightUrl && (touch || created.lowQuality) ? props.glbLightUrl : props.glbUrl
+      await created.load(url, settingsOrEmpty(), (loaded, total) => {
         progress.value = total ? loaded / total : null
       }, mode.value)
       return created
@@ -363,7 +366,7 @@ watch(() => props.settings, (s) => {
   if (phase.value === "ready" && s) viewer.value?.applySettings(s)
 }, { deep: true })
 watch(accent, (color) => viewer.value?.setGlowColor(color))
-watch(() => props.glbUrl, () => {
+watch(() => [props.glbUrl, props.glbLightUrl], () => {
   teardown(false)
   phase.value = "idle"
   if (near.value) void start()

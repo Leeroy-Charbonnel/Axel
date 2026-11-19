@@ -394,6 +394,11 @@ export class ModelViewer {
     this.core.setActive(active)
   }
 
+  //a machine at the lowest quality level: it gets the copy with smaller textures
+  get lowQuality(): boolean {
+    return this.core.level === "low"
+  }
+
   dispose(loseContext: boolean): void {
     this.disposed = true
     this.abort.abort()

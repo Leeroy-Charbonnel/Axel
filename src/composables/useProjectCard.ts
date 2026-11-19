@@ -1,5 +1,5 @@
 import { computed, ref, type Ref } from "vue"
-import { useEffectiveViewerSettings, useResolvedGlbUrl } from "./useEffectiveViewerSettings"
+import { useEffectiveViewerSettings, useResolvedGlbLightUrl, useResolvedGlbUrl } from "./useEffectiveViewerSettings"
 import { useIsMobile } from "./useIsMobile"
 import { useLanguage } from "./useLanguage"
 import { useLightbox } from "./useLightbox"
@@ -21,6 +21,7 @@ export function useProjectCard(project: Ref<MainProjectDto>, showWireframe: Ref<
   const mobileSettings  = useEffectiveViewerSettings(project, portfolioData, { mobile: true })
   const viewerSettings  = computed(() => (isMobile.value ? mobileSettings.value : desktopSettings.value))
   const glbUrl          = useResolvedGlbUrl(project, portfolioData)
+  const glbLightUrl     = useResolvedGlbLightUrl(project, portfolioData)
 
   //wireframe mode: the viewer's own mode when there is a model, the button when
   //there is only the still; the thumbnails and the lightbox follow it
@@ -55,5 +56,5 @@ export function useProjectCard(project: Ref<MainProjectDto>, showWireframe: Ref<
     openLightbox(slides.value, slides.value.findIndex((s) => s.url === thumbUrl(thumb)))
   }
 
-  return { lang, t, title, role, description, viewerSettings, glbUrl, showWireframe, hasWireframe, stillUrl, openStill, openThumbnail }
+  return { lang, t, title, role, description, viewerSettings, glbUrl, glbLightUrl, showWireframe, hasWireframe, stillUrl, openStill, openThumbnail }
 }

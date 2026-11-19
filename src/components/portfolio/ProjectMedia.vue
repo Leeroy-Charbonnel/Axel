@@ -27,7 +27,7 @@ const showWireframe = defineModel<boolean>("wireframe", { default: false })
 const plain = defineModel<boolean>("plain", { default: false })
 
 const {
-  lang, t, title, viewerSettings, glbUrl,
+  lang, t, title, viewerSettings, glbUrl, glbLightUrl,
   hasWireframe, stillUrl, openStill, openThumbnail,
 } = useProjectCard(toRef(props, "project"), showWireframe, plain)
 </script>
@@ -40,6 +40,7 @@ const {
         v-model:wireframe="showWireframe"
         v-model:plain="plain"
         :glb-url="glbUrl"
+        :glb-light-url="glbLightUrl"
         :settings="viewerSettings"
         :poster="project.mainImageUrl"
         :poster-sizes="IMAGE_SIZES.still"

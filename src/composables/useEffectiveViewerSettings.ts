@@ -43,13 +43,6 @@ export function viewerSettingsFor(model: Model3dDto, viewName: string, prefs: Ed
   return settings
 }
 
-//The file a viewer loads: a touch device takes the copy with smaller textures
-//once the model has one. Its memory and its network are the short ones.
-export function modelGlbUrl(model: Model3dDto): string {
-  const touch = window.matchMedia("(pointer: coarse)").matches
-  return touch && model.glbPhoneUrl ? model.glbPhoneUrl : model.glbUrl
-}
-
 function attachedModel(project: MainProjectDto, portfolio: PortfolioDto | null): Model3dDto | null {
   if (!project.model3dId) return null
   return portfolio?.models.find((m) => m.id === project.model3dId) ?? null
@@ -72,6 +65,11 @@ export function useEffectiveViewerSettings(
 export function useResolvedGlbUrl(project: Source<MainProjectDto>, portfolioData: Ref<PortfolioDto | null>) {
   return computed(() => {
     const model = attachedModel(project.value, portfolioData.value)
-    return model ? modelGlbUrl(model) : null
+    return model ? model.glbUrl : null
   })
+}
+
+//The copy with smaller textures; the viewer takes it on a touch device or a slow computer
+export function useResolvedGlbLightUrl(project: Source<MainProjectDto>, portfolioData: Ref<PortfolioDto | null>) {
+  return computed(() => attachedModel(project.value, portfolioData.value)?.glbPhoneUrl ?? null)
 }

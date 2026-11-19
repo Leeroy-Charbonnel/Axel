@@ -33,7 +33,19 @@ const WEAK_GPU = /(swiftshader|llvmpipe|software|mali|adreno|powervr|intel\(r\) 
 const LOW_MEMORY_GB = 4
 const LOW_CORES = 4
 
+//The lowest level a viewer of this visit dropped to: the next viewers start no higher
+let ceiling: Quality = "high"
+
+export function rememberQuality(q: Quality): void {
+  if (ORDER.indexOf(q) < ORDER.indexOf(ceiling)) ceiling = q
+}
+
 export function detectQuality(renderer: WebGLRenderer, touch: boolean): Quality {
+  const guess = guessQuality(renderer, touch)
+  return ORDER.indexOf(guess) < ORDER.indexOf(ceiling) ? guess : ceiling
+}
+
+function guessQuality(renderer: WebGLRenderer, touch: boolean): Quality {
   const gl = renderer.getContext()
   const info = gl.getExtension("WEBGL_debug_renderer_info")
   const gpu = info ? String(gl.getParameter(info.UNMASKED_RENDERER_WEBGL)) : ""

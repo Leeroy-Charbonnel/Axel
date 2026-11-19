@@ -373,8 +373,12 @@ public `ThreeViewer.vue` and the editor. What loads when:
 - dev only: three reads each shader log on first use (`checkShaderErrors`), so
   first frames are slower there than in production.
 
-A touch device loads the phone copy of a model: `model_3d.phone_glb_file_id`,
-textures capped at 1024 px, made by the optimizer with the full copy. It equals
+A touch device or a slow computer loads the light copy of a model:
+`model_3d.phone_glb_file_id`, textures capped at 1024 px, made by the optimizer
+with the full copy. A slow computer is one at the lowest quality level
+(`src/three/quality.ts`: weak GPU, under 4 GB or under 4 cores), or one where a
+viewer dropped to it earlier in the visit. `ThreeViewer` picks the copy once its
+renderer exists. It equals
 `glb_file_id` when no texture is larger, and is empty until made:
 `bun scripts/optimize-models.ts` makes the missing ones. A new GLB on a model
 empties it. It is counted in `fileRefCountSql` and moved by `file-projects`.

@@ -9,7 +9,7 @@ import { OutputPass } from "three/examples/jsm/postprocessing/OutputPass.js"
 import { RenderPass } from "three/examples/jsm/postprocessing/RenderPass.js"
 import { CAMERA_FOV } from "./autoSetup"
 import { disposeObject, disposeRenderer } from "./dispose"
-import { detectQuality, lowerQuality, QUALITY_PROFILES, type Quality, type QualityProfile } from "./quality"
+import { detectQuality, lowerQuality, QUALITY_PROFILES, rememberQuality, type Quality, type QualityProfile } from "./quality"
 
 //RENDERER, SCENE, CAMERA AND CONTROLS, RENDERED ON DEMAND.
 //
@@ -60,6 +60,8 @@ export interface ViewerCore {
   readonly camera:   PerspectiveCamera
   readonly controls: OrbitControls
   readonly quality: QualityProfile
+  //the level behind the profile
+  readonly level: Quality
   requestRender(): void
   //ambient occlusion only suits the lit render, not the wireframe or clay modes
   setAmbientOcclusionAllowed(allowed: boolean): void
@@ -148,6 +150,7 @@ export function createViewerCore(canvas: HTMLCanvasElement, opts: ViewerCoreOpti
     if (!next) return
     console.warn(`[three] frames too slow at quality "${level}", dropping to "${next}"`)
     level = next
+    rememberQuality(next)
     profile = QUALITY_PROFILES[next]
     applyPixelRatio()
     syncComposer()
@@ -214,6 +217,7 @@ export function createViewerCore(canvas: HTMLCanvasElement, opts: ViewerCoreOpti
   return {
     renderer, scene, camera, controls,
     get quality() { return profile },
+    get level() { return level },
     requestRender: schedule,
     setAmbientOcclusionAllowed(allowed) {
       aoAllowed = allowed

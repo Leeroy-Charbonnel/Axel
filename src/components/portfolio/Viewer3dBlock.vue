@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from "vue"
 import { usePortfolio } from "../../composables/usePortfolio"
-import { modelGlbUrl, viewerSettingsFor } from "../../composables/useEffectiveViewerSettings"
+import { viewerSettingsFor } from "../../composables/useEffectiveViewerSettings"
 import { BLUEPRINT_LOOK } from "../../lib/viewer-defaults"
 import type { ViewerSettings } from "../../three/types"
 import type { Viewer3dBlockContent } from "../../types/portfolio"
@@ -50,7 +50,8 @@ const resolved = computed(() => {
   const viewName = props.mobile ? (c.mobileView || c.desktopView) : c.desktopView
   const settings = viewerSettingsFor(model, viewName, data.value?.editorPrefs)
   return {
-    glbUrl:   modelGlbUrl(model),
+    glbUrl:   model.glbUrl,
+    glbLight: model.glbPhoneUrl,
     settings: blueprint.value ? asBlueprint(settings) : settings,
     poster:   model.thumbnailUrl,
     alt:      model.name,
@@ -62,6 +63,7 @@ const resolved = computed(() => {
   <ThreeViewer
     v-if="resolved"
     :glb-url="resolved.glbUrl"
+    :glb-light-url="resolved.glbLight"
     :settings="resolved.settings"
     :poster="resolved.poster"
     :poster-sizes="sizes"
