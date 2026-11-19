@@ -4,8 +4,10 @@ import { Box } from "lucide-vue-next"
 import { useBentoGrid } from "../../../composables/useBentoGrid"
 import { useConfirm } from "../../../composables/useConfirm"
 import { useEditor } from "../../../composables/useEditor"
+import { useReducedMotion } from "../../../composables/useReducedMotion"
+import { useToast } from "../../../composables/useToast"
 import { useTranslations } from "../../../composables/useTranslations"
-import { phoneAuthored, rowTracks, type GridLayout } from "../../../lib/bento-layout"
+import { phoneAuthored, RESIZE_EDGES, rowTracks, type GridLayout, type ResizeEdge } from "../../../lib/bento-layout"
 import type { Lang } from "../../../lib/lang"
 import { blockType, FILL_TYPES, sectionAnchor } from "./block-types"
 import { SECTION_PRESETS } from "../../../lib/section-presets"
@@ -13,13 +15,15 @@ import DetailBlockRenderer from "./DetailBlockRenderer.vue"
 import BlockBorder from "./BlockBorder.vue"
 import BlockPanel from "./BlockPanel.vue"
 import { gridStyle } from "../../../lib/detail-grid"
-import type { DetailBlock, DetailGridSettings, TextBlockContent, Viewer3dBlockContent } from "../../../types/portfolio"
+import type { DetailBlock, DetailGridSettings, Viewer3dBlockContent } from "../../../types/portfolio"
 
 //THE BENTO EDITOR - the canvas is drawn at the width a visitor sees (the
 //public content width, or a phone), scaled down when the space beside the
 //panel is narrower, so what is placed here is what the page will show: the
 //same rows and the live viewers, over the cells the blocks are placed on.
 //Two layouts: desktop (the page's column count) and phone (mobileY / mobileH).
+//A click selects a block, a drag moves it, its edges and corners resize it,
+//and a click on one of its texts types there.
 
 const blocks = defineModel<DetailBlock[]>("blocks", { required: true })
 //The page's desktop grid: columns, row height, gap
@@ -34,13 +38,22 @@ const props = defineProps<{
 
 const { t } = useTranslations()
 const { confirm } = useConfirm()
+const toast = useToast()
 const editor = useEditor()
+const reducedMotion = useReducedMotion()
+
+//The text boxes of a block, typed in place
+const INLINE_TEXT = ".inline-text"
+//How long a block takes to slide to its new cell
+const SLIDE_MS = 160
+//The phone stack has one column: only the height changes
+const PHONE_EDGES: readonly ResizeEdge[] = ["s"]
 
 const layout   = ref<GridLayout>("desktop")
 const selectedId = ref<string | null>(null)
-const editingId  = ref<string | null>(null)
 const selected = computed(() => blocks.value.find((b) => b.id === selectedId.value) ?? null)
 const authored = computed(() => phoneAuthored(blocks.value))
+const edges    = computed(() => layout.value === "phone" ? PHONE_EDGES : RESIZE_EDGES)
 
 const stage  = ref<HTMLElement | null>(null)
 const canvas = ref<HTMLElement | null>(null)
@@ -48,29 +61,55 @@ const gridEl = ref<HTMLElement | null>(null)
 const panel  = ref<InstanceType<typeof BlockPanel> | null>(null)
 const blockEls = new Map<string, HTMLElement>()
 
-function select(id: string | null) {
+function textOf(target: EventTarget | null): HTMLElement | null {
+  return target instanceof HTMLElement ? target.closest<HTMLElement>(INLINE_TEXT) : null
+}
+
+//With focus, the keyboard goes to the block: arrows, Enter, Delete
+function select(id: string | null, focus = true) {
   selectedId.value = id
-  if (id !== editingId.value) editingId.value = null
   if (!id) return
   editor.clear()
   //A block just added is not drawn yet, and may land off screen
   void nextTick(() => {
     const el = blockEls.get(id)
     if (!el) return
-    el.focus({ preventScroll: true })
+    if (focus) el.focus({ preventScroll: true })
     const box = el.getBoundingClientRect()
     if (box.bottom < 0 || box.top > window.innerHeight) el.scrollIntoView({ block: "center" })
   })
 }
 
-//A block picked on the canvas, with the pointer or a key, opens its properties
-function pick(id: string) {
-  select(id)
+//Puts the caret in a text: where it was clicked, or at its end
+function typeIn(text: HTMLElement, at?: { x: number; y: number }) {
+  text.focus({ preventScroll: true })
+  const selection = window.getSelection()
+  if (!selection) return
+  const point = at ? document.caretPositionFromPoint(at.x, at.y) : null
+  if (point && text.contains(point.offsetNode)) {
+    selection.collapse(point.offsetNode, point.offset)
+    return
+  }
+  selection.selectAllChildren(text)
+  selection.collapseToEnd()
+}
+
+//A block picked on the canvas, with the pointer or a key, opens its
+//properties. The keyboard goes to the given text of the block, or to the block
+function pick(id: string, text: HTMLElement | null = null, at?: { x: number; y: number }) {
+  select(id, !text)
   panel.value?.showProperties()
+  if (text) typeIn(text, at)
+}
+
+//A click on a text of the block starts typing there
+function pickAt(id: string, at: { x: number; y: number }) {
+  const hit = textOf(document.elementFromPoint(at.x, at.y))
+  pick(id, hit && blockEls.get(id)?.contains(hit) ? hit : null, at)
 }
 
 const grid = useBentoGrid({
-  blocks, layout, grid: gridEl, select, pick, commit: props.commit,
+  blocks, layout, grid: gridEl, select, pick: pickAt, commit: props.commit,
   desktopCols: computed(() => settings.value.cols),
 })
 
@@ -134,25 +173,39 @@ const tracks = computed(() => rowTracks(
   blocks.value, grid.rects.value, grid.rows.value, layout.value === "phone" ? "var(--detail-row-h-phone)" : "var(--detail-row-h)",
 ))
 
-//INLINE TEXT - text, heading and quote are typed on the canvas, in the
-//site language
-const inlineEl = ref<HTMLTextAreaElement | null>(null)
-async function startInline(b: DetailBlock) {
-  if (!blockType(b.type).inline) return
-  pick(b.id)
-  editingId.value = b.id
-  await nextTick()
-  inlineEl.value?.focus()
+//SLIDE - a block whose cell changes glides there from where it was drawn
+const slides = new Map<string, Animation>()
+let slideLayout: GridLayout = layout.value
+function placeOf(el: HTMLElement, origin: DOMRect) {
+  const box = el.getBoundingClientRect()
+  return { x: box.left - origin.left, y: box.top - origin.top }
 }
-function onInline(b: DetailBlock, value: string) {
-  const c = b.content as TextBlockContent
-  c.text = { ...c.text, [props.lang]: value }
-}
-function stopInline(refocus: boolean) {
-  const id = editingId.value
-  editingId.value = null
-  if (refocus && id) blockEls.get(id)?.focus({ preventScroll: true })
-}
+watch(() => grid.rects.value, () => {
+  const host = gridEl.value
+  //A layout switch redraws the whole canvas: nothing slides
+  const switched = slideLayout !== layout.value
+  slideLayout = layout.value
+  if (!host || switched || reducedMotion.value) return
+  const origin = host.getBoundingClientRect()
+  const before = new Map([...blockEls].map(([id, el]) => [id, placeOf(el, origin)]))
+  void nextTick(() => {
+    const now = host.getBoundingClientRect()
+    for (const [id, el] of blockEls) {
+      const from = before.get(id)
+      if (!from) continue
+      slides.get(id)?.cancel()
+      slides.delete(id)
+      const to = placeOf(el, now)
+      const dx = (from.x - to.x) / scale.value
+      const dy = (from.y - to.y) / scale.value
+      if (!dx && !dy) continue
+      slides.set(id, el.animate(
+        [{ transform: `translate(${dx}px, ${dy}px)` }, { transform: "none" }],
+        { duration: SLIDE_MS, easing: "ease-out" },
+      ))
+    }
+  })
+})
 
 //A section goes under the selected block's band, or at the end of the page
 function addSection(key: string) {
@@ -161,15 +214,10 @@ function addSection(key: string) {
   grid.addSection(preset, selectedId.value)
 }
 
-async function removeSelected() {
-  const b = selected.value
-  if (!b) return
-  const ok = await confirm({
-    title:       t("editorDeleteTitle").replace("{kind}", t(blockType(b.type).labelKey)),
-    action:      t("editorDeleteAction"),
-    destructive: true,
-  })
-  if (ok) grid.removeBlock(b.id)
+//No question asked: the edit bar's undo brings the block back
+function remove(b: DetailBlock) {
+  grid.removeBlock(b.id)
+  toast.info(t("detailBlockDeleted").replace("{kind}", t(blockType(b.type).labelKey)))
 }
 
 const ARROWS: Record<string, [number, number]> = {
@@ -184,23 +232,39 @@ function onBlockKeydown(e: KeyboardEvent, b: DetailBlock) {
     grid.nudge(b.id, arrow[0], arrow[1], e.shiftKey)
   } else if (e.key === "Enter") {
     e.preventDefault()
-    if (blockType(b.type).inline) void startInline(b)
-    else pick(b.id)
+    pick(b.id, (e.currentTarget as HTMLElement).querySelector<HTMLElement>(INLINE_TEXT))
   } else if (e.key === "d" && (e.ctrlKey || e.metaKey)) {
     e.preventDefault()
     grid.duplicateBlock(b.id)
   } else if (e.key === "Delete" || e.key === "Backspace") {
     e.preventDefault()
-    pick(b.id)
-    void removeSelected()
+    remove(b)
   } else if (e.key === "Escape") {
     select(null)
   }
 }
 
 function onBlockPointerDown(e: PointerEvent, b: DetailBlock) {
-  if (editingId.value === b.id || e.button !== 0) return
+  if (e.button !== 0) return
+  //A text being typed keeps the pointer: caret and selection
+  const text = textOf(e.target)
+  if (text && text === document.activeElement) return
   grid.startMove(e, b)
+}
+
+//A text reached with Tab selects its block
+function onBlockFocusIn(e: FocusEvent, b: DetailBlock) {
+  if (!textOf(e.target) || selectedId.value === b.id) return
+  select(b.id, false)
+  panel.value?.showProperties()
+}
+
+//A text left with Escape or Enter hands the keyboard back to its block
+function onBlockFocusOut(e: FocusEvent, b: DetailBlock) {
+  if (!textOf(e.target) || e.relatedTarget) return
+  void nextTick(() => {
+    if (document.activeElement === document.body && selectedId.value === b.id) blockEls.get(b.id)?.focus({ preventScroll: true })
+  })
 }
 
 function setLayout(next: GridLayout) {
@@ -270,25 +334,13 @@ async function resetPhone() {
             :aria-label="blockLabel(b)"
             :aria-pressed="selectedId === b.id"
             @pointerdown="onBlockPointerDown($event, b)"
-            @dblclick="startInline(b)"
+            @focusin="onBlockFocusIn($event, b)"
+            @focusout="onBlockFocusOut($event, b)"
             @keydown="onBlockKeydown($event, b)"
           >
             <span class="bento__tag ed-ui" aria-hidden="true">{{ t(blockType(b.type).labelKey) }}</span>
 
-            <div v-if="editingId === b.id" class="bento__inline ed-ui">
-              <span class="bento__inline-lang">{{ t('detailInlineLang').replace('{lang}', lang.toUpperCase()) }}</span>
-              <textarea
-                :ref="(el) => (inlineEl = el as HTMLTextAreaElement | null)"
-                class="bento__inline-input"
-                :lang="lang"
-                :value="(b.content as TextBlockContent).text[lang]"
-                @input="onInline(b, ($event.target as HTMLTextAreaElement).value)"
-                @blur="stopInline(false)"
-                @keydown.escape.prevent="stopInline(true)"
-              ></textarea>
-            </div>
-
-            <div v-else-if="b.type === 'viewer3d' && !(b.content as Viewer3dBlockContent).model3dId" class="bento__viewer">
+            <div v-if="b.type === 'viewer3d' && !(b.content as Viewer3dBlockContent).model3dId" class="bento__viewer">
               <span class="bento__viewer-label ed-ui">
                 <Box :size="16" aria-hidden="true" />
                 {{ t('detailViewerPick') }}
@@ -300,12 +352,16 @@ async function resetPhone() {
             </div>
             <BlockBorder :bstyle="b.style" />
 
-            <span
-              class="bento__resize"
-              :title="t('detailResize')"
-              aria-hidden="true"
-              @pointerdown="grid.startResize($event, b)"
-            ></span>
+            <template v-if="selectedId === b.id">
+              <span
+                v-for="edge in edges"
+                :key="edge"
+                class="bento__handle"
+                :class="`bento__handle--${edge}`"
+                aria-hidden="true"
+                @pointerdown="grid.startResize($event, b, edge)"
+              ></span>
+            </template>
           </div>
 
           <div
@@ -332,7 +388,7 @@ async function resetPhone() {
       @create="grid.startCreate"
       @add-section="addSection"
       @duplicate="selected && grid.duplicateBlock(selected.id)"
-      @remove="removeSelected"
+      @remove="selected && remove(selected)"
     />
   </div>
 </template>
@@ -384,6 +440,11 @@ phone it is scaled down instead of squeezed*/
   margin-inline: auto;
 }
 .bento__grid {
+  /*Handle sizes on screen: the hit strip, its mark, the grip bar and the corner*/
+  --bento-edge:   calc(var(--vsui-space-sm) * var(--bento-unscale));
+  --bento-mark:   calc(var(--vsui-space-xs) * var(--bento-unscale));
+  --bento-grip:   calc(var(--vsui-space-xl) * var(--bento-unscale));
+  --bento-corner: calc(var(--vsui-space-lg) * var(--bento-unscale));
   position: relative;
   display: grid;
   grid-template-columns: repeat(var(--detail-cols), minmax(0, 1fr));
@@ -447,6 +508,8 @@ phone it is scaled down instead of squeezed*/
   transform-origin: top left;
   transition: opacity var(--transition-fast) ease;
 }
+/*Clear of the corner handle*/
+.bento__block--selected .bento__tag { left: var(--bento-corner); }
 .bento__block:hover .bento__tag,
 .bento__block--selected .bento__tag,
 .bento__block:focus-visible .bento__tag { opacity: 1; }
@@ -456,6 +519,12 @@ phone it is scaled down instead of squeezed*/
   width: 100%;
   height: 100%;
   pointer-events: none;
+}
+/*The texts of a block are typed in place; the rest of it is a still preview*/
+.bento__preview :deep(.inline-text) {
+  pointer-events: auto;
+  touch-action: auto;
+  user-select: text;
 }
 
 .bento__viewer {
@@ -478,63 +547,87 @@ phone it is scaled down instead of squeezed*/
   transform: scale(var(--bento-unscale));
 }
 
-/*INLINE TEXT - typed at the editor's screen size, whatever the canvas scale*/
-.bento__inline {
-  position: relative;
-  display: flex;
-  width: 100%;
-  height: 100%;
-  cursor: text;
-}
-.bento__inline-lang {
+/*RESIZE HANDLES - a strip along each edge and a square in each corner of the
+selected block, at their screen size whatever the canvas scale*/
+.bento__handle {
   position: absolute;
-  top: 0;
-  right: 0;
-  z-index: 1;
-  padding: var(--vsui-space-2xs) var(--vsui-space-xs);
-  font-size: var(--editor-fs-xs);
-  font-weight: var(--font-weight-medium);
-  white-space: nowrap;
-  color: var(--editor-on-accent);
-  background-color: var(--editor-accent);
-  border-bottom-left-radius: var(--editor-radius);
-  transform: scale(var(--bento-unscale));
-  transform-origin: top right;
-}
-.bento__inline-input {
-  width: 100%;
-  height: 100%;
-  padding: var(--vsui-space-xl) var(--vsui-space-md) var(--vsui-space-md);
-  font: inherit;
-  font-size: calc(var(--editor-fs) * var(--bento-unscale));
-  color: var(--editor-text);
-  background-color: var(--editor-input-bg);
-  border: none;
-  resize: none;
-  touch-action: auto;
-  user-select: text;
-}
-.bento__inline-input:focus-visible { outline: none; }
-
-.bento__resize {
-  position: absolute;
-  right: 0;
-  bottom: 0;
   z-index: 6;
-  width: var(--editor-control);
-  height: var(--editor-control);
-  cursor: nwse-resize;
-  background: linear-gradient(135deg, transparent 50%, var(--editor-accent) 50%);
-  opacity: 0;
-  transform: scale(var(--bento-unscale));
-  transform-origin: bottom right;
-  transition: opacity var(--transition-fast) ease;
 }
-.bento__block:hover .bento__resize,
-.bento__block--selected .bento__resize { opacity: 1; }
-@media (hover: none) {
-  .bento__resize { opacity: 1; }
+.bento__handle::after {
+  content: "";
+  position: absolute;
+  background-color: var(--editor-accent);
 }
+.bento__handle--n,
+.bento__handle--s {
+  right: var(--bento-corner);
+  left: var(--bento-corner);
+  height: var(--bento-edge);
+  cursor: ns-resize;
+}
+.bento__handle--e,
+.bento__handle--w {
+  top: var(--bento-corner);
+  bottom: var(--bento-corner);
+  width: var(--bento-edge);
+  cursor: ew-resize;
+}
+.bento__handle--n { top: 0; }
+.bento__handle--s { bottom: 0; }
+.bento__handle--e { right: 0; }
+.bento__handle--w { left: 0; }
+/*The mark of an edge: a short bar at its middle*/
+.bento__handle--n::after,
+.bento__handle--s::after {
+  left: calc(50% - var(--bento-grip) / 2);
+  width: var(--bento-grip);
+  height: var(--bento-mark);
+}
+.bento__handle--e::after,
+.bento__handle--w::after {
+  top: calc(50% - var(--bento-grip) / 2);
+  width: var(--bento-mark);
+  height: var(--bento-grip);
+}
+.bento__handle--n::after { top: 0; }
+.bento__handle--s::after { bottom: 0; }
+.bento__handle--e::after { right: 0; }
+.bento__handle--w::after { left: 0; }
+.bento__handle--ne,
+.bento__handle--nw,
+.bento__handle--se,
+.bento__handle--sw {
+  width: var(--bento-corner);
+  height: var(--bento-corner);
+}
+.bento__handle--nw,
+.bento__handle--se { cursor: nwse-resize; }
+.bento__handle--ne,
+.bento__handle--sw { cursor: nesw-resize; }
+.bento__handle--ne,
+.bento__handle--nw { top: 0; }
+.bento__handle--se,
+.bento__handle--sw { bottom: 0; }
+.bento__handle--nw,
+.bento__handle--sw { left: 0; }
+.bento__handle--ne,
+.bento__handle--se { right: 0; }
+/*The mark of a corner: a square in the corner itself*/
+.bento__handle--ne::after,
+.bento__handle--nw::after,
+.bento__handle--se::after,
+.bento__handle--sw::after {
+  width: var(--bento-edge);
+  height: var(--bento-edge);
+}
+.bento__handle--ne::after,
+.bento__handle--nw::after { top: 0; }
+.bento__handle--se::after,
+.bento__handle--sw::after { bottom: 0; }
+.bento__handle--nw::after,
+.bento__handle--sw::after { left: 0; }
+.bento__handle--ne::after,
+.bento__handle--se::after { right: 0; }
 
 .bento__phantom {
   z-index: 3;

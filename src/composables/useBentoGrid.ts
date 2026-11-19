@@ -1,23 +1,27 @@
 import { computed, onBeforeUnmount, shallowRef, type Ref } from "vue"
 import {
-  bottomOf, firstFree, fitBlocks, gridCols, layoutRects, phoneAuthored, reflow, restack, rowAfter, writeRects,
-  type GridLayout, type Rect, type Rects,
+  bottomOf, firstFree, fitBlocks, gridCols, layoutRects, phoneAuthored, reflow, resizeRect, restack, rowAfter, writeRects,
+  type GridLayout, type Rect, type Rects, type ResizeEdge,
 } from "../lib/bento-layout"
 import { pageSpan } from "../lib/project-sheet"
 import { insertSection, type SectionPreset } from "../lib/section-presets"
 import { blockType, newBlockId } from "../components/portfolio/detail/block-types"
 import type { DetailBlock, DetailBlockType } from "../types/portfolio"
 
-//THE BENTO EDITOR ENGINE - drag to move, drag the corner to resize, drag a
-//type from the panel to create, arrows to nudge. Whatever lands on another
-//block pushes it down (reflow), so a drop is never refused. While a pointer is
-//down only a preview layout changes; the blocks are written once, on release,
-//which makes every gesture a single undo step.
+//THE BENTO EDITOR ENGINE - drag to move, drag an edge or a corner to resize,
+//drag a type from the panel to create, arrows to nudge. Whatever lands on
+//another block pushes it down (reflow), so a drop is never refused. While a
+//pointer is down only a preview layout changes; the blocks are written once,
+//on release, which makes every gesture a single undo step. Escape cancels a
+//gesture; near the top or the bottom of the window the page scrolls under it.
 
 const NEW_ID = "__new__"
 const DRAG_THRESHOLD_PX = 4
 const MIN_ROWS = 8
 const SPARE_ROWS = 2
+//How close to the window's top or bottom a drag scrolls the page, and how fast
+const SCROLL_EDGE_PX = 72
+const SCROLL_STEP_PX = 14
 
 type Mode = "move" | "resize" | "create"
 interface Drag {
@@ -29,6 +33,8 @@ interface Drag {
   //For a move: which cell of the block the pointer grabbed
   grabX:  number
   grabY:  number
+  //For a resize: the edges that follow the pointer
+  edge:   ResizeEdge
   moved:  boolean
 }
 
@@ -39,8 +45,8 @@ export interface BentoGridOptions {
   desktopCols: Readonly<Ref<number>>
   grid:   Ref<HTMLElement | null>
   select: (id: string | null) => void
-  //A block picked on the canvas with the pointer
-  pick:   (id: string) => void
+  //A block picked on the canvas with the pointer, and where it was clicked
+  pick:   (id: string, at: { x: number; y: number }) => void
   //Closes the history step, called before and after every write
   commit: () => void
 }
@@ -57,12 +63,14 @@ export function useBentoGrid(o: BentoGridOptions) {
 
   //POINTER TO CELL - the canvas may be scaled down to fit, so pixel offsets
   //are divided by the scale and measured against the resolved grid tracks;
-  //rows grow with their text, so each one has its own height
-  function cellAt(clientX: number, clientY: number): { x: number; y: number } | null {
+  //rows grow with their text, so each one has its own height. With clamp, a
+  //pointer outside the grid counts as the nearest cell
+  function cellAt(clientX: number, clientY: number, clamp = false): { x: number; y: number } | null {
     const el = o.grid.value
     if (!el) return null
     const box = el.getBoundingClientRect()
-    if (clientX < box.left || clientX > box.right || clientY < box.top || clientY > box.bottom) return null
+    const outside = clientX < box.left || clientX > box.right || clientY < box.top || clientY > box.bottom
+    if (outside && !clamp) return null
     const scale = box.width / el.offsetWidth
     const css = getComputedStyle(el)
     const rowsPx = css.gridTemplateRows.split(" ").map(parseFloat)
@@ -73,7 +81,7 @@ export function useBentoGrid(o: BentoGridOptions) {
     }
     const colPx = (el.offsetWidth - (cols.value - 1) * colGap) / cols.value
     const px = (clientX - box.left) / scale
-    const py = (clientY - box.top) / scale
+    const py = Math.max(0, (clientY - box.top) / scale)
     let y = 0
     let bottom = rowsPx[0]! + rowGap
     while (y < rowsPx.length - 1 && py >= bottom) {
@@ -208,53 +216,93 @@ export function useBentoGrid(o: BentoGridOptions) {
   }
 
   //POINTER GESTURES
+  let pointer = { x: 0, y: 0 }
+  //The rect last previewed, so a pointer that stays in its cell changes nothing
+  let previewKey = ""
+  let scrollFrame = 0
+
   function begin(e: PointerEvent, d: Omit<Drag, "startX" | "startY" | "moved">) {
     e.preventDefault()
     drag.value = { ...d, startX: e.clientX, startY: e.clientY, moved: false }
+    pointer = { x: e.clientX, y: e.clientY }
     document.addEventListener("pointermove", onMove)
     document.addEventListener("pointerup", onUp)
     document.addEventListener("pointercancel", stop)
+    document.addEventListener("keydown", onKeydown, true)
+    window.addEventListener("scroll", update, { passive: true })
   }
 
   function startMove(e: PointerEvent, block: DetailBlock) {
     const r = saved.value.get(block.id)
     const cell = cellAt(e.clientX, e.clientY)
     if (!r || !cell) return
-    begin(e, { mode: "move", id: block.id, type: block.type, grabX: cell.x - r.x, grabY: cell.y - r.y })
+    begin(e, { mode: "move", id: block.id, type: block.type, grabX: cell.x - r.x, grabY: cell.y - r.y, edge: "se" })
   }
 
-  function startResize(e: PointerEvent, block: DetailBlock) {
+  function startResize(e: PointerEvent, block: DetailBlock, edge: ResizeEdge) {
     e.stopPropagation()
-    begin(e, { mode: "resize", id: block.id, type: block.type, grabX: 0, grabY: 0 })
+    begin(e, { mode: "resize", id: block.id, type: block.type, grabX: 0, grabY: 0, edge })
   }
 
   function startCreate(e: PointerEvent, type: DetailBlockType) {
-    begin(e, { mode: "create", id: NEW_ID, type, grabX: 0, grabY: 0 })
+    begin(e, { mode: "create", id: NEW_ID, type, grabX: 0, grabY: 0, edge: "se" })
+  }
+
+  function show(id: string, r: Rect) {
+    const key = `${id}:${r.x}:${r.y}:${r.w}:${r.h}`
+    if (key === previewKey) return
+    previewKey = key
+    preview.value = withRect(id, r)
+  }
+
+  function hide() {
+    previewKey = ""
+    preview.value = null
+  }
+
+  //The preview for where the pointer is now
+  function update() {
+    const d = drag.value
+    if (!d?.moved) return
+    if (d.mode === "create") {
+      const cell = cellAt(pointer.x, pointer.y)
+      if (!cell) return hide()
+      const size = blockType(d.type).size
+      const w = pageSpan(size.w, cols.value)
+      return show(NEW_ID, { x: Math.min(cols.value - w, cell.x), y: cell.y, w, h: size.h })
+    }
+    const cell = cellAt(pointer.x, pointer.y, true)
+    const r = saved.value.get(d.id)
+    if (!cell || !r) return
+    show(d.id, d.mode === "move"
+      ? { ...r, x: Math.min(cols.value - r.w, Math.max(0, cell.x - d.grabX)), y: Math.max(0, cell.y - d.grabY) }
+      : resizeRect(r, d.edge, cell, cols.value))
+  }
+
+  //A block held near the top or the bottom of the window scrolls the page
+  function autoScroll() {
+    scrollFrame = 0
+    const d = drag.value
+    if (!d?.moved || d.mode === "create") return
+    const dir = pointer.y < SCROLL_EDGE_PX ? -1 : pointer.y > window.innerHeight - SCROLL_EDGE_PX ? 1 : 0
+    if (!dir) return
+    window.scrollBy({ top: dir * SCROLL_STEP_PX, behavior: "instant" })
+    scrollFrame = requestAnimationFrame(autoScroll)
   }
 
   function onMove(e: PointerEvent) {
     const d = drag.value
     if (!d) return
+    pointer = { x: e.clientX, y: e.clientY }
     if (!d.moved) {
       if (Math.abs(e.clientX - d.startX) + Math.abs(e.clientY - d.startY) < DRAG_THRESHOLD_PX) return
       drag.value = { ...d, moved: true }
     }
-    const cell = cellAt(e.clientX, e.clientY)
-    if (d.mode === "create") {
-      if (!cell) { preview.value = null; return }
-      const size = blockType(d.type).size
-      const w = pageSpan(size.w, cols.value)
-      preview.value = withRect(NEW_ID, { x: Math.min(cols.value - w, cell.x), y: cell.y, w, h: size.h })
-      return
-    }
-    if (!cell) return
-    const r = saved.value.get(d.id)!
-    preview.value = d.mode === "move"
-      ? withRect(d.id, { ...r, x: Math.min(cols.value - r.w, Math.max(0, cell.x - d.grabX)), y: Math.max(0, cell.y - d.grabY) })
-      : withRect(d.id, { ...r, w: Math.min(cols.value - r.x, Math.max(1, cell.x - r.x + 1)), h: Math.max(1, cell.y - r.y + 1) })
+    update()
+    if (!scrollFrame) scrollFrame = requestAnimationFrame(autoScroll)
   }
 
-  function onUp() {
+  function onUp(e: PointerEvent) {
     const d = drag.value
     const next = preview.value
     stop()
@@ -265,18 +313,30 @@ export function useBentoGrid(o: BentoGridOptions) {
       return
     }
     if (!d.moved) {
-      o.pick(d.id)
+      o.pick(d.id, { x: e.clientX, y: e.clientY })
       return
     }
     if (next) apply(next)
   }
 
+  //Escape drops the gesture: nothing is written
+  function onKeydown(e: KeyboardEvent) {
+    if (e.key !== "Escape") return
+    e.preventDefault()
+    e.stopPropagation()
+    stop()
+  }
+
   function stop() {
     drag.value = null
-    preview.value = null
+    hide()
+    cancelAnimationFrame(scrollFrame)
+    scrollFrame = 0
     document.removeEventListener("pointermove", onMove)
     document.removeEventListener("pointerup", onUp)
     document.removeEventListener("pointercancel", stop)
+    document.removeEventListener("keydown", onKeydown, true)
+    window.removeEventListener("scroll", update)
   }
 
   onBeforeUnmount(stop)

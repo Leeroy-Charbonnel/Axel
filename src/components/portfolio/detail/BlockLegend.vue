@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { useTranslations } from "../../../composables/useTranslations"
-import { pickBilingual } from "../../../lib/markdown"
 import type { Lang } from "../../../lib/lang"
 import BlockEmpty from "./BlockEmpty.vue"
+import BlockText from "./BlockText.vue"
 import type { LegendBlockContent } from "../../../types/portfolio"
 
 //LEGEND - the marks drawn on a plan, each in its box, then the part it names
@@ -19,7 +19,7 @@ function mark(i: number): string {
   <ol v-if="content.items.length" class="blegend" :lang="lang">
     <li v-for="(item, i) in content.items" :key="i" class="blegend__item">
       <span class="blegend__mark" aria-hidden="true">{{ mark(i) }}</span>
-      <span class="blegend__label">{{ pickBilingual(item, lang) }}</span>
+      <BlockText class="blegend__label" :value="item" :label="t('blockFieldLabel')" @write="(v) => (content.items[i] = v)" />
     </li>
   </ol>
   <BlockEmpty v-else type="legend" :message="t('blockEmptyItems')" />

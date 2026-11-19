@@ -5,6 +5,7 @@ import { pickBilingual } from "../../../lib/markdown"
 import type { Lang } from "../../../lib/lang"
 import SiteImage from "../../SiteImage.vue"
 import BlockEmpty from "./BlockEmpty.vue"
+import BlockText from "./BlockText.vue"
 import type { SequenceBlockContent } from "../../../types/portfolio"
 
 //SEQUENCE - images side by side, each shown whole above its caption; numbered
@@ -20,7 +21,7 @@ const items = computed(() => props.content.items.filter((i): i is SequenceBlockC
     <li v-for="(item, i) in items" :key="item.fileId" class="bseq__item">
       <SiteImage :src="item.url" :alt="pickBilingual(item.caption, lang)" :sizes="sizes" class="bseq__img" />
       <span v-if="content.numbered" class="bseq__num">{{ String(i + 1).padStart(2, "0") }}</span>
-      <span class="bseq__caption">{{ pickBilingual(item.caption, lang) }}</span>
+      <BlockText class="bseq__caption" :value="item.caption" :label="t('fieldCaption')" @write="(v) => (item.caption = v)" />
     </li>
   </ol>
   <BlockEmpty v-else type="sequence" :message="t('blockEmptyItems')" />

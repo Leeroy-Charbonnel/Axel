@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { useTranslations } from "../../../composables/useTranslations"
-import { pickBilingual } from "../../../lib/markdown"
 import type { Lang } from "../../../lib/lang"
 import BlockEmpty from "./BlockEmpty.vue"
+import BlockText from "./BlockText.vue"
 import type { SpecsBlockContent } from "../../../types/portfolio"
 
 //SPEC SHEET - label / value rows separated by hairlines
@@ -13,8 +13,8 @@ const { t } = useTranslations()
 <template>
   <dl v-if="content.rows.length" class="bspecs" :lang="lang">
     <div v-for="(row, i) in content.rows" :key="i" class="bspecs__row">
-      <dt class="bspecs__label">{{ pickBilingual(row.label, lang) }}</dt>
-      <dd class="bspecs__value">{{ pickBilingual(row.value, lang) }}</dd>
+      <BlockText tag="dt" class="bspecs__label" :value="row.label" :label="t('blockFieldLabel')" @write="(v) => (row.label = v)" />
+      <BlockText tag="dd" class="bspecs__value" :value="row.value" :label="t('blockFieldValue')" @write="(v) => (row.value = v)" />
     </div>
   </dl>
   <BlockEmpty v-else type="specs" :message="t('blockEmptyItems')" />

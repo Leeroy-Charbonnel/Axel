@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { firstFree, fitToCols, gridCols, overlaps, type Rect, type Rects } from "../../src/lib/bento-layout"
+import { firstFree, fitToCols, gridCols, overlaps, resizeRect, type Rect, type Rects } from "../../src/lib/bento-layout"
 
 const SEED = 42
 const LAYOUT_COUNT = 200
@@ -159,5 +159,33 @@ describe("fitToCols reading order", () => {
       ["c", { x: 2, y: 1, w: 1, h: 1 }],
     ])
     expect(readingIds(fitToCols(before, 2))).toEqual(readingIds(before))
+  })
+})
+
+describe("resizeRect", () => {
+  const COLS = 6
+  const block: Rect = { x: 2, y: 2, w: 2, h: 2 }
+
+  test("the east and south edges follow the pointer, the origin stays", () => {
+    expect(resizeRect(block, "se", { x: 4, y: 5 }, COLS)).toEqual({ x: 2, y: 2, w: 3, h: 4 })
+    expect(resizeRect(block, "e", { x: 5, y: 9 }, COLS)).toEqual({ x: 2, y: 2, w: 4, h: 2 })
+    expect(resizeRect(block, "s", { x: 0, y: 2 }, COLS)).toEqual({ x: 2, y: 2, w: 2, h: 1 })
+  })
+
+  test("the west and north edges move, the far edges stay", () => {
+    expect(resizeRect(block, "nw", { x: 0, y: 0 }, COLS)).toEqual({ x: 0, y: 0, w: 4, h: 4 })
+    expect(resizeRect(block, "w", { x: 3, y: 0 }, COLS)).toEqual({ x: 3, y: 2, w: 1, h: 2 })
+    expect(resizeRect(block, "n", { x: 0, y: 3 }, COLS)).toEqual({ x: 2, y: 3, w: 2, h: 1 })
+  })
+
+  test("a corner moves one edge of each axis", () => {
+    expect(resizeRect(block, "ne", { x: 5, y: 1 }, COLS)).toEqual({ x: 2, y: 1, w: 4, h: 3 })
+    expect(resizeRect(block, "sw", { x: 1, y: 4 }, COLS)).toEqual({ x: 1, y: 2, w: 3, h: 3 })
+  })
+
+  test("the rect keeps one cell and stays in the columns", () => {
+    expect(resizeRect(block, "se", { x: 0, y: 0 }, COLS)).toEqual({ x: 2, y: 2, w: 1, h: 1 })
+    expect(resizeRect(block, "nw", { x: 5, y: 9 }, COLS)).toEqual({ x: 3, y: 3, w: 1, h: 1 })
+    expect(resizeRect(block, "e", { x: 9, y: 0 }, COLS)).toEqual({ x: 2, y: 2, w: 4, h: 2 })
   })
 })

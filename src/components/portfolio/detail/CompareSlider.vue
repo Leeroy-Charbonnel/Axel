@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref } from "vue"
 import { MoveHorizontal } from "lucide-vue-next"
+import { useEditor } from "../../../composables/useEditor"
 import { useTranslations } from "../../../composables/useTranslations"
 import { pickBilingual } from "../../../lib/markdown"
 import type { Lang } from "../../../lib/lang"
 import SiteImage from "../../SiteImage.vue"
 import BlockEmpty from "./BlockEmpty.vue"
+import BlockText from "./BlockText.vue"
 import type { CompareBlockContent } from "../../../types/portfolio"
 
 //BEFORE / AFTER - the "after" image underneath, the "before" one clipped to
@@ -16,6 +18,7 @@ import type { CompareBlockContent } from "../../../types/portfolio"
 
 const props = defineProps<{ content: CompareBlockContent; lang: Lang; sizes: string }>()
 const { t } = useTranslations()
+const { editMode: editing } = useEditor()
 
 const STEP = 0.05
 const JUMP = 0.25
@@ -38,7 +41,9 @@ function fromPointer(e: PointerEvent) {
   position.value = clamp((e.clientX - rect.left) / rect.width)
 }
 
+//In edit mode the divider stays: the pointer moves the block or types a label
 function onPointerDown(e: PointerEvent) {
+  if (editing.value) return
   fromPointer(e)
   document.addEventListener("pointermove", fromPointer)
   document.addEventListener("pointerup", stopDrag)
@@ -101,8 +106,20 @@ onBeforeUnmount(stopDrag)
     >
       <span class="bcompare__handle"><MoveHorizontal :size="16" aria-hidden="true" /></span>
     </div>
-    <span v-if="beforeLabel" class="bcompare__label bcompare__label--before">{{ beforeLabel }}</span>
-    <span v-if="afterLabel" class="bcompare__label bcompare__label--after">{{ afterLabel }}</span>
+    <BlockText
+      class="bcompare__label bcompare__label--before"
+      optional
+      :value="content.beforeLabel"
+      :label="t('blockFieldBeforeLabel')"
+      @write="(v) => (content.beforeLabel = v)"
+    />
+    <BlockText
+      class="bcompare__label bcompare__label--after"
+      optional
+      :value="content.afterLabel"
+      :label="t('blockFieldAfterLabel')"
+      @write="(v) => (content.afterLabel = v)"
+    />
   </div>
   <BlockEmpty v-else type="compare" />
 </template>

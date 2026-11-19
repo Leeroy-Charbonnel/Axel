@@ -1,17 +1,19 @@
 <script setup lang="ts">
-import { pickBilingual } from "../../../lib/markdown"
+import { useTranslations } from "../../../composables/useTranslations"
 import type { Lang } from "../../../lib/lang"
+import BlockText from "./BlockText.vue"
 import type { QuoteBlockContent } from "../../../types/portfolio"
 
 //QUOTE - large type, an accent opening mark and the author as a caption
 defineProps<{ content: QuoteBlockContent; lang: Lang }>()
+const { t } = useTranslations()
 </script>
 
 <template>
   <figure class="bquote" :lang="lang">
     <span class="bquote__mark" aria-hidden="true">&ldquo;</span>
-    <blockquote class="bquote__text">{{ pickBilingual(content.text, lang) }}</blockquote>
-    <figcaption v-if="content.author" class="bquote__author">{{ content.author }}</figcaption>
+    <BlockText tag="blockquote" class="bquote__text" multiline :value="content.text" :label="t('blockFieldQuote')" @write="(v) => (content.text = v)" />
+    <BlockText tag="figcaption" class="bquote__author" optional :value="content.author" :label="t('blockFieldAuthor')" @write="(v) => (content.author = v)" />
   </figure>
 </template>
 

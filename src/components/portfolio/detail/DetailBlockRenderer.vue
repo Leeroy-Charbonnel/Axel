@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from "vue"
+import { useEditor } from "../../../composables/useEditor"
 import { useLightbox } from "../../../composables/useLightbox"
 import { useReducedMotion } from "../../../composables/useReducedMotion"
 import { useTranslations } from "../../../composables/useTranslations"
@@ -19,6 +20,7 @@ import BlockSpecs from "./BlockSpecs.vue"
 import BlockCounters from "./BlockCounters.vue"
 import BlockMarquee from "./BlockMarquee.vue"
 import BlockEmpty from "./BlockEmpty.vue"
+import BlockText from "./BlockText.vue"
 import BlockLegend from "./BlockLegend.vue"
 import BlockSequence from "./BlockSequence.vue"
 import BlockMaterials from "./BlockMaterials.vue"
@@ -31,7 +33,8 @@ import type {
 
 //ONE BLOCK, whatever its type, for the public grid, the editor canvas and the
 //styleguide. The editor wraps it in a pointer-events:none tile, so the
-//interactive blocks render there as still previews.
+//interactive blocks render there as still previews; only their texts take the
+//pointer, to be typed in place.
 
 const props = defineProps<{
   block:   DetailBlock
@@ -44,6 +47,7 @@ const props = defineProps<{
 const { t } = useTranslations()
 const lightbox = useLightbox()
 const reducedMotion = useReducedMotion()
+const { editMode: editing } = useEditor()
 
 const c = computed(() => props.block.content)
 const sizes = computed(() => blockSizes(props.block.w, props.cols))
@@ -61,7 +65,18 @@ function enlarge() {
 </script>
 
 <template>
-  <div v-if="block.type === 'text'" class="block-text md-content" :lang="lang" v-html="renderMd(pickBilingual(asText.text, lang))"></div>
+  <BlockText
+    v-if="block.type === 'text' && editing"
+    tag="div"
+    class="block-text md-content"
+    multiline
+    :lang="lang"
+    :value="asText.text"
+    :label="t('blockTypeText')"
+    @write="(v) => (asText.text = v)"
+  />
+
+  <div v-else-if="block.type === 'text'" class="block-text md-content" :lang="lang" v-html="renderMd(pickBilingual(asText.text, lang))"></div>
 
   <BlockHeading v-else-if="block.type === 'heading'" :content="(c as HeadingBlockContent)" :lang="lang" />
 

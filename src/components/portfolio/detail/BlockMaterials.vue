@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import { computed } from "vue"
 import { useTranslations } from "../../../composables/useTranslations"
-import { pickBilingual } from "../../../lib/markdown"
 import type { Lang } from "../../../lib/lang"
 import SiteImage from "../../SiteImage.vue"
 import BlockEmpty from "./BlockEmpty.vue"
+import BlockText from "./BlockText.vue"
 import type { MaterialsBlockContent } from "../../../types/portfolio"
 
 //MATERIALS - a swatch per material, its name, then its parameters
@@ -21,11 +21,11 @@ const SWATCH_SIZES = "80px"
     <li v-for="item in items" :key="item.fileId" class="bmat__item">
       <SiteImage :src="item.url" alt="" :sizes="SWATCH_SIZES" class="bmat__swatch" />
       <div class="bmat__body">
-        <p class="bmat__name">{{ pickBilingual(item.name, lang) }}</p>
+        <BlockText tag="p" class="bmat__name" :value="item.name" :label="t('fieldName')" @write="(v) => (item.name = v)" />
         <dl class="bmat__rows">
           <div v-for="(row, r) in item.rows" :key="r" class="bmat__row">
-            <dt>{{ pickBilingual(row.label, lang) }}</dt>
-            <dd>{{ row.value }}</dd>
+            <BlockText tag="dt" :value="row.label" :label="t('blockFieldLabel')" @write="(v) => (row.label = v)" />
+            <BlockText tag="dd" :value="row.value" :label="t('blockFieldValue')" @write="(v) => (row.value = v)" />
           </div>
         </dl>
       </div>

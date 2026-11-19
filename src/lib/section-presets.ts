@@ -1,7 +1,7 @@
 import type { Bilingual, DetailBlock } from "../types/portfolio"
 import { bottomOf, phoneAuthored } from "./bento-layout"
 import {
-  SheetWriter, bandBlocking, bandExploded, bandMaterials, bandPlans, bandProcess, bandShaders, bandSpecs,
+  SHEET_COLS, SheetWriter, bandBlocking, bandExploded, bandMaterials, bandPlans, bandProcess, bandShaders, bandSpecs,
   imageTile, legendTile, sequenceTile, shaderTitle, textTile, videoTile, viewerTile,
 } from "./project-sheet"
 
@@ -12,22 +12,32 @@ import {
 export interface SectionPreset {
   key:      string
   labelKey: string
+  //The text that says what the section is for
+  helpKey:  string
   build:    (w: SheetWriter) => void
 }
 
 const empty = (): Bilingual => ({ fr: "", en: "" })
 
 export const SECTION_PRESETS: SectionPreset[] = [
-  { key: "plans",     labelKey: "sectionPlans",     build: (w) => bandPlans(w, imageTile(null, empty()), viewerTile(null, "", "blueprint")) },
-  { key: "blocking",  labelKey: "sectionBlocking",  build: (w) => bandBlocking(w, sequenceTile([], true), videoTile(null), textTile(empty())) },
-  { key: "exploded",  labelKey: "sectionExploded",  build: (w) => bandExploded(w, viewerTile(null, "", "exploded"), legendTile([empty()], "number")) },
-  { key: "shaders",   labelKey: "sectionShaders",   build: (w) => bandShaders(w, [{ title: shaderTitle(empty()), squares: sequenceTile([], true) }]) },
-  { key: "materials", labelKey: "sectionMaterials", build: (w) => bandMaterials(w,
+  { key: "plans",     labelKey: "sectionPlans",     helpKey: "sectionHelpPlans",     build: (w) => bandPlans(w, imageTile(null, empty()), viewerTile(null, "", "blueprint")) },
+  { key: "blocking",  labelKey: "sectionBlocking",  helpKey: "sectionHelpBlocking",  build: (w) => bandBlocking(w, sequenceTile([], true), videoTile(null), textTile(empty())) },
+  { key: "exploded",  labelKey: "sectionExploded",  helpKey: "sectionHelpExploded",  build: (w) => bandExploded(w, viewerTile(null, "", "exploded"), legendTile([empty()], "number")) },
+  { key: "shaders",   labelKey: "sectionShaders",   helpKey: "sectionHelpShaders",   build: (w) => bandShaders(w, [{ title: shaderTitle(empty()), squares: sequenceTile([], true) }]) },
+  { key: "materials", labelKey: "sectionMaterials", helpKey: "sectionHelpMaterials", build: (w) => bandMaterials(w,
       { type: "materials", content: { items: [] } }, sequenceTile([], false), [imageTile(null, empty()), imageTile(null, empty())]) },
-  { key: "process",   labelKey: "sectionProcess",   build: (w) => bandProcess(w, sequenceTile([], true)) },
-  { key: "specs",     labelKey: "sectionSpecs",     build: (w) => bandSpecs(w,
+  { key: "process",   labelKey: "sectionProcess",   helpKey: "sectionHelpProcess",   build: (w) => bandProcess(w, sequenceTile([], true)) },
+  { key: "specs",     labelKey: "sectionSpecs",     helpKey: "sectionHelpSpecs",     build: (w) => bandSpecs(w,
       { type: "specs", content: { rows: [{ label: empty(), value: empty() }] } }, textTile(empty())) },
 ]
+
+//The blocks of a preset as the sheet lays them out, for a picture of the section
+export function previewSection(preset: SectionPreset): DetailBlock[] {
+  let n = 0
+  const w = new SheetWriter(() => String(n++), SHEET_COLS)
+  preset.build(w)
+  return w.blocks
+}
 
 //The preset's blocks on the page's `cols` columns, set below the given rows of
 //the page (desktop and phone): everything from there down moves below the new section

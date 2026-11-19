@@ -15,42 +15,42 @@ import type {
   SequenceBlockContent, SpecsBlockContent, TextBlockContent, VideoBlockContent, Viewer3dBlockContent,
 } from "../../../types/portfolio"
 
-//BLOCK TYPE REGISTRY - one entry per type: label key, icon, the size a new
-//block gets on the desktop grid, and its starting content. inline: the block
-//holds one bilingual `text` the author can type on the canvas.
+//BLOCK TYPE REGISTRY - one entry per type: label key, the key of the text
+//that says what it is for, icon, the size a new block gets on the desktop
+//grid, and its starting content.
 export interface BlockTypeDef {
   type:     DetailBlockType
   labelKey: string
+  helpKey:  string
   icon:     Component
   //Width on the sheet's columns, scaled to the page's own: the whole sheet is the full width
   size:     { w: number; h: number }
-  inline:   boolean
   create:   () => DetailBlockContent
 }
 
 const empty = () => ({ fr: "", en: "" })
 
 export const BLOCK_TYPES: BlockTypeDef[] = [
-  { type: "text",      labelKey: "blockTypeText",      icon: Type,      size: { w: 1, h: 2 }, inline: true,  create: () => ({ text: empty() }) },
-  { type: "heading",   labelKey: "blockTypeHeading",   icon: Heading1,   size: { w: SHEET_COLS, h: 1 }, inline: true,  create: () => ({ text: { fr: "Section", en: "Section" } }) },
-  { type: "quote",     labelKey: "blockTypeQuote",     icon: Quote,     size: { w: 2, h: 1 }, inline: true,  create: () => ({ text: empty(), author: "" }) },
-  { type: "image",     labelKey: "blockTypeImage",     icon: ImageIcon,     size: { w: 2, h: 2 }, inline: false, create: () => ({ fileId: null, url: null, alt: empty(), fit: "cover" }) },
-  { type: "video",     labelKey: "blockTypeVideo",     icon: Film,     size: { w: 2, h: 2 }, inline: false, create: () => ({ fileId: null, url: null, autoplay: true, loop: true, muted: true, controls: false }) },
-  { type: "carousel",  labelKey: "blockTypeCarousel",  icon: Images,  size: { w: SHEET_COLS, h: 2 }, inline: false, create: () => ({ items: [], intervalMs: 0 }) },
-  { type: "marquee",   labelKey: "blockTypeMarquee",   icon: GalleryHorizontalEnd,   size: { w: SHEET_COLS, h: 1 }, inline: false, create: () => ({ items: [], speedPxs: 60 }) },
-  { type: "compare",   labelKey: "blockTypeCompare",   icon: Columns2,   size: { w: 2, h: 2 }, inline: false, create: () => ({
+  { type: "text",      labelKey: "blockTypeText",      helpKey: "blockHelpText",      icon: Type,      size: { w: 1, h: 2 }, create: () => ({ text: empty() }) },
+  { type: "heading",   labelKey: "blockTypeHeading",   helpKey: "blockHelpHeading",   icon: Heading1,   size: { w: SHEET_COLS, h: 1 }, create: () => ({ text: { fr: "Section", en: "Section" } }) },
+  { type: "quote",     labelKey: "blockTypeQuote",     helpKey: "blockHelpQuote",     icon: Quote,     size: { w: 2, h: 1 }, create: () => ({ text: empty(), author: "" }) },
+  { type: "image",     labelKey: "blockTypeImage",     helpKey: "blockHelpImage",     icon: ImageIcon,     size: { w: 2, h: 2 }, create: () => ({ fileId: null, url: null, alt: empty(), fit: "cover" }) },
+  { type: "video",     labelKey: "blockTypeVideo",     helpKey: "blockHelpVideo",     icon: Film,     size: { w: 2, h: 2 }, create: () => ({ fileId: null, url: null, autoplay: true, loop: true, muted: true, controls: false }) },
+  { type: "carousel",  labelKey: "blockTypeCarousel",  helpKey: "blockHelpCarousel",  icon: Images,  size: { w: SHEET_COLS, h: 2 }, create: () => ({ items: [], intervalMs: 0 }) },
+  { type: "marquee",   labelKey: "blockTypeMarquee",   helpKey: "blockHelpMarquee",   icon: GalleryHorizontalEnd,   size: { w: SHEET_COLS, h: 1 }, create: () => ({ items: [], speedPxs: 60 }) },
+  { type: "compare",   labelKey: "blockTypeCompare",   helpKey: "blockHelpCompare",   icon: Columns2,   size: { w: 2, h: 2 }, create: () => ({
       beforeFileId: null, beforeUrl: null, afterFileId: null, afterUrl: null,
       beforeLabel: { fr: "Avant", en: "Before" }, afterLabel: { fr: "Après", en: "After" }, followMouse: false,
     }) },
-  { type: "accordion", labelKey: "blockTypeAccordion", icon: ListCollapse, size: { w: 1, h: 2 }, inline: false, create: () => ({ items: [{ title: empty(), body: empty() }] }) },
-  { type: "specs",     labelKey: "blockTypeSpecs",     icon: Table,     size: { w: 1, h: 2 }, inline: false, create: () => ({ rows: [{ label: empty(), value: empty() }] }) },
-  { type: "counters",  labelKey: "blockTypeCounters",  icon: Hash,  size: { w: SHEET_COLS, h: 1 }, inline: false, create: () => ({ items: [{ label: empty(), value: 0 }] }) },
-  { type: "button",    labelKey: "blockTypeButton",    icon: MousePointerClick,    size: { w: 1, h: 1 }, inline: false, create: () => ({ label: empty(), url: "", newTab: true }) },
-  { type: "embed",     labelKey: "blockTypeEmbed",     icon: MonitorPlay,     size: { w: 2, h: 2 }, inline: false, create: () => ({ url: "" }) },
-  { type: "viewer3d",  labelKey: "blockTypeViewer3d",  icon: Box,  size: { w: SHEET_COLS, h: 2 }, inline: false, create: () => ({ model3dId: null, desktopView: "", mobileView: "", look: "render" }) },
-  { type: "legend",    labelKey: "blockTypeLegend",    icon: ListOrdered, size: { w: 1, h: 2 }, inline: false, create: () => ({ marker: "number", items: [empty()] }) },
-  { type: "sequence",  labelKey: "blockTypeSequence",  icon: Rows3,  size: { w: SHEET_COLS, h: 1 }, inline: false, create: () => ({ numbered: true, items: [] }) },
-  { type: "materials", labelKey: "blockTypeMaterials", icon: Palette, size: { w: 1, h: 2 }, inline: false, create: () => ({ items: [] }) },
+  { type: "accordion", labelKey: "blockTypeAccordion", helpKey: "blockHelpAccordion", icon: ListCollapse, size: { w: 1, h: 2 }, create: () => ({ items: [{ title: empty(), body: empty() }] }) },
+  { type: "specs",     labelKey: "blockTypeSpecs",     helpKey: "blockHelpSpecs",     icon: Table,     size: { w: 1, h: 2 }, create: () => ({ rows: [{ label: empty(), value: empty() }] }) },
+  { type: "counters",  labelKey: "blockTypeCounters",  helpKey: "blockHelpCounters",  icon: Hash,  size: { w: SHEET_COLS, h: 1 }, create: () => ({ items: [{ label: empty(), value: 0 }] }) },
+  { type: "button",    labelKey: "blockTypeButton",    helpKey: "blockHelpButton",    icon: MousePointerClick,    size: { w: 1, h: 1 }, create: () => ({ label: empty(), url: "", newTab: true }) },
+  { type: "embed",     labelKey: "blockTypeEmbed",     helpKey: "blockHelpEmbed",     icon: MonitorPlay,     size: { w: 2, h: 2 }, create: () => ({ url: "" }) },
+  { type: "viewer3d",  labelKey: "blockTypeViewer3d",  helpKey: "blockHelpViewer3d",  icon: Box,  size: { w: SHEET_COLS, h: 2 }, create: () => ({ model3dId: null, desktopView: "", mobileView: "", look: "render" }) },
+  { type: "legend",    labelKey: "blockTypeLegend",    helpKey: "blockHelpLegend",    icon: ListOrdered, size: { w: 1, h: 2 }, create: () => ({ marker: "number", items: [empty()] }) },
+  { type: "sequence",  labelKey: "blockTypeSequence",  helpKey: "blockHelpSequence",  icon: Rows3,  size: { w: SHEET_COLS, h: 1 }, create: () => ({ numbered: true, items: [] }) },
+  { type: "materials", labelKey: "blockTypeMaterials", helpKey: "blockHelpMaterials", icon: Palette, size: { w: 1, h: 2 }, create: () => ({ items: [] }) },
 ]
 
 export function blockType(type: DetailBlockType): BlockTypeDef {

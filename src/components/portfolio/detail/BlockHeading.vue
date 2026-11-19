@@ -1,19 +1,21 @@
 <script setup lang="ts">
-import { pickBilingual } from "../../../lib/markdown"
+import { useTranslations } from "../../../composables/useTranslations"
 import type { Lang } from "../../../lib/lang"
+import BlockText from "./BlockText.vue"
 import type { HeadingBlockContent } from "../../../types/portfolio"
 
 //SECTION HEADING - a plan's section title: a hairline with a cross at each
 //end, then the title and its accent slash, at the bottom of the block so it
 //introduces the row that follows
 defineProps<{ content: HeadingBlockContent; lang: Lang }>()
+const { t } = useTranslations()
 </script>
 
 <template>
   <div class="bheading">
-    <h2 class="bheading__text" :lang="lang">
-      {{ pickBilingual(content.text, lang) }}<span class="bheading__slash" aria-hidden="true">/</span>
-    </h2>
+    <BlockText tag="h2" class="bheading__text" :lang="lang" :value="content.text" :label="t('fieldTitle')" @write="(v) => (content.text = v)">
+      <template #default="{ text }">{{ text }}<span class="bheading__slash" aria-hidden="true">/</span></template>
+    </BlockText>
   </div>
 </template>
 

@@ -1,10 +1,13 @@
 <script setup lang="ts">
 import { computed, ref, type Component } from "vue"
-import { Copy, Folder, Palette, Plus, SlidersHorizontal, Trash2 } from "lucide-vue-next"
+import { CircleHelp, Copy, Folder, LayoutTemplate, Palette, Plus, SlidersHorizontal, Trash2 } from "lucide-vue-next"
 import { useTranslations } from "../../../composables/useTranslations"
-import { BLOCK_TYPES, blockType } from "./block-types"
+import { BLOCK_TYPES, blockType, type BlockTypeDef } from "./block-types"
 import { GRID_SETTINGS } from "../../../lib/detail-grid"
-import { SECTION_PRESETS } from "../../../lib/section-presets"
+import { SECTION_PRESETS, type SectionPreset } from "../../../lib/section-presets"
+import BlockSketch     from "./BlockSketch.vue"
+import SectionSketch   from "./SectionSketch.vue"
+import HelpDialog      from "./HelpDialog.vue"
 import EditorTabs, { type EditorTab } from "../../admin/EditorTabs.vue"
 import EditLangSwitch  from "../../admin/EditLangSwitch.vue"
 import SliderField     from "../../model-editor/SliderField.vue"
@@ -32,7 +35,8 @@ import type { DetailBlock, DetailBlockType, DetailGridSettings } from "../../../
 
 //THE BENTO SIDE PANEL - tabs, with the language being edited beside them.
 //Add: the sections of the sheet to add whole and the block types (click:
-//first free spot, drag: where it is dropped). Properties: the selected block's
+//first free spot, drag: where it is dropped), each with a "?" that shows what
+//it is. Properties: the selected block's
 //content and border, or the page grid when nothing is selected. The editors
 //write straight into the block; the page history records it. Files: this
 //project's own folder. CSS: the site theme, shared by every page.
@@ -64,6 +68,17 @@ function showProperties() {
 }
 defineExpose({ showProperties })
 
+//The section or block type the help dialog is about
+type Help = { block: BlockTypeDef } | { section: SectionPreset }
+const help = ref<Help | null>(null)
+const helpOf = computed(() => {
+  const h = help.value
+  if (!h) return null
+  const def = "block" in h ? h.block : h.section
+  return { title: t(def.labelKey), description: t(def.helpKey) }
+})
+const helpLabel = (labelKey: string) => t("detailHelpAbout").replace("{name}", t(labelKey))
+
 const EDITORS: Record<DetailBlockType, Component> = {
   text: TextEditor, heading: HeadingEditor, quote: QuoteEditor, image: ImageEditor,
   video: VideoEditor, carousel: CarouselEditor, marquee: MarqueeEditor, compare: CompareEditor,
@@ -84,33 +99,50 @@ const EDITORS: Record<DetailBlockType, Component> = {
         <section class="ed-form__section block-panel__section">
           <h2 class="block-panel__heading">{{ t('detailAddSection') }}</h2>
           <p class="ed-hint">{{ t('detailAddSectionHint') }}</p>
-          <div class="block-panel__types">
-            <button
-              v-for="p in SECTION_PRESETS"
-              :key="p.key"
-              type="button"
-              class="ed-btn block-panel__type"
-              @click="emit('addSection', p.key)"
-            >{{ t(p.labelKey) }}</button>
-          </div>
+          <ul class="block-panel__types">
+            <li v-for="p in SECTION_PRESETS" :key="p.key" class="block-panel__row">
+              <button type="button" class="ed-btn block-panel__type" @click="emit('addSection', p.key)">
+                <LayoutTemplate :size="14" aria-hidden="true" />
+                <span class="block-panel__name">{{ t(p.labelKey) }}</span>
+              </button>
+              <button
+                type="button"
+                class="ed-btn ed-btn--ghost ed-btn--icon"
+                :aria-label="helpLabel(p.labelKey)"
+                :title="helpLabel(p.labelKey)"
+                @click="help = { section: p }"
+              >
+                <CircleHelp :size="14" aria-hidden="true" />
+              </button>
+            </li>
+          </ul>
         </section>
         <section class="ed-form__section block-panel__section">
           <h2 class="block-panel__heading">{{ t('detailAddBlock') }}</h2>
           <p class="ed-hint">{{ t('detailAddHint') }}</p>
-          <div class="block-panel__types">
-            <button
-              v-for="bt in BLOCK_TYPES"
-              :key="bt.type"
-              type="button"
-              class="ed-btn block-panel__type"
-              @pointerdown="emit('create', $event, bt.type)"
-              @keydown.enter.prevent="emit('add', bt.type)"
-              @keydown.space.prevent="emit('add', bt.type)"
-            >
-              <component :is="bt.icon" :size="14" aria-hidden="true" />
-              <span>{{ t(bt.labelKey) }}</span>
-            </button>
-          </div>
+          <ul class="block-panel__types">
+            <li v-for="bt in BLOCK_TYPES" :key="bt.type" class="block-panel__row">
+              <button
+                type="button"
+                class="ed-btn block-panel__type block-panel__type--drag"
+                @pointerdown="emit('create', $event, bt.type)"
+                @keydown.enter.prevent="emit('add', bt.type)"
+                @keydown.space.prevent="emit('add', bt.type)"
+              >
+                <component :is="bt.icon" :size="14" aria-hidden="true" />
+                <span class="block-panel__name">{{ t(bt.labelKey) }}</span>
+              </button>
+              <button
+                type="button"
+                class="ed-btn ed-btn--ghost ed-btn--icon"
+                :aria-label="helpLabel(bt.labelKey)"
+                :title="helpLabel(bt.labelKey)"
+                @click="help = { block: bt }"
+              >
+                <CircleHelp :size="14" aria-hidden="true" />
+              </button>
+            </li>
+          </ul>
         </section>
       </template>
 
@@ -162,6 +194,11 @@ const EDITORS: Record<DetailBlockType, Component> = {
         </div>
       </template>
     </EditorTabs>
+
+    <HelpDialog v-if="help && helpOf" :title="helpOf.title" :description="helpOf.description" @close="help = null">
+      <BlockSketch v-if="'block' in help" :type="help.block.type" />
+      <SectionSketch v-else :preset="help.section" />
+    </HelpDialog>
   </aside>
 </template>
 
@@ -193,19 +230,33 @@ html.editor-inspector-open .block-panel { visibility: hidden; }
   text-transform: uppercase;
   color: var(--editor-text-muted);
 }
+/*One row per thing to add: its button, then its help*/
 .block-panel__types {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  display: flex;
+  flex-direction: column;
+  gap: var(--vsui-space-2xs);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.block-panel__row {
+  display: flex;
   gap: var(--vsui-space-2xs);
 }
 .block-panel__type {
+  flex: 1;
   justify-content: flex-start;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  min-width: 0;
   text-align: left;
+}
+.block-panel__type--drag {
   touch-action: none;
   user-select: none;
   cursor: grab;
+}
+.block-panel__name {
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .block-panel__type svg {
   flex-shrink: 0;

@@ -126,6 +126,29 @@ export function closeEmptyRows(rects: Rects): Rects {
   return out
 }
 
+//The edges and corners a block is resized from
+export const RESIZE_EDGES = ["n", "ne", "e", "se", "s", "sw", "w", "nw"] as const
+export type ResizeEdge = typeof RESIZE_EDGES[number]
+
+//The rect with the dragged edges on the cell under the pointer. The opposite
+//edges stay; the rect keeps one cell at least and never leaves the columns
+export function resizeRect(r: Rect, edge: ResizeEdge, cell: { x: number; y: number }, cols: number): Rect {
+  const right = r.x + r.w
+  const bottom = r.y + r.h
+  let { x, y, w, h } = r
+  if (edge.includes("e")) w = Math.min(cols, Math.max(r.x + 1, cell.x + 1)) - r.x
+  if (edge.includes("w")) {
+    x = Math.min(right - 1, Math.max(0, cell.x))
+    w = right - x
+  }
+  if (edge.includes("s")) h = Math.max(r.y + 1, cell.y + 1) - r.y
+  if (edge.includes("n")) {
+    y = Math.min(bottom - 1, Math.max(0, cell.y))
+    h = bottom - y
+  }
+  return { x, y, w, h }
+}
+
 export function bottomOf(rects: Iterable<Rect>): number {
   let max = 0
   for (const r of rects) max = Math.max(max, r.y + r.h)

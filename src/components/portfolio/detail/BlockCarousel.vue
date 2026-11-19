@@ -1,12 +1,14 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, watch } from "vue"
 import { ChevronLeft, ChevronRight } from "lucide-vue-next"
+import { useEditor } from "../../../composables/useEditor"
 import { useReducedMotion } from "../../../composables/useReducedMotion"
 import { useTranslations } from "../../../composables/useTranslations"
 import { pickBilingual } from "../../../lib/markdown"
 import type { Lang } from "../../../lib/lang"
 import SiteImage from "../../SiteImage.vue"
 import BlockEmpty from "./BlockEmpty.vue"
+import BlockText from "./BlockText.vue"
 import type { CarouselBlockContent } from "../../../types/portfolio"
 
 //CAROUSEL - slides on a translated track, arrows, dots, left / right keys when
@@ -16,6 +18,7 @@ import type { CarouselBlockContent } from "../../../types/portfolio"
 const props = defineProps<{ content: CarouselBlockContent; lang: Lang; sizes: string }>()
 const { t } = useTranslations()
 const reducedMotion = useReducedMotion()
+const { editMode: editing } = useEditor()
 
 const SWIPE_PX = 40
 
@@ -23,7 +26,7 @@ const index  = ref(0)
 const paused = ref(false)
 const items  = computed(() => props.content.items.filter((i) => i.url))
 const count  = computed(() => items.value.length)
-const caption = computed(() => pickBilingual(items.value[index.value]?.caption, props.lang))
+const current = computed(() => items.value[index.value] ?? null)
 
 watch(count, (n) => { if (index.value >= n) index.value = Math.max(0, n - 1) })
 
@@ -44,7 +47,9 @@ function restartTimer() {
 watch([() => props.content.intervalMs, count, paused, reducedMotion, index], restartTimer, { immediate: true })
 onBeforeUnmount(() => { if (timer) clearInterval(timer) })
 
+//In edit mode the arrows move the caret in the caption
 function onKeydown(e: KeyboardEvent) {
+  if (editing.value) return
   if (e.key === "ArrowLeft")  { e.preventDefault(); goTo(index.value - 1) }
   if (e.key === "ArrowRight") { e.preventDefault(); goTo(index.value + 1) }
 }
@@ -113,7 +118,13 @@ function onPointerUp(e: PointerEvent) {
     <div class="bcarousel__bar">
       <p class="bcarousel__caption" aria-live="polite">
         <span class="bcarousel__count">{{ String(index + 1).padStart(2, "0") }} / {{ String(count).padStart(2, "0") }}</span>
-        <span v-if="caption">{{ caption }}</span>
+        <BlockText
+          v-if="current"
+          optional
+          :value="current.caption ?? { fr: '', en: '' }"
+          :label="t('fieldCaption')"
+          @write="(v) => (current!.caption = v)"
+        />
       </p>
       <div v-if="count > 1" class="bcarousel__dots">
         <button
