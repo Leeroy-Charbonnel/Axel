@@ -1,16 +1,20 @@
 <script setup lang="ts">
-import { computed, ref, watchEffect } from "vue"
+import { computed, defineAsyncComponent, ref, watchEffect } from "vue"
 import { useRoute } from "vue-router"
 import ToastHost from "./components/ToastHost.vue"
 import ConfirmDialog from "./components/ConfirmDialog.vue"
+import { useAdmin } from "./composables/useAdmin"
 import { useLanguage } from "./composables/useLanguage"
 import SideNav      from "./components/portfolio/SideNav.vue"
 import SiteFooter   from "./components/portfolio/SiteFooter.vue"
-import EditBar      from "./components/admin/EditBar.vue"
-import Inspector    from "./components/admin/Inspector.vue"
-import MediaLibraryDialog from "./components/admin/media/MediaLibraryDialog.vue"
 import "./components/admin/admin.css"
 import LightboxCarousel from "./components/portfolio/LightboxCarousel.vue"
+
+//THE EDITING INTERFACE is fetched for the admin only: a visitor never downloads it
+const EditBar            = defineAsyncComponent(() => import("./components/admin/EditBar.vue"))
+const Inspector          = defineAsyncComponent(() => import("./components/admin/Inspector.vue"))
+const MediaLibraryDialog = defineAsyncComponent(() => import("./components/admin/media/MediaLibraryDialog.vue"))
+const { isAdmin } = useAdmin()
 
 //Dark only: there is no light / dark toggle. The site colours come from the
 //site theme (useTheme), applied for every visitor.
@@ -54,9 +58,11 @@ watchEffect(() => {
 
     <LightboxCarousel />
 
-    <EditBar />
-    <Inspector />
-    <MediaLibraryDialog />
+    <template v-if="isAdmin">
+      <EditBar />
+      <Inspector />
+      <MediaLibraryDialog />
+    </template>
 
     <ToastHost />
     <ConfirmDialog />

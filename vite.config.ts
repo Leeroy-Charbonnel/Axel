@@ -1,4 +1,4 @@
-import { defineConfig, loadEnv } from "vite"
+import { defineConfig, loadEnv, type Plugin } from "vite"
 import vue from "@vitejs/plugin-vue"
 import path from "node:path"
 import { fileURLToPath } from "node:url"
@@ -17,6 +17,31 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 //
 //xfwd on /api: the request reaches Express from 127.0.0.1, x-forwarded-for and
 //x-forwarded-host still name the real client for server/dev-login.ts.
+
+//THE TEXT FONT, asked for in the HTML: without the hint the browser finds it
+//only once the stylesheet has arrived, and the text waits one more round trip.
+//Latin only, the subset every page draws.
+const TEXT_FONT = /^assets\/montserrat-latin-wght-normal-[\w-]+\.woff2$/
+
+function preloadTextFont(base: string): Plugin {
+  return {
+    name: "preload-text-font",
+    apply: "build",
+    transformIndexHtml: {
+      order: "post",
+      handler(_html, ctx) {
+        const font = Object.keys(ctx.bundle ?? {}).find((name) => TEXT_FONT.test(name))
+        if (!font) throw new Error("[vite] the build holds no latin Montserrat file to preload")
+        return [{
+          tag: "link",
+          attrs: { rel: "preload", as: "font", type: "font/woff2", href: `${base}${font}`, crossorigin: true },
+          injectTo: "head",
+        }]
+      },
+    },
+  }
+}
+
 export default defineConfig(({ mode, command }) => {
   const env  = loadEnv(mode, process.cwd(), "")
   const base = env.VITE_BASE_PATH || "/"
@@ -27,7 +52,7 @@ export default defineConfig(({ mode, command }) => {
 
   return {
     base,
-    plugins: [vue()],
+    plugins: [vue(), preloadTextFont(base)],
     //The server flag, given to the client in dev only: a build always gets false
     define: {
       "import.meta.env.DEV_AUTO_LOGIN": JSON.stringify(command === "serve" && env.DEV_AUTO_LOGIN === "true"),

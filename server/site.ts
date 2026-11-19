@@ -40,13 +40,23 @@ function themeStyle(theme: ThemeVars): string {
   return declarations ? ` style="${escapeHtml(declarations)}"` : ""
 }
 
+//THE TWO REQUESTS EVERY PAGE WAITS FOR, started by the browser while it still
+//downloads the script that asks for them. The address and the credentials
+//mode are the ones usePortfolio and useTranslations fetch with: a hint that
+//differs from them is fetched twice.
+export function dataPreloads(lang: Lang): string {
+  return ["/api/portfolio", `/api/translations?lang=${lang}`]
+    .map((href) => `<link rel="preload" as="fetch" href="${href}" crossorigin="use-credentials">`)
+    .join("\n    ")
+}
+
 //replacer functions, not strings: page content may hold "$&" and the like
 function render(template: string, page: Page, theme: ThemeVars): string {
   return template
     .replace(/<html lang="[a-z]+"/, () => `<html lang="${page.lang}"${themeStyle(theme)}`)
     .replace(/<title>[^<]*<\/title>/, "")
     .replace(/<meta name="description"[^>]*>/, "")
-    .replace("</head>", () => `    ${page.head}\n  </head>`)
+    .replace("</head>", () => `    ${dataPreloads(page.lang)}\n    ${page.head}\n  </head>`)
     .replace(`<div id="app"></div>`, () => `<div id="app">${page.body}</div>`)
 }
 

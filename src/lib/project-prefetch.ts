@@ -5,10 +5,10 @@ import { prefetch, sizesWidth } from "./image-queue"
 import { IMAGE_SIZES, blockSizes, stepFor, storedImage, type ImageSizes } from "./media"
 import type { PortfolioDto } from "../types/portfolio"
 
-//THE PROJECT PAGES' IMAGES, fetched in the background from the first page
-//shown, after that page's own images, at the copy each page will ask for:
-//opening a project then finds its images already there. A visitor whose
-//browser asks to save data gets none of it.
+//THE PROJECT PAGES, fetched in the background from the first page shown: the
+//page's code, then its images after the current page's own, at the copy each
+//page will ask for. Opening a project then finds both already there. A
+//visitor whose browser asks to save data gets none of it.
 
 //Every stored image URL inside a block's content, at any depth
 function imageUrls(value: unknown, out: string[]): string[] {
@@ -27,7 +27,19 @@ function queue(url: string, sizes: string, images: ImageSizes): void {
   if (stored) prefetch(stored, stepFor(sizesWidth(sizes), images[url]?.[0] ?? null))
 }
 
+//Safari has no requestIdleCallback: there the code waits this long instead
+const NO_IDLE_CALLBACK_WAIT_MS = 2000
+
+function whenIdle(run: () => void): void {
+  if (window.requestIdleCallback) window.requestIdleCallback(run)
+  else setTimeout(run, NO_IDLE_CALLBACK_WAIT_MS)
+}
+
 function prefetchAll(pf: PortfolioDto): void {
+  whenIdle(() => {
+    //the same chunk the router asks for on the first click
+    import("../pages/ProjectDetailPage.vue").catch((err) => console.error("[prefetch] the project page code failed to load:", err))
+  })
   for (const project of pf.mainProjects.filter((p) => p.published)) {
     for (const thumb of project.thumbnails) {
       for (const url of [thumb.url, thumb.wireframeUrl]) if (url) queue(url, IMAGE_SIZES.thumb, pf.images)

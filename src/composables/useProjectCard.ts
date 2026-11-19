@@ -4,7 +4,7 @@ import { useIsMobile } from "./useIsMobile"
 import { useLanguage } from "./useLanguage"
 import { useLightbox } from "./useLightbox"
 import { usePortfolio } from "./usePortfolio"
-import { pickBilingual } from "../lib/markdown"
+import { pickBilingual } from "../lib/bilingual"
 import type { MainProjectDto, ThumbnailDto } from "../types/portfolio"
 
 //WHAT A PROJECT CARD KNOWS BEYOND ITS MARKUP: the 3D model it can open, the
