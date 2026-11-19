@@ -6,7 +6,7 @@ import { useConfirm } from "./useConfirm"
 import { useTranslations } from "./useTranslations"
 import { useLang } from "./useLang"
 import { useTheme } from "./useTheme"
-import { type Lang } from "../lib/lang"
+import { LANGS, type Lang } from "../lib/lang"
 import type { ThemeVars } from "../lib/theme-vars"
 import { KINDS, entityKey, type DraftOf, type EntityId, type EntityKind, type EntityOf } from "../components/admin/entities"
 
@@ -26,10 +26,14 @@ interface DraftEntry {
 }
 type Drafts = Record<string, DraftEntry>
 
-//One undo step: the drafts and the theme draft
+//Typed texts of the fixed labels of the site, by language then by key
+type LabelDrafts = Record<Lang, Record<string, string>>
+
+//One undo step: the drafts, the theme draft and the label drafts
 interface Snapshot {
   drafts: Drafts
   theme:  ThemeVars
+  labels: LabelDrafts
 }
 
 export interface Selection {
@@ -54,6 +58,8 @@ const HISTORY_LIMIT = 100
 //History key of the theme edits, and the field of a reset of every token
 const THEME_KEY      = "theme"
 const ALL_THEME_VARS = "*"
+//History key of the label edits
+const LABEL_KEY      = "label"
 
 const editMode  = ref(false)
 const siteLang  = useLang()
@@ -65,7 +71,10 @@ const editLang  = computed<Lang>({
 const selection = shallowRef<Selection | null>(null)
 //bumped when a keyboard selection should move focus into the inspector
 const focusTick = ref(0)
+//The label of the inspector field whose text is being typed on the page
+const activeField = ref<string | null>(null)
 const drafts    = ref<Drafts>({})
+const labelDrafts = ref<LabelDrafts>({ fr: {}, en: {} })
 const past      = shallowRef<Snapshot[]>([])
 const future    = shallowRef<Snapshot[]>([])
 const saving    = ref(false)
@@ -76,7 +85,8 @@ const portfolio = usePortfolio()
 const toast     = useToast()
 const theme     = useTheme()
 const { confirm } = useConfirm()
-const { t }     = useTranslations()
+const translations = useTranslations()
+const { t }     = translations
 
 const clone = <T>(v: T): T => JSON.parse(JSON.stringify(v)) as T
 //Object keys sorted, so {fr, en} and {en, fr} compare equal
@@ -95,12 +105,23 @@ function find<K extends EntityKind>(kind: K, id: EntityId): EntityOf[K] | null {
 
 //HISTORY - whole-draft snapshots: drafts are small and this cannot drift
 function current(): Snapshot {
-  return { drafts: clone(drafts.value), theme: theme.snapshot() }
+  return { drafts: clone(drafts.value), theme: theme.snapshot(), labels: clone(labelDrafts.value) }
 }
 
 function restore(snapshot: Snapshot) {
   drafts.value = snapshot.drafts
   theme.restore(snapshot.theme)
+  labelDrafts.value = snapshot.labels
+}
+
+//Selects the first item whose draft differs between two steps, so an undo shows what it changed
+function revealChange(before: Drafts, after: Drafts) {
+  for (const key of new Set([...Object.keys(before), ...Object.keys(after)])) {
+    if (same(before[key]?.patch, after[key]?.patch)) continue
+    const entry = after[key] ?? before[key]!
+    if (find(entry.kind, entry.id)) selection.value = { kind: entry.kind, id: entry.id }
+    return
+  }
 }
 
 function pushHistory() {
@@ -196,6 +217,40 @@ function resetTheme() {
   theme.resetAll()
 }
 
+//LABELS - the fixed texts of the site, in the language being edited
+function label(key: string): string {
+  return labelDrafts.value[editLang.value][key] ?? t(key)
+}
+
+//A text equal to the saved one drops its draft
+function setLabel(key: string, text: string) {
+  const lang = editLang.value
+  record(LABEL_KEY, `${lang}:${key}`)
+  const next = { ...labelDrafts.value[lang] }
+  if (text === t(key)) delete next[key]
+  else next[key] = text
+  labelDrafts.value = { ...labelDrafts.value, [lang]: next }
+}
+
+function isLabelDirty(key: string): boolean {
+  return key in labelDrafts.value[editLang.value]
+}
+
+const labelsDirty = computed(() => LANGS.some(({ code }) => Object.keys(labelDrafts.value[code]).length > 0))
+
+//One request per language; the saved texts go to the page without a reload
+async function saveLabels() {
+  for (const { code } of LANGS) {
+    const sent = labelDrafts.value[code]
+    if (Object.keys(sent).length === 0) continue
+    const saved = await apiJson<Record<string, string>>("PUT", "/api/translations", { lang: code, values: sent })
+    translations.setSaved(code, saved)
+    //A text typed during the request stays a draft
+    const left = Object.fromEntries(Object.entries(labelDrafts.value[code]).filter(([key, text]) => sent[key] !== text))
+    labelDrafts.value = { ...labelDrafts.value, [code]: left }
+  }
+}
+
 const draftCount = computed(() => Object.keys(drafts.value).length)
 const pageActive = computed(() => pageActions.value !== null)
 const pageDirty  = computed(() => pageActions.value?.dirty.value ?? false)
@@ -208,7 +263,8 @@ const structureDirty = computed(() =>
   Object.keys(pendingOrder.value).length > 0 || pendingRemoved.value.length > 0 || pendingCreated.value.length > 0)
 
 const media = useMediaLibrary()
-const dirty      = computed(() => draftCount.value > 0 || theme.dirty.value || pageDirty.value || structureDirty.value || media.filesDirty.value)
+const dirty      = computed(() =>
+  draftCount.value > 0 || theme.dirty.value || labelsDirty.value || pageDirty.value || structureDirty.value || media.filesDirty.value)
 const canUndo    = computed(() => past.value.length > 0 || (pageActions.value?.canUndo?.value ?? false))
 const canRedo    = computed(() => future.value.length > 0 || (pageActions.value?.canRedo?.value ?? false))
 export type EditorStatus = "saved" | "dirty" | "saving"
@@ -218,9 +274,11 @@ const status = computed<EditorStatus>(() => saving.value ? "saving" : dirty.valu
 function undo() {
   const prev = past.value[past.value.length - 1]
   if (prev) {
-    future.value = [...future.value, current()]
+    const now = current()
+    future.value = [...future.value, now]
     past.value = past.value.slice(0, -1)
     restore(prev)
+    revealChange(now.drafts, prev.drafts)
     lastPatch = { key: "", fields: "", at: 0 }
     return
   }
@@ -230,9 +288,11 @@ function undo() {
 function redo() {
   const next = future.value[future.value.length - 1]
   if (next) {
-    past.value = [...past.value, current()]
+    const now = current()
+    past.value = [...past.value, now]
     future.value = future.value.slice(0, -1)
     restore(next)
+    revealChange(now.drafts, next.drafts)
     lastPatch = { key: "", fields: "", at: 0 }
     return
   }
@@ -261,6 +321,7 @@ async function saveAll(): Promise<boolean> {
       if (!(await trySave(entityKey(entry.kind, entry.id), () => KINDS[entry.kind].save(entry.id, entry.patch as never)))) failed++
     }
     if (theme.dirty.value && !(await trySave(THEME_KEY, theme.save))) failed++
+    if (labelsDirty.value && !(await trySave(LABEL_KEY, saveLabels))) failed++
     const page = pageActions.value
     if (page?.dirty.value && !(await trySave("page", page.save))) failed++
     //Files go after the content, which may stop using them
@@ -280,6 +341,7 @@ async function saveAll(): Promise<boolean> {
 function discardAll() {
   drafts.value = {}
   theme.discard()
+  labelDrafts.value = { fr: {}, en: {} }
   resetHistory()
   pageActions.value?.discard()
   if (structureDirty.value) void discardStructure()
@@ -314,6 +376,7 @@ function select(kind: EntityKind, id: EntityId, opts: { focus?: boolean } = {}) 
 
 function clear() {
   selection.value = null
+  activeField.value = null
 }
 
 function isSelected(kind: EntityKind, id: EntityId): boolean {
@@ -437,8 +500,27 @@ function usesEditorHistory(target: EventTarget | null): boolean {
   return !isTextTarget(target, { editable: false }) || (target as HTMLElement).closest(INSPECTOR_SELECTOR) !== null
 }
 
+//The home page, where a click beside every item drops the selection
+const PAGE_SELECTOR = ".portfolio"
+const ITEM_SELECTOR = "[data-edit-key]"
+
+function onClick(e: MouseEvent) {
+  if (!editMode.value || !selection.value || !(e.target instanceof Element)) return
+  if (e.target.closest(PAGE_SELECTOR) && !e.target.closest(ITEM_SELECTOR)) clear()
+}
+
+//Escape drops the selection, once no text box and no dialog takes the key
+function onEscape(e: KeyboardEvent) {
+  if (e.defaultPrevented || !selection.value || isTextTarget(e.target, { editable: true })) return
+  if (document.querySelector("dialog[open]")) return
+  e.preventDefault()
+  clear()
+}
+
 function onKeydown(e: KeyboardEvent) {
-  if (!editMode.value || e.isComposing || !(e.ctrlKey || e.metaKey)) return
+  if (!editMode.value || e.isComposing) return
+  if (e.key === "Escape") return onEscape(e)
+  if (!(e.ctrlKey || e.metaKey)) return
   const k = e.key.toLowerCase()
   if (k === "s") {
     e.preventDefault()
@@ -473,16 +555,18 @@ watch(portfolio.data, forgetMissing)
 
 if (typeof window !== "undefined") {
   window.addEventListener("keydown", onKeydown)
+  window.addEventListener("click", onClick)
   window.addEventListener("beforeinput", onBeforeInput)
   window.addEventListener("beforeunload", onBeforeUnload)
 }
 
 export function useEditor() {
   return {
-    editMode, editLang, selection, focusTick, saving, status, dirty, canUndo, canRedo,
+    editMode, editLang, selection, focusTick, activeField, saving, status, dirty, canUndo, canRedo,
     setEditMode, select, clear, isSelected,
     find, draft, patch, display, isDirty,
     setThemeVar, resetTheme,
+    label, setLabel, isLabelDirty,
     saveAll, discardAll, confirmDiscard, undo, redo,
     createItem, removeItem, reorder, move,
     registerPageActions, pageActive,

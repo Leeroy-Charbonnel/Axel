@@ -1,9 +1,23 @@
-//Base CSS tokens the admin can change, with their default values
+//The CSS tokens the admin can change, by group, each with its type and default
+
+export type ThemeGroup = "colors" | "shape" | "spacing" | "layout" | "type" | "hero" | "texture"
+
+//Order of the groups in the CSS tab, with the key of their title
+export const THEME_GROUPS: readonly { key: ThemeGroup; labelKey: string }[] = [
+  { key: "colors",  labelKey: "themeGroupColors" },
+  { key: "shape",   labelKey: "themeGroupShape" },
+  { key: "spacing", labelKey: "themeGroupSpacing" },
+  { key: "layout",  labelKey: "themeGroupLayout" },
+  { key: "type",    labelKey: "themeGroupType" },
+  { key: "hero",    labelKey: "themeGroupHero" },
+  { key: "texture", labelKey: "themeGroupTexture" },
+]
 
 interface ThemeVarBase {
   name:     `--${string}`
   labelKey: string
-  //Same value as in style.css
+  group:    ThemeGroup
+  //Same value as in style.css or tokens.css
   default:  string
 }
 
@@ -20,44 +34,94 @@ export interface NumberVarDef extends ThemeVarBase {
   step: number
 }
 
-export type ThemeVarDef = ColorVarDef | NumberVarDef
+export type LengthUnit = "px" | "rem" | "em"
+
+//A number from min to max followed by its unit, "1.5rem"
+export interface LengthVarDef extends ThemeVarBase {
+  type: "length"
+  unit: LengthUnit
+  min:  number
+  max:  number
+  step: number
+}
+
+//Any other plain CSS value, "clamp(1rem, 2vw, 3rem)"
+export interface TextVarDef extends ThemeVarBase {
+  type: "text"
+}
+
+export type ThemeVarDef = ColorVarDef | NumberVarDef | LengthVarDef | TextVarDef
+
+const REM_STEP = 0.05
+const EM_STEP  = 0.01
 
 export const THEME_VARS = [
-  { name: "--primary",       labelKey: "themeAccent",     type: "color",  default: "185 65% 51%" },
-  { name: "--background",    labelKey: "themeBackground", type: "color",  default: "0 0% 0%" },
-  { name: "--ink",           labelKey: "themeText",       type: "color",  default: "0 0% 100%" },
-  { name: "--foreground",    labelKey: "themeTextBase",   type: "color",  default: "0 0% 65%" },
-  { name: "--grain-opacity", labelKey: "themeGrain",      type: "number", default: "0.12", min: 0, max: 1, step: 0.01 },
+  { name: "--primary",    labelKey: "themeAccent",     group: "colors", type: "color", default: "185 65% 51%" },
+  { name: "--background", labelKey: "themeBackground", group: "colors", type: "color", default: "0 0% 0%" },
+  { name: "--ink",        labelKey: "themeText",       group: "colors", type: "color", default: "0 0% 100%" },
+  { name: "--foreground", labelKey: "themeTextBase",   group: "colors", type: "color", default: "0 0% 65%" },
+
+  { name: "--vsui-radius-sm", labelKey: "themeRadiusSm",    group: "shape", type: "length", unit: "px", default: "4px", min: 0, max: 16, step: 1 },
+  { name: "--vsui-radius",    labelKey: "themeRadius",      group: "shape", type: "length", unit: "px", default: "8px", min: 0, max: 32, step: 1 },
+  { name: "--border-width",   labelKey: "themeBorderWidth", group: "shape", type: "length", unit: "px", default: "1px", min: 0, max: 4,  step: 1 },
+
+  { name: "--spacing-xxs", labelKey: "themeSpacingXxs", group: "spacing", type: "length", unit: "rem", default: "0.25rem", min: 0, max: 1,   step: REM_STEP },
+  { name: "--spacing-xs",  labelKey: "themeSpacingXs",  group: "spacing", type: "length", unit: "rem", default: "0.4rem",  min: 0, max: 1.5, step: REM_STEP },
+  { name: "--spacing-sm",  labelKey: "themeSpacingSm",  group: "spacing", type: "length", unit: "rem", default: "0.75rem", min: 0, max: 2,   step: REM_STEP },
+  { name: "--spacing-md",  labelKey: "themeSpacingMd",  group: "spacing", type: "length", unit: "rem", default: "1rem",    min: 0, max: 3,   step: REM_STEP },
+  { name: "--spacing-lg",  labelKey: "themeSpacingLg",  group: "spacing", type: "length", unit: "rem", default: "1.5rem",  min: 0, max: 4,   step: REM_STEP },
+  { name: "--spacing-xl",  labelKey: "themeSpacingXl",  group: "spacing", type: "length", unit: "rem", default: "2rem",    min: 0, max: 6,   step: REM_STEP },
+  { name: "--spacing-2xl", labelKey: "themeSpacing2xl", group: "spacing", type: "length", unit: "rem", default: "3rem",    min: 0, max: 8,   step: REM_STEP },
+  { name: "--spacing-3xl", labelKey: "themeSpacing3xl", group: "spacing", type: "length", unit: "rem", default: "4rem",    min: 0, max: 12,  step: REM_STEP },
+
+  { name: "--site-max-width",   labelKey: "themeMaxWidth",   group: "layout", type: "length", unit: "px", default: "1280px", min: 960, max: 1920, step: 10 },
+  { name: "--site-gutter",      labelKey: "themeGutter",     group: "layout", type: "text", default: "clamp(16px, 4vw, 64px)" },
+  { name: "--site-col-gap",     labelKey: "themeColGap",     group: "layout", type: "text", default: "clamp(16px, 2vw, 32px)" },
+  { name: "--site-section-gap", labelKey: "themeSectionGap", group: "layout", type: "text", default: "clamp(72px, 8vw, 128px)" },
+
+  { name: "--site-fs-h1",    labelKey: "themeFsH1",    group: "type", type: "text", default: "clamp(2rem, 1.4rem + 2.6vw, 3.5rem)" },
+  { name: "--site-fs-h2",    labelKey: "themeFsH2",    group: "type", type: "text", default: "clamp(1.5rem, 1.2rem + 1.4vw, 2.25rem)" },
+  { name: "--site-fs-h3",    labelKey: "themeFsH3",    group: "type", type: "text", default: "clamp(1.125rem, 1rem + 0.6vw, 1.375rem)" },
+  { name: "--site-fs-body",  labelKey: "themeFsBody",  group: "type", type: "text", default: "clamp(0.95rem, 0.9rem + 0.2vw, 1.0625rem)" },
+  { name: "--site-fs-small", labelKey: "themeFsSmall", group: "type", type: "length", unit: "rem", default: "0.875rem", min: 0.625, max: 1.25, step: 0.025 },
+  { name: "--site-fs-label", labelKey: "themeFsLabel", group: "type", type: "length", unit: "rem", default: "0.75rem",  min: 0.625, max: 1.25, step: 0.025 },
+  { name: "--site-lh-body",  labelKey: "themeLhBody",  group: "type", type: "number", default: "1.65", min: 1,   max: 2.5, step: 0.05 },
+  { name: "--site-lh-tight", labelKey: "themeLhTight", group: "type", type: "number", default: "1.1",  min: 0.8, max: 1.6, step: 0.05 },
+  { name: "--site-fw-display",       labelKey: "themeFwDisplay",       group: "type", type: "number", default: "800", min: 100, max: 900, step: 100 },
+  { name: "--site-tracking-label",   labelKey: "themeTrackingLabel",   group: "type", type: "length", unit: "em", default: "0.18em", min: 0, max: 0.4, step: EM_STEP },
+  { name: "--site-tracking-heading", labelKey: "themeTrackingHeading", group: "type", type: "length", unit: "em", default: "0.08em", min: 0, max: 0.4, step: EM_STEP },
+
+  { name: "--site-hero-title", labelKey: "themeHeroTitle", group: "hero", type: "text", default: "clamp(2.25rem, 0.9rem + 5.6vw, 5rem)" },
+  { name: "--site-hero-name",  labelKey: "themeHeroName",  group: "hero", type: "text", default: "clamp(1.2rem, 0.85rem + 1.5vw, 2rem)" },
+  { name: "--site-hero-role",  labelKey: "themeHeroRole",  group: "hero", type: "text", default: "clamp(0.9rem, 0.8rem + 0.4vw, 1.2rem)" },
+
+  { name: "--grain-opacity", labelKey: "themeGrain",     group: "texture", type: "number", default: "0.12", min: 0, max: 1, step: 0.01 },
+  { name: "--grain-size",    labelKey: "themeGrainSize", group: "texture", type: "length", unit: "px", default: "150px", min: 50, max: 400, step: 10 },
+  { name: "--filter-blur",   labelKey: "themeBlur",      group: "texture", type: "length", unit: "px", default: "6px",   min: 0,  max: 24,  step: 1 },
 ] as const satisfies readonly ThemeVarDef[]
 
-export type ThemeVar       = (typeof THEME_VARS)[number]
-export type ThemeVarName   = ThemeVar["name"]
-export type NumberThemeVar = Extract<ThemeVar, { type: "number" }>
+export type ThemeVar     = (typeof THEME_VARS)[number]
+export type ThemeVarName = ThemeVar["name"]
+type ColorVarName        = Extract<ThemeVar, { type: "color" }>["name"]
 
 //Values by name, a missing name keeps its default
-//Registry tokens plus any other CSS variable of the site, by name
 export type ThemeVars = Record<string, string>
 
-export const THEME_VALUE_MAX_LENGTH = 32
-
-//Any other site variable: a plain name, a value without anything that leaves the declaration
-export const CSS_VAR_NAME = /^--[a-z][a-z0-9-]*$/
+//A plain value: nothing that leaves the declaration, no url()
 const CSS_VAR_VALUE = /^[a-zA-Z0-9 .,%()+*/#-]+$/
 export const CSS_VAR_VALUE_MAX_LENGTH = 160
-export const MAX_THEME_VARS = 400
 
 export function isRegistered(name: string): boolean {
   return THEME_VARS.some((v) => v.name === name)
 }
 
-export function isCssVarValue(value: string): boolean {
+function isCssVarValue(value: string): boolean {
   return value.length <= CSS_VAR_VALUE_MAX_LENGTH && CSS_VAR_VALUE.test(value) && !/url\s*\(/i.test(value)
 }
 
-//A registry token checked by its type, any other name by the plain-value rule
-export function isAnyThemeValue(name: string, value: string): boolean {
-  if (isRegistered(name)) return value.length <= THEME_VALUE_MAX_LENGTH && isThemeValue(themeVar(name), value)
-  return CSS_VAR_NAME.test(name) && isCssVarValue(value)
+//A name of the registry with a value of its type
+export function isThemeEntry(name: string, value: string): boolean {
+  return isRegistered(name) && isThemeValue(themeVar(name), value)
 }
 //WCAG AA for body text
 export const MIN_TEXT_CONTRAST = 4.5
@@ -67,11 +131,11 @@ const CONTRAST_PAIRS = [
   { text: "--ink",        ground: "--background" },
   { text: "--foreground", ground: "--background" },
   { text: "--background", ground: "--primary" },
-] as const satisfies readonly { text: ThemeVarName; ground: ThemeVarName }[]
+] as const satisfies readonly { text: ColorVarName; ground: ColorVarName }[]
 
 export interface ContrastIssue {
-  text:   ThemeVarName
-  ground: ThemeVarName
+  text:   ColorVarName
+  ground: ColorVarName
   ratio:  number
 }
 
@@ -99,6 +163,7 @@ const CONTRAST_FLARE = 0.05
 const HSL_PATTERN     = /^(\d+(?:\.\d+)?)\s+(\d+(?:\.\d+)?)%\s+(\d+(?:\.\d+)?)%$/
 const HEX_PATTERN     = /^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i
 const DECIMAL_PATTERN = /^\d+(?:\.\d+)?$/
+const LENGTH_PATTERN  = /^(\d+(?:\.\d+)?)(px|rem|em)$/
 
 //H in degrees, s and l from 0 to 1
 interface Hsl { h: number; s: number; l: number }
@@ -119,16 +184,25 @@ function parseHsl(value: string): Hsl | null {
   return { h, s: s / PERCENT, l: l / PERCENT }
 }
 
+//The number of a length written in the unit of its token, null for anything else
+export function lengthNumber(def: LengthVarDef, value: string): number | null {
+  const match = LENGTH_PATTERN.exec(value)
+  return match && match[2] === def.unit ? Number(match[1]) : null
+}
+
 export function isThemeValue(def: ThemeVarDef, value: string): boolean {
   if (def.type === "color") return parseHsl(value) !== null
-  if (!DECIMAL_PATTERN.test(value)) return false
-  const n = Number(value)
-  return n >= def.min && n <= def.max
+  if (def.type === "text") return isCssVarValue(value)
+  const n = def.type === "length" ? lengthNumber(def, value) : DECIMAL_PATTERN.test(value) ? Number(value) : null
+  return n !== null && n >= def.min && n <= def.max
 }
 
 //Two values that draw the same, "185 65% 51%" and "185 65.1% 51%" for a colour
 export function sameThemeValue(def: ThemeVarDef, a: string, b: string): boolean {
-  return def.type === "color" ? hslToHex(a) === hslToHex(b) : Number(a) === Number(b)
+  if (def.type === "color") return hslToHex(a) === hslToHex(b)
+  if (def.type === "text") return a === b
+  if (def.type === "length") return lengthNumber(def, a) === lengthNumber(def, b)
+  return Number(a) === Number(b)
 }
 
 function hslToRgb(value: string): Rgb {
@@ -183,7 +257,7 @@ function contrastRatio(a: string, b: string): number {
 
 //First pair under the minimum contrast, a missing name at its default
 export function contrastIssue(vars: ThemeVars): ContrastIssue | null {
-  const valueOf = (name: ThemeVarName) => vars[name] ?? themeVar(name).default
+  const valueOf = (name: ColorVarName) => vars[name] ?? themeVar(name).default
   for (const { text, ground } of CONTRAST_PAIRS) {
     const ratio = contrastRatio(valueOf(text), valueOf(ground))
     if (ratio < MIN_TEXT_CONTRAST) return { text, ground, ratio }

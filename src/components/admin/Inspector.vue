@@ -11,6 +11,7 @@ import ProfileForm from "./forms/ProfileForm.vue"
 import MainProjectForm from "./forms/MainProjectForm.vue"
 import GalleryItemForm from "./forms/GalleryItemForm.vue"
 import ExperienceForm from "./forms/ExperienceForm.vue"
+import LabelsForm from "./forms/LabelsForm.vue"
 import { KINDS, entityKey, idOf, listOf, titleOf, type EntityKind } from "./entities"
 import { useSortable, moveItem } from "./useSortable"
 import { useEditor } from "../../composables/useEditor"
@@ -21,7 +22,7 @@ import { useInspectorResize } from "./useInspectorResize"
 
 //THE INSPECTOR - the home page's edit panel, open for the whole edit mode
 //(elsewhere only while an item is selected). Tabs: Properties (the selected
-//entity's form, or a hint when nothing is selected), Files (every file) and
+//entity's form, or the site labels when nothing is selected), Files (every file) and
 //CSS (the site theme). A side panel above 1024px (the page makes room for it,
 //see style.css), a bottom sheet below that can be folded.
 
@@ -70,6 +71,7 @@ const index = computed(() => items.value.findIndex((i) => i.id === selection.val
 const collapsed = ref(false)
 const orderOpen = ref(false)
 const heading   = ref<HTMLElement | null>(null)
+const propsEl   = ref<HTMLElement | null>(null)
 const orderList = ref<HTMLElement | null>(null)
 
 const sortable = useSortable(orderList, (from, to) => {
@@ -97,6 +99,26 @@ function region(): HTMLElement | null {
   return document.querySelector<HTMLElement>(`[data-edit-key="${key.value}"]`)
 }
 
+//The field of the text being typed on the page, marked and scrolled into view
+const LINKED_CLASS = "ed-field--linked"
+let linked: Element | null = null
+watch([editor.activeField, key], async ([field]) => {
+  linked?.classList.remove(LINKED_CLASS)
+  linked = null
+  if (!field) return
+  tab.value = "props"
+  await nextTick()
+  if (editor.activeField.value !== field) return
+  linked = propsEl.value?.querySelector(`[data-field="${CSS.escape(field)}"]`) ?? null
+  if (!linked) return
+  linked.classList.add(LINKED_CLASS)
+  linked.scrollIntoView({ block: "nearest", behavior: motion() })
+})
+
+function motion(): ScrollBehavior {
+  return window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth"
+}
+
 //the selected item stays visible: beside the panel, or above the sheet; a text
 //typed in place keeps only itself in view
 watch(key, async (next) => {
@@ -105,7 +127,7 @@ watch(key, async (next) => {
   tab.value = "props"
   await nextTick()
   const sheet = window.matchMedia(SHEET_QUERY).matches
-  const behavior = window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth"
+  const behavior = motion()
   const target = region()
   const focused = document.activeElement
   if (target && focused instanceof HTMLElement && focused !== target && target.contains(focused)) {
@@ -203,7 +225,7 @@ async function remove() {
         </template>
 
         <template #props>
-          <div v-if="kind && entity" class="inspector__props">
+          <div v-if="kind && entity" ref="propsEl" class="inspector__props">
             <header class="inspector__head">
               <div class="inspector__titles">
                 <span class="inspector__kind">
@@ -279,7 +301,17 @@ async function remove() {
               <component :is="FORMS[kind]" :key="key" :entity="entity" />
             </div>
           </div>
-          <p v-else class="ed-hint inspector__empty">{{ t('editorSelectHint') }}</p>
+          <div v-else ref="propsEl" class="inspector__props">
+            <header class="inspector__head">
+              <div class="inspector__titles">
+                <span class="inspector__kind">{{ t('editorSelectHint') }}</span>
+                <h2 class="inspector__title">{{ t('labelsTitle') }}</h2>
+              </div>
+            </header>
+            <div class="inspector__body">
+              <LabelsForm />
+            </div>
+          </div>
         </template>
 
         <template #files>
@@ -329,8 +361,6 @@ async function remove() {
   flex-direction: column;
   height: 100%;
 }
-
-.inspector__empty { padding: var(--vsui-space-md) var(--vsui-space-sm); }
 
 /*The left edge, wider than the line it draws*/
 .inspector__resize {

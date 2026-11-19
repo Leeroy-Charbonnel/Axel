@@ -5,6 +5,7 @@ import { useLanguage } from "../../composables/useLanguage"
 import { useSectionNav } from "../../composables/useSectionNav"
 import EditableRegion from "../admin/EditableRegion.vue"
 import InlineText from "../admin/InlineText.vue"
+import InlineLabel from "../admin/InlineLabel.vue"
 import type { ProfileDto } from "../../types/portfolio"
 
 //TITLE SCREEN - the framed viewport with its drifting grid: PORTFOLIO, the name
@@ -51,7 +52,7 @@ onBeforeUnmount(() => window.removeEventListener("scroll", onScroll))
       <EditableRegion kind="profile" :label="t('editorKindProfile')">
         <div class="hero__content">
           <h1 id="hero-title" class="hero__heading">
-            <span class="hero__title">{{ t("heroTitle") }}</span>{{ " " }}
+            <InlineLabel name="heroTitle" class="hero__title" />{{ " " }}
             <InlineText kind="profile" field="name" :value="profile.name" :label="t('fieldName')" :accent="lastWord" class="hero__name">
               <span v-if="nameParts.first">{{ nameParts.first }}</span>{{ " " }}
               <span class="hero__name-last">{{ nameParts.last }}</span>

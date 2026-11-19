@@ -3,7 +3,7 @@ import { apiJson } from "./usePortfolio"
 import { useToast } from "./useToast"
 import { useTranslations } from "./useTranslations"
 import {
-  MIN_TEXT_CONTRAST, THEME_VARS, contrastIssue, hslToHex, isCssVarValue, isRegistered, isThemeValue, sameThemeValue, themeVar,
+  MIN_TEXT_CONTRAST, THEME_VARS, contrastIssue, hslToHex, isRegistered, isThemeValue, sameThemeValue, themeVar,
   type ContrastIssue, type ThemeVars,
 } from "../lib/theme-vars"
 
@@ -12,31 +12,14 @@ import {
 const toast = useToast()
 const { t } = useTranslations()
 
-//Values the server wrote on <html> for the first paint
+//Theme tokens the server wrote on <html> for the first paint
 function inlineVars(): ThemeVars {
   if (typeof document === "undefined") return {}
   const style = document.documentElement.style
   const vars: ThemeVars = {}
   for (const name of Array.from(style)) {
-    if (name.startsWith("--")) vars[name] = style.getPropertyValue(name).trim()
+    if (isRegistered(name)) vars[name] = style.getPropertyValue(name).trim()
   }
-  return vars
-}
-
-//Every variable the stylesheets set on :root, with its value there
-let sheetVars: ThemeVars | null = null
-export function stylesheetVars(): ThemeVars {
-  if (sheetVars) return sheetVars
-  const vars: ThemeVars = {}
-  for (const sheet of Array.from(document.styleSheets)) {
-    for (const rule of Array.from(sheet.cssRules)) {
-      if (!(rule instanceof CSSStyleRule) || !/^(:root|html)$/.test(rule.selectorText.trim())) continue
-      for (const name of Array.from(rule.style)) {
-        if (name.startsWith("--")) vars[name] = rule.style.getPropertyValue(name).trim()
-      }
-    }
-  }
-  sheetVars = vars
   return vars
 }
 
@@ -44,13 +27,11 @@ const saved = ref<ThemeVars>(inlineVars())
 const draft = ref<ThemeVars>({ ...saved.value })
 
 function defaultValue(name: string): string {
-  return isRegistered(name) ? themeVar(name).default : stylesheetVars()[name] ?? ""
+  return themeVar(name).default
 }
 
 function sameVars(a: ThemeVars, b: ThemeVars): boolean {
-  const registered = THEME_VARS.every((def) => sameThemeValue(def, a[def.name] ?? def.default, b[def.name] ?? def.default))
-  const others = new Set([...Object.keys(a), ...Object.keys(b)].filter((name) => !isRegistered(name)))
-  return registered && [...others].every((name) => (a[name] ?? defaultValue(name)) === (b[name] ?? defaultValue(name)))
+  return THEME_VARS.every((def) => sameThemeValue(def, a[def.name] ?? def.default, b[def.name] ?? def.default))
 }
 
 const dirty      = computed(() => !sameVars(draft.value, saved.value))
@@ -98,19 +79,10 @@ function reset(name: string): void {
 
 //A value that draws like the default removes the name
 function set(name: string, next: string): void {
-  if (!isRegistered(name)) return setOther(name, next.trim())
   const def = themeVar(name)
   if (!isThemeValue(def, next)) throw new Error(`[useTheme] "${next}" is not a value for ${name}`)
   if (sameThemeValue(def, next, value(name))) return
   if (sameThemeValue(def, next, defaultValue(name))) reset(name)
-  else draft.value = { ...draft.value, [name]: next }
-}
-
-//Any other site variable, checked by the plain-value rule
-function setOther(name: string, next: string): void {
-  if (!isCssVarValue(next)) throw new Error(`[useTheme] "${next}" is not a value for ${name}`)
-  if (next === value(name)) return
-  if (next === defaultValue(name)) reset(name)
   else draft.value = { ...draft.value, [name]: next }
 }
 

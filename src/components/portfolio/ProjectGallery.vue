@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from "vue"
 import { ArrowUpRight } from "lucide-vue-next"
+import { useEditor } from "../../composables/useEditor"
 import { useLanguage } from "../../composables/useLanguage"
 import { useLightbox } from "../../composables/useLightbox"
 import { safeUrl } from "../../lib/safe-url"
@@ -12,6 +13,7 @@ import SectionHeader from "./SectionHeader.vue"
 import UnpublishedBadge from "./UnpublishedBadge.vue"
 import EditableRegion from "../admin/EditableRegion.vue"
 import InlineText from "../admin/InlineText.vue"
+import InlineLabel from "../admin/InlineLabel.vue"
 import SectionAddButton from "../admin/SectionAddButton.vue"
 import type { GalleryProjectDto } from "../../types/portfolio"
 
@@ -21,13 +23,15 @@ const props = defineProps<{ projects: GalleryProjectDto[] }>()
 
 const { t, lang } = useLanguage()
 const { open: openLightbox } = useLightbox()
+const { editMode } = useEditor()
 
 const cards = computed(() => props.projects.map((p) => {
   const href = safeUrl(p.link)
   return {
     project: p,
     title:   p.title[lang.value],
-    stats:   statRows(p.stats, lang.value, t),
+    //Edit mode lists every count, so an empty one can be typed
+    stats:   statRows(p.stats, lang.value, t, editMode.value),
     href,
     host:    href ? new URL(href).hostname.replace(/^www\./, "") : "",
   }
@@ -45,7 +49,7 @@ function open(p: GalleryProjectDto) {
 <template>
   <section id="gallery" tabindex="-1" class="gallery site-section" aria-labelledby="gallery-title">
     <div class="site-container">
-      <SectionHeader id="gallery-title" :title="t('galleryTitle')" />
+      <SectionHeader id="gallery-title" label-key="galleryTitle" />
 
       <ul class="gallery__grid">
         <AnimatedReveal v-for="(card, i) in cards" :key="card.project.id" tag="li" :delay="(i % 3) * 0.06">
@@ -61,7 +65,7 @@ function open(p: GalleryProjectDto) {
               >
                 <SiteImage :src="card.project.imageUrl" :sizes="IMAGE_SIZES.gallery" />
               </button>
-              <p v-else class="gallery__media gallery__media--empty">{{ t("projectNoImage") }}</p>
+              <InlineLabel v-else name="projectNoImage" tag="p" class="gallery__media gallery__media--empty" />
 
               <div class="gallery__text">
                 <InlineText
@@ -75,8 +79,17 @@ function open(p: GalleryProjectDto) {
                 />
                 <dl v-if="card.stats.length" class="gallery__stats">
                   <div v-for="stat in card.stats" :key="stat.key" class="gallery__stat">
-                    <dt>{{ stat.label }}</dt>
-                    <dd>{{ stat.value }}</dd>
+                    <InlineLabel :name="stat.labelKey" tag="dt" />
+                    <InlineText
+                      kind="galleryItem"
+                      :item-id="card.project.id"
+                      field="stats"
+                      :value="card.project.stats"
+                      :part="stat.key"
+                      numeric
+                      :label="stat.label"
+                      tag="dd"
+                    >{{ stat.value }}</InlineText>
                   </div>
                 </dl>
                 <a

@@ -7,7 +7,8 @@ import { entityKey, type EntityId, type EntityKind } from "./entities"
 //AN ITEM OF THE PAGE THAT CAN BE EDITED. Outside edit mode it renders its slot
 //and nothing else. In edit mode it wraps the slot: hover outline and label
 //chip, click or Enter selects it for the inspector, and clicks never reach the
-//content inside (links, lightboxes) while editing.
+//content inside (links, lightboxes) while editing. A site label typed inside
+//it is not part of the item: its click selects nothing.
 
 defineOptions({ inheritAttrs: false })
 
@@ -26,6 +27,7 @@ const dirty    = computed(() => editor.isDirty(props.kind, props.id))
 function onClick(e: MouseEvent) {
   e.preventDefault()
   e.stopPropagation()
+  if (e.target instanceof Element && e.target.closest("[data-inline-label]")) return
   editor.select(props.kind, props.id)
 }
 

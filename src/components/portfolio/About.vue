@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from "vue"
+import { useEditor } from "../../composables/useEditor"
 import { useLanguage } from "../../composables/useLanguage"
 import { IMAGE_SIZES } from "../../lib/media"
 import { safeUrl } from "../../lib/safe-url"
@@ -7,13 +8,17 @@ import SiteImage from "../SiteImage.vue"
 import AnimatedReveal from "./AnimatedReveal.vue"
 import EditableRegion from "../admin/EditableRegion.vue"
 import InlineText from "../admin/InlineText.vue"
+import InlineLabel from "../admin/InlineLabel.vue"
 import type { ProfileDto } from "../../types/portfolio"
 
 //ABOUT CARD, under the timeline: the portrait (to Sketchfab) and the bio, then
-//the contact details and the interests side by side
+//the contact details and the interests side by side. While editing, the phone,
+//the mail and every interest are text boxes, empty ones included; the links
+//(Instagram, CV) keep their panel fields.
 const props = defineProps<{ profile: ProfileDto }>()
 
 const { t } = useLanguage()
+const { editMode } = useEditor()
 
 const avatarHref = computed(() => safeUrl(props.profile.links.sketchfab))
 const email      = computed(() => props.profile.contact.email.trim())
@@ -31,17 +36,18 @@ const instaName  = computed(() => {
 //the stored url is site-relative (/media/...): resolve it before the check
 const cvHref     = computed(() => (props.profile.cvUrl ? safeUrl(new URL(props.profile.cvUrl, window.location.origin).href) : null))
 
+//Edit mode keeps the empty groups: their title is still a label to type
 const interestGroups = computed(() => [
-  { key: "games", title: t("experienceGames"), items: props.profile.interests.games },
-  { key: "art",   title: t("experienceArt"),   items: props.profile.interests.art },
-].filter((group) => group.items.length > 0))
+  { key: "games", titleKey: "experienceGames", items: props.profile.interests.games },
+  { key: "art",   titleKey: "experienceArt",   items: props.profile.interests.art },
+].filter((group) => editMode.value || group.items.length > 0))
 </script>
 
 <template>
   <EditableRegion kind="profile" :label="t('editorKindProfile')">
     <div id="about" tabindex="-1" class="about">
       <AnimatedReveal class="about__section">
-        <h3 class="about__heading">{{ t("experienceAbout") }}</h3>
+        <InlineLabel name="experienceAbout" tag="h3" class="about__heading" />
         <div class="about__intro">
           <component
             :is="avatarHref ? 'a' : 'div'"
@@ -67,34 +73,64 @@ const interestGroups = computed(() => [
 
       <div class="about__columns">
         <AnimatedReveal id="contact" tabindex="-1" :delay="0.2" class="about__contact">
-          <h3 class="about__heading">{{ t("experienceContact") }}</h3>
+          <InlineLabel name="experienceContact" tag="h3" class="about__heading" />
           <ul class="about__list">
-            <li v-if="telHref" class="about__item">
-              <span class="about__label">{{ t("experiencePhone") }}</span>
-              <a :href="telHref" class="about__link">{{ phone }}</a>
+            <li v-if="telHref || editMode" class="about__item">
+              <InlineLabel name="experiencePhone" class="about__label" />
+              <InlineText
+                v-if="editMode"
+                kind="profile"
+                field="contact"
+                :value="profile.contact"
+                part="phone"
+                :label="t('fieldPhone')"
+                class="about__link"
+              />
+              <a v-else-if="telHref" :href="telHref" class="about__link">{{ phone }}</a>
             </li>
-            <li v-if="mailto" class="about__item">
-              <span class="about__label">{{ t("experienceMail") }}</span>
-              <a :href="mailto" class="about__link about__link--email">{{ email }}</a>
+            <li v-if="mailto || editMode" class="about__item">
+              <InlineLabel name="experienceMail" class="about__label" />
+              <InlineText
+                v-if="editMode"
+                kind="profile"
+                field="contact"
+                :value="profile.contact"
+                part="email"
+                :label="t('email')"
+                class="about__link about__link--email"
+              />
+              <a v-else-if="mailto" :href="mailto" class="about__link about__link--email">{{ email }}</a>
             </li>
             <li v-if="instaHref" class="about__item">
-              <span class="about__label">{{ t("experienceInsta") }}</span>
+              <InlineLabel name="experienceInsta" class="about__label" />
               <a :href="instaHref" target="_blank" rel="noopener noreferrer" class="about__link">{{ instaName }}</a>
             </li>
             <li v-if="cvHref" class="about__item">
-              <span class="about__label">{{ t("experienceCv") }}</span>
-              <a :href="cvHref" download class="about__link">{{ t("contactCv") }}</a>
+              <InlineLabel name="experienceCv" class="about__label" />
+              <InlineLabel v-if="editMode" name="contactCv" class="about__link" />
+              <a v-else :href="cvHref" download class="about__link">{{ t("contactCv") }}</a>
             </li>
           </ul>
         </AnimatedReveal>
 
         <AnimatedReveal v-if="interestGroups.length" :delay="0.3">
-          <h3 class="about__heading">{{ t("experienceInterest") }}</h3>
+          <InlineLabel name="experienceInterest" tag="h3" class="about__heading" />
           <div class="about__interests">
             <div v-for="group in interestGroups" :key="group.key">
-              <h4 class="about__interest-title">{{ group.title }}</h4>
+              <InlineLabel :name="group.titleKey" tag="h4" class="about__interest-title" />
               <ul class="about__list">
-                <li v-for="(item, i) in group.items" :key="i">{{ item }}</li>
+                <InlineText
+                  v-for="(_, i) in group.items"
+                  :key="i"
+                  kind="profile"
+                  field="interests"
+                  :value="profile.interests"
+                  :part="group.key"
+                  :index="i"
+                  :label="`${t(group.titleKey)} ${i + 1}`"
+                  tag="li"
+                  optional
+                />
               </ul>
             </div>
           </div>

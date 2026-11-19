@@ -10,8 +10,9 @@ interface StatSource {
 }
 
 export interface StatRow {
-  key:   StatKey
-  label: string
+  key:      StatKey
+  labelKey: string
+  label:    string
   count: number
   value: string
 }
@@ -25,9 +26,10 @@ const STAT_ORDER: { key: StatKey; labelKey: string }[] = [
 
 //THE SPEC STRIP of a model: full labels, grouped digits in the reader's
 //language, and nothing for a count that was never filled in (0 or missing).
-export function statRows(stats: StatSource, lang: string, t: (key: string) => string): StatRow[] {
+//all: the empty counts too, for the editor.
+export function statRows(stats: StatSource, lang: string, t: (key: string) => string, all = false): StatRow[] {
   const format = new Intl.NumberFormat(lang)
   return STAT_ORDER
-    .filter(({ key }) => (stats[key] ?? 0) > 0)
-    .map(({ key, labelKey }) => ({ key, label: t(labelKey), count: stats[key] ?? 0, value: format.format(stats[key] ?? 0) }))
+    .filter(({ key }) => all || (stats[key] ?? 0) > 0)
+    .map(({ key, labelKey }) => ({ key, labelKey, label: t(labelKey), count: stats[key] ?? 0, value: format.format(stats[key] ?? 0) }))
 }

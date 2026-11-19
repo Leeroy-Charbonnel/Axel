@@ -5,7 +5,7 @@ import { db } from "../../db/index"
 import { SITE_THEME_ID, siteTheme } from "../../db/schema"
 import { parse, requireAdmin } from "../http"
 import {
-  MAX_THEME_VARS, MIN_TEXT_CONTRAST, contrastIssue, isAnyThemeValue, type ThemeVars,
+  MIN_TEXT_CONTRAST, contrastIssue, isThemeEntry, type ThemeVars,
 } from "../../src/lib/theme-vars"
 
 //Site theme: read for the portfolio payload, replaced as a whole by the admin
@@ -16,12 +16,11 @@ const readable = z.custom<ThemeVars>().superRefine((vars, ctx) => {
   if (issue) ctx.addIssue({ code: "custom", message: `${issue.text} on ${issue.ground}: contrast ${issue.ratio.toFixed(2)}:1, needs ${MIN_TEXT_CONTRAST}:1` })
 })
 
-//Registry tokens by their type, any other CSS variable as a plain value
+//Only the tokens of the registry, each checked by its type
 const themeVars = z.record(z.string(), z.string())
-  .refine((vars) => Object.keys(vars).length <= MAX_THEME_VARS, { message: `at most ${MAX_THEME_VARS} variables` })
   .superRefine((vars, ctx) => {
     for (const [name, value] of Object.entries(vars)) {
-      if (!isAnyThemeValue(name, value)) ctx.addIssue({ code: "custom", message: `${name}: "${value}" is not a valid value` })
+      if (!isThemeEntry(name, value)) ctx.addIssue({ code: "custom", message: `${name}: "${value}" is not a theme token with a valid value` })
     }
   })
   .pipe(readable)
@@ -31,7 +30,7 @@ const themeBody = z.object({ vars: themeVars }).strict()
 function checkedVars(stored: Record<string, string>): ThemeVars {
   const vars: ThemeVars = {}
   for (const [name, value] of Object.entries(stored)) {
-    if (isAnyThemeValue(name, value)) vars[name] = value
+    if (isThemeEntry(name, value)) vars[name] = value
     else console.error(`[theme] stored ${name}: "${value}" is not a theme value, left out`)
   }
   return vars

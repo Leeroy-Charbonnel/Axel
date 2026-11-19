@@ -3,7 +3,8 @@ import { computed, useId } from "vue"
 
 //THE FIELD SHELL - label, control, then the error or the hint. A single
 //control gets a <label for>; a group (list, media) gets a labelled
-//region instead.
+//region instead. The shell carries its label as data-field, so a text typed
+//on the page finds its field.
 
 const props = defineProps<{
   label:  string
@@ -19,7 +20,7 @@ const describedBy = computed(() => (props.error || props.hint) ? messageId : und
 </script>
 
 <template>
-  <div class="ed-field">
+  <div class="ed-field" :data-field="label">
     <div class="ed-field__head">
       <span v-if="group" :id="labelId" class="ed-label">{{ label }}</span>
       <label v-else :for="id" class="ed-label">{{ label }}</label>

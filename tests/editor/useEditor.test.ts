@@ -63,3 +63,37 @@ describe("useEditor history after a delete", () => {
     ed.discardAll()
   })
 })
+
+describe("useEditor site labels and undo", () => {
+  test("a typed label is a draft, undone and dropped when it equals the saved text", () => {
+    const ed = useEditor()
+    //the mocked translation of a key is the key itself
+    expect(ed.label("heroTitle")).toBe("heroTitle")
+    ed.setLabel("heroTitle", "Folio")
+    expect(ed.label("heroTitle")).toBe("Folio")
+    expect(ed.isLabelDirty("heroTitle")).toBe(true)
+    expect(ed.dirty.value).toBe(true)
+
+    ed.undo()
+    expect(ed.label("heroTitle")).toBe("heroTitle")
+    expect(ed.dirty.value).toBe(false)
+    ed.redo()
+    expect(ed.label("heroTitle")).toBe("Folio")
+
+    ed.setLabel("heroTitle", "heroTitle")
+    expect(ed.isLabelDirty("heroTitle")).toBe(false)
+    expect(ed.dirty.value).toBe(false)
+    ed.discardAll()
+  })
+
+  test("an undo selects the item it changed", () => {
+    const ed = useEditor()
+    data.value = portfolio([1, 2])
+    ed.patch("mainProject", 2, { year: "2030" })
+    ed.select("mainProject", 1)
+    ed.undo()
+    expect(ed.selection.value).toEqual({ kind: "mainProject", id: 2 })
+    ed.clear()
+    ed.discardAll()
+  })
+})

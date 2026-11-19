@@ -1,22 +1,20 @@
 <script setup lang="ts">
-import { useLanguage } from "../../composables/useLanguage"
 import AnimatedReveal from "./AnimatedReveal.vue"
 import ExperienceItem from "./ExperienceItem.vue"
 import About from "./About.vue"
 import SectionAddButton from "../admin/SectionAddButton.vue"
+import InlineLabel from "../admin/InlineLabel.vue"
 import type { ExperienceDto, ProfileDto } from "../../types/portfolio"
 
 //THE TIMELINE under a centered, underlined title, then the about card, on a
 //darkening background
 defineProps<{ experiences: ExperienceDto[]; profile: ProfileDto }>()
-
-const { t } = useLanguage()
 </script>
 
 <template>
   <section id="experience" tabindex="-1" class="experience site-section" aria-labelledby="experience-title">
     <div class="site-container">
-      <h2 id="experience-title" class="experience__title">{{ t("experienceTitle") }}</h2>
+      <InlineLabel id="experience-title" name="experienceTitle" tag="h2" class="experience__title" />
 
       <ol class="experience__timeline">
         <AnimatedReveal v-for="(exp, i) in experiences" :key="exp.id" tag="li" :delay="i * 0.2">

@@ -132,3 +132,7 @@ select.ed-input { cursor: pointer; }
   color: var(--editor-text-muted);
 }
 .ed-handle:active { cursor: grabbing; }
+
+/*THE FIELD OF THE TEXT BEING TYPED ON THE PAGE*/
+.ed-field--linked .ed-label { color: var(--editor-accent); }
+.ed-field--linked .ed-input { border-color: var(--editor-accent-line); }

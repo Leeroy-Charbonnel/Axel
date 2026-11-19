@@ -68,5 +68,10 @@ export function useTranslations() {
     await loadLang(lang.value)
   }
 
-  return { t, reload }
+  //Texts the admin just saved, put on the page without a reload
+  function setSaved(l: Lang, values: LangMap) {
+    if (cache.value[l]) cache.value[l] = { ...cache.value[l], ...values }
+  }
+
+  return { t, reload, setSaved }
 }

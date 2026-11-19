@@ -3,7 +3,7 @@ import { and, eq } from "drizzle-orm"
 import { z } from "zod"
 import { db } from "../../db/index"
 import { settings, translations } from "../../db/schema"
-import { adminId, parse, requireAdmin } from "../http"
+import { HttpError, adminId, parse, requireAdmin } from "../http"
 import { settingBody, settingKey } from "../validation"
 
 export const settingsRouter = Router()
@@ -15,6 +15,26 @@ settingsRouter.get("/api/translations", async (req, res) => {
   const rows = await db.select({ id: translations.id, value: translations.value })
     .from(translations).where(eq(translations.lang, lang))
   res.json(Object.fromEntries(rows.map((r) => [r.id, r.value])))
+})
+
+const TRANSLATION_MAX_LENGTH = 2000
+const translationsBody = z.strictObject({
+  lang:   z.enum(["fr", "en"]),
+  values: z.record(z.string().min(1), z.string().trim().min(1).max(TRANSLATION_MAX_LENGTH)),
+})
+
+//The admin rewrites texts of one language; a key that does not exist is refused
+settingsRouter.put("/api/translations", requireAdmin, async (req, res) => {
+  const { lang, values } = parse(translationsBody, req.body)
+  await db.transaction(async (tx) => {
+    for (const [id, value] of Object.entries(values)) {
+      const updated = await tx.update(translations).set({ value })
+        .where(and(eq(translations.id, id), eq(translations.lang, lang)))
+        .returning({ id: translations.id })
+      if (updated.length === 0) throw new HttpError(400, `${id}: no such translation in ${lang}`)
+    }
+  })
+  res.json(values)
 })
 
 //SETTINGS - common shape, consumed by SettingsPage

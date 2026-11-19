@@ -1,19 +1,26 @@
 <script setup lang="ts">
 import { computed } from "vue"
+import { useRoute } from "vue-router"
 import { ArrowUp } from "lucide-vue-next"
 import { useEditor } from "../../composables/useEditor"
 import { useLanguage } from "../../composables/useLanguage"
 import { usePortfolio } from "../../composables/usePortfolio"
 import { KINDS } from "../admin/entities"
 import SocialLinks from "./SocialLinks.vue"
+import InlineText from "../admin/InlineText.vue"
+import InlineLabel from "../admin/InlineLabel.vue"
 
 //THE FOOT OF EVERY PAGE WITH THE SITE CHROME (App.vue draws it), with the
-//profile as the page shows it, unsaved draft included
+//profile as the page shows it, unsaved draft included. On the home page the
+//name and the label are typed in place while editing.
 const { t } = useLanguage()
 const { data } = usePortfolio()
 const editor = useEditor()
 const profile = computed(() => data.value && editor.display("profile", KINDS.profile.list(data.value)[0]!))
 const year = new Date().getFullYear()
+const route = useRoute()
+//The home page is where the profile and the site labels are edited
+const editing = computed(() => editor.editMode.value && route.path === "/")
 
 function toTop() {
   window.scrollTo({ top: 0 })
@@ -23,9 +30,15 @@ function toTop() {
 <template>
   <footer v-if="profile" class="footer">
     <div class="site-container footer__inner">
-      <p class="footer__name">{{ profile.name }} <span class="footer__year">&copy; {{ year }}</span></p>
+      <p class="footer__name">
+        <InlineText v-if="editing" kind="profile" field="name" :value="profile.name" :label="t('fieldName')" class="footer__name-text" />
+        <template v-else>{{ profile.name }}</template>
+        {{ " " }}<span class="footer__year">&copy; {{ year }}</span>
+      </p>
       <SocialLinks :links="profile.links" />
-      <button type="button" class="footer__top" @click="toTop">
+      <!--A text box cannot sit in a button: while editing the label stands alone-->
+      <InlineLabel v-if="editing" name="footerBackToTop" class="footer__top" />
+      <button v-else type="button" class="footer__top" @click="toTop">
         {{ t("footerBackToTop") }}
         <ArrowUp aria-hidden="true" />
       </button>
@@ -56,6 +69,8 @@ function toTop() {
   text-transform: uppercase;
   color: var(--site-text-heading);
 }
+
+.footer__name-text { display: inline-block; }
 
 .footer__year {
   font-weight: var(--font-weight-regular);

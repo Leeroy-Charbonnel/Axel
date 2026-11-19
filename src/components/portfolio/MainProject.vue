@@ -1,10 +1,12 @@
 <script setup lang="ts">
 import { computed, ref, toRef } from "vue"
+import { useEditor } from "../../composables/useEditor"
 import { useProjectCard } from "../../composables/useProjectCard"
 import { IMAGE_SIZES } from "../../lib/media"
 import { statRows } from "../../lib/portfolio-utils"
 import EditableRegion from "../admin/EditableRegion.vue"
 import InlineText from "../admin/InlineText.vue"
+import InlineLabel from "../admin/InlineLabel.vue"
 import SiteImage from "../SiteImage.vue"
 import AnimatedCounter from "./AnimatedCounter.vue"
 import ProjectMedia from "./ProjectMedia.vue"
@@ -32,9 +34,11 @@ const { lang, t, title, openThumbnail } = useProjectCard(toRef(props, "project")
 
 //S F A T: vertices, faces, edges, triangles, each with the initial of its label
 const STAT_ORDER = ["vertices", "faces", "edges", "triangles"]
-const stats = computed(() => statRows(props.project.stats, lang.value, t)
+//Edit mode lists every count, so an empty one can be typed, and follows a label being typed
+const editor = useEditor()
+const stats = computed(() => statRows(props.project.stats, lang.value, t, editor.editMode.value)
   .sort((a, b) => STAT_ORDER.indexOf(a.key) - STAT_ORDER.indexOf(b.key))
-  .map((s) => ({ ...s, initial: s.label.charAt(0).toUpperCase() })))
+  .map((s) => ({ ...s, initial: (editor.editMode.value ? editor.label(s.labelKey) : s.label).charAt(0).toUpperCase() })))
 
 //the home card keeps three, the project's page shows them all
 const CARD_THUMBS = 3
@@ -121,8 +125,20 @@ const longestWord = computed(() => Math.max(...title.value.split(/\s+/).map((wor
         <dl v-if="stats.length" class="case__stats" :aria-label="t('projectSpecs')">
           <div v-for="s in stats" :key="s.key" class="case__stat">
             <span class="case__stat-initial" aria-hidden="true">{{ s.initial }}</span>
-            <dt class="case__stat-label">{{ s.label }}</dt>
-            <dd class="case__stat-value"><AnimatedCounter :to="s.count" :lang="lang" /></dd>
+            <InlineLabel :name="s.labelKey" tag="dt" class="case__stat-label" />
+            <InlineText
+              kind="mainProject"
+              :item-id="project.id"
+              field="stats"
+              :value="project.stats"
+              :part="s.key"
+              numeric
+              :label="s.label"
+              tag="dd"
+              class="case__stat-value"
+            >
+              <AnimatedCounter :to="s.count" :lang="lang" />
+            </InlineText>
           </div>
         </dl>
 

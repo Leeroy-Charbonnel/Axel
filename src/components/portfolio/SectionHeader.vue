@@ -1,12 +1,16 @@
 <script setup lang="ts">
 //THE HEAD OF A HOME SECTION: an uppercase tracked title followed by a hairline
-//that runs to the edge of the grid.
-defineProps<{ id: string; title: string }>()
+//that runs to the edge of the grid. With labelKey the title is a site label,
+//typed in place while editing.
+import InlineLabel from "../admin/InlineLabel.vue"
+
+defineProps<{ id: string; title?: string; labelKey?: string }>()
 </script>
 
 <template>
   <header class="section-header">
-    <h2 :id="id" class="section-header__title">{{ title }}</h2>
+    <InlineLabel v-if="labelKey" :id="id" :name="labelKey" tag="h2" class="section-header__title" />
+    <h2 v-else :id="id" class="section-header__title">{{ title }}</h2>
     <span class="section-header__rule" aria-hidden="true"></span>
   </header>
 </template>
