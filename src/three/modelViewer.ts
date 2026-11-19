@@ -47,6 +47,8 @@ const INTRO_POLAR_OFFSET = 0.2
 const INTRO_MIN_POLAR = 0.05
 const RESET_MS = 700
 const AUTO_ROTATE_SPEED = 0.6
+//room to orbit beyond a frame fitted on the lights
+const REACH_MARGIN = 1.5
 //the studio environment under clay, dimmer than a lit render so the grey reads as grey
 const CLAY_ENV_INTENSITY = 0.5
 
@@ -118,6 +120,8 @@ export class ModelViewer {
   private pickKey = ""
   private lightKey = ""
   private lightShape = ""
+  //editor: how far the camera may back away to see the lights, 0 on the site
+  private reach = 0
   //stops the watch on the site theme, kept while a colour follows it
   private stopThemeWatch: (() => void) | null = null
   private rig: LightRig | null = null
@@ -435,6 +439,17 @@ export class ModelViewer {
     return fitViewToAspect({ position: view.pos, target: view.target }, this.box(), this.core.camera.aspect, undefined, view.aspect)
   }
 
+  //Flies back until the model and these points (its lights) are all in the
+  //frame, and lets the camera orbit from that far.
+  frameWith(points: Vec3[]): void {
+    const box = this.box()
+    for (const p of points) box.expandByPoint(new Vector3(...p))
+    const view = fitCameraView(box, this.core.camera.aspect)
+    this.reach = new Vector3(...view.position).distanceTo(new Vector3(...view.target)) * REACH_MARGIN
+    this.applyOrbitLimits(this.restPose())
+    this.flyTo(view)
+  }
+
   //the mesh under a pointer position, null over the background
   meshAt(clientX: number, clientY: number): Mesh | null {
     const rect = this.core.renderer.domElement.getBoundingClientRect()
@@ -470,7 +485,7 @@ export class ModelViewer {
     const max = stage?.orbitMax !== undefined ? stage.orbitMax * radius : setup.orbit.maxDistance
     const distance = new Vector3(...rest.position).distanceTo(new Vector3(...rest.target))
     controls.minDistance = Math.min(min, distance)
-    controls.maxDistance = Math.max(max, distance)
+    controls.maxDistance = Math.max(max, distance, this.reach)
     const cam = this.core.camera
     cam.far = Math.max(setup.clip.far, controls.maxDistance + radius * 4)
     cam.updateProjectionMatrix()

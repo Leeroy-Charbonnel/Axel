@@ -117,6 +117,16 @@ function syncGizmo() {
   })
 }
 
+//the lights stand far from the model: opening the panel, or a new light,
+//backs the camera away until they all show
+function frameLights(now: [boolean, number], before: [boolean, number]) {
+  const lights = ed.doc.value.settings.lights ?? []
+  //the panel closed: back to the view visitors start on
+  if (before[0] && !now[0]) ed.viewer.value?.resetView()
+  if (!lightsShown.value || !lights.length) return
+  ed.viewer.value?.frameWith(lights.flatMap((l): Vec3[] => (l.type === "directional" ? [[l.x, l.y, l.z], [l.tx ?? 0, l.ty ?? 0, l.tz ?? 0]] : [[l.x, l.y, l.z]])))
+}
+
 function moveLight(pick: LightPick, [x, y, z]: Vec3) {
   ed.change(`light-drag-${dragCount}`, (d) => {
     const light = d.settings.lights?.find((l) => l.id === pick.id)
@@ -164,6 +174,7 @@ watch(() => ed.model.value?.glbUrl, (url) => void start(url))
 watch(ed.effective, (s) => ed.viewer.value?.applySettings(s))
 watch(ed.preview, (m) => ed.viewer.value?.setMode(m))
 watch([lightsShown, ed.selectedLight, ed.preview, () => ed.doc.value.settings.lights, accent], syncGizmo)
+watch([lightsShown, () => (ed.doc.value.settings.lights ?? []).length], frameLights)
 watch(accent, (color) => current?.setGlowColor(color))
 
 onMounted(() => void start(ed.model.value?.glbUrl))
